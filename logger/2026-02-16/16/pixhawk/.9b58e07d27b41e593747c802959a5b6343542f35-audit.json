@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-16/16/pixhawk/.9b58e07d27b41e593747c802959a5b6343542f35-audit.json",
+    "files": [
+        {
+            "date": 1771272813845,
+            "name": "logger/2026-02-16/16/pixhawk/PARAM_VALUE-2026-02-16-15.log",
+            "hash": "a36a88e53584ceb6e5c1d79bc8e825c1d69d4c53016c71be48af61b3a545146f"
+        }
+    ],
+    "hashType": "sha256"
+}

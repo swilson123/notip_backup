@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-23/1/.572cf8f6f60510d31b307b5bbe35fc8228529d2f-audit.json",
+    "files": [
+        {
+            "date": 1771855967029,
+            "name": "logger/2026-02-23/1/serialports-2026-02-23-09.log",
+            "hash": "c20c79d38f86f2e4adcf5e907567f4140561852e8a0ed556ebfaf6945ffb11ec"
+        }
+    ],
+    "hashType": "sha256"
+}

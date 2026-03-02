@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-24/36/pixhawk/.9e48148bbb20f85027674d7ee6d94d581960fe7c-audit.json",
+    "files": [
+        {
+            "date": 1771975117749,
+            "name": "logger/2026-02-24/36/pixhawk/ATTITUDE_QUATERNION-2026-02-24-18.log",
+            "hash": "2b879dbbc3aae78b6f089dd9f4b795f4ec945036d5f8dc996904bc67778b4437"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-23/1/pixhawk/.1415a56dccdcc38a655176e87a7b4984126af232-audit.json",
+    "files": [
+        {
+            "date": 1771855967066,
+            "name": "logger/2026-02-23/1/pixhawk/SCALED_PRESSURE2-2026-02-23-09.log",
+            "hash": "47da99a76f4b600fab7ade72959de6d89dfdf3a9bfd534b6f9ffe04ba322bc7d"
+        }
+    ],
+    "hashType": "sha256"
+}

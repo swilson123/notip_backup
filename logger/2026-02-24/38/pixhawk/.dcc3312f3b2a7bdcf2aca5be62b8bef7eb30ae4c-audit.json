@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-24/38/pixhawk/.dcc3312f3b2a7bdcf2aca5be62b8bef7eb30ae4c-audit.json",
+    "files": [
+        {
+            "date": 1771977779459,
+            "name": "logger/2026-02-24/38/pixhawk/RAW_IMU-2026-02-24-19.log",
+            "hash": "592cb738c5e762ab6da5f68fcd14cab9fd2276332b5479f18ac174e8244a278a"
+        }
+    ],
+    "hashType": "sha256"
+}

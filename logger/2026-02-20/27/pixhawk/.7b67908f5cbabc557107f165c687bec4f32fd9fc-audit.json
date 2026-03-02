@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-20/27/pixhawk/.7b67908f5cbabc557107f165c687bec4f32fd9fc-audit.json",
+    "files": [
+        {
+            "date": 1771626396569,
+            "name": "logger/2026-02-20/27/pixhawk/RANGEFINDER-2026-02-20-17.log",
+            "hash": "b48860f40bd233a2ce3f016be093786a3e4bec96f37e8b75cce323ac36d8b721"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,0 +1,2 @@
+var test_servo = require('./lib/test/test_servo');
+test_servo(rover);

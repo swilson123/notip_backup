@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-23/10/pixhawk/.513ab66050de6558eb6e32bacbbdccc38969ec7e-audit.json",
+    "files": [
+        {
+            "date": 1771867931157,
+            "name": "logger/2026-02-23/10/pixhawk/VFR_HUD-2026-02-23-12.log",
+            "hash": "2716021ea03581cfe634c0b1cf52dd7067e2c5770eaf03493782d30cede6a833"
+        }
+    ],
+    "hashType": "sha256"
+}

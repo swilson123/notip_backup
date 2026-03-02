@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-20/17/pixhawk/.dba77e717e0eaa2a90aa504087db0b0f7c764207-audit.json",
+    "files": [
+        {
+            "date": 1771609293876,
+            "name": "logger/2026-02-20/17/pixhawk/DISTANCE_SENSOR-2026-02-20-12.log",
+            "hash": "10a04d3ae93a5b3a03519f3d030cdac4a1fc2022cd636fd475d7a9718fffa6f6"
+        }
+    ],
+    "hashType": "sha256"
+}

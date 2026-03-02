@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-24/27/.a454ab34132637dcff3e7a57c063e17d28a5d1ee-audit.json",
+    "files": [
+        {
+            "date": 1771964349170,
+            "name": "logger/2026-02-24/27/connect_to_waveshare-2026-02-24-15.log",
+            "hash": "ee183dd2b71db85b34160b35ea2b19523d3b72b826ba611d8305e7aa3dc974fc"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-20/2/pixhawk/.400dddc27b6ed8a2ea1efa304c35399171f9a457-audit.json",
+    "files": [
+        {
+            "date": 1771603994049,
+            "name": "logger/2026-02-20/2/pixhawk/RADIO_STATUS-2026-02-20-11.log",
+            "hash": "0195221103b68019df7642a45a902582ba9a429aac2924fb7d0aa5564fc54162"
+        }
+    ],
+    "hashType": "sha256"
+}

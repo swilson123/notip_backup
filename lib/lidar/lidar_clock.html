@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LIDAR Clock Visualization</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #clock {
+      width: 400px;
+      height: 400px;
+      border: 2px solid #333;
+      border-radius: 50%;
+      position: relative;
+      margin: 40px auto;
+      background: #f9f9f9;
+    }
+    .point {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0074D9;
+      transform: translate(-4px, -4px);
+    }
+    .point.low-quality {
+      background: #FF4136;
+    }
+  </style>
+</head>
+<body>
+  <h2>LIDAR Data Clock Visualization</h2>
+  <div id="clock"></div>
+  <script>
+    // Example: WebSocket connection to Node.js server
+    // Replace ws://localhost:8080 with your actual server address
+  const socket = new WebSocket('ws://localhost:8080');
+
+    function drawPoints(points) {
+      const clock = document.getElementById('clock');
+      clock.innerHTML = '';
+      const cx = 200, cy = 200, r = 180;
+      // Draw 12 zone lines (pizza slices) and labels
+      for (let i = 0; i < 12; i++) {
+        const angle = (i * 30 - 90) * Math.PI / 180; // 0 deg at top, 30 deg per slice
+        // Draw slice line
+        const line = document.createElement('div');
+        line.style.position = 'absolute';
+        line.style.left = cx + 'px';
+        line.style.top = cy + 'px';
+        line.style.width = r + 'px';
+        line.style.height = '2px';
+        line.style.background = '#bbb';
+        line.style.transformOrigin = '0 50%';
+        line.style.transform = `rotate(${i * 30}deg)`;
+        clock.appendChild(line);
+        // Draw zone label
+        const labelAngle = (i * 30 - 90) * Math.PI / 180;
+        const labelR = r + 20;
+        const lx = cx + labelR * Math.cos(labelAngle);
+        const ly = cy + labelR * Math.sin(labelAngle);
+        const label = document.createElement('div');
+        label.textContent = ((i + 11) % 12 + 1).toString(); // 12 at top, 1 at next, ... 6 at bottom
+        label.style.position = 'absolute';
+        label.style.left = lx - 10 + 'px';
+        label.style.top = ly - 10 + 'px';
+        label.style.width = '20px';
+        label.style.height = '20px';
+        label.style.textAlign = 'center';
+        label.style.lineHeight = '20px';
+        label.style.fontWeight = 'bold';
+        label.style.color = '#333';
+        clock.appendChild(label);
+      }
+      // Only show points from the last 3 seconds
+      const now = Date.now();
+      const recentPoints = points.filter(pt => pt.timestamp && now - pt.timestamp <= 3000);
+      recentPoints.forEach(pt => {
+        // pt: { angle, distance_mm, quality, timestamp }
+        // Convert angle to radians
+        const theta = (pt.angle - 90) * Math.PI / 180;
+        // Scale distance to fit clock radius
+        const dr = Math.min(pt.distance_mm / 1000 * r, r);
+        const x = cx + dr * Math.cos(theta);
+        const y = cy + dr * Math.sin(theta);
+        const div = document.createElement('div');
+        div.className = 'point' + (pt.quality < 10 ? ' low-quality' : '');
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        clock.appendChild(div);
+      });
+    }
+
+    socket.onmessage = function(event) {
+      // Expecting JSON array of points: [{ angle, distance_mm, quality }, ...]
+      try {
+        const points = JSON.parse(event.data);
+        drawPoints(points);
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+  </script>
+</body>
+</html>

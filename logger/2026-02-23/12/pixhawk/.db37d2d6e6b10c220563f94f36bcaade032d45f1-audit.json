@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-23/12/pixhawk/.db37d2d6e6b10c220563f94f36bcaade032d45f1-audit.json",
+    "files": [
+        {
+            "date": 1771875921374,
+            "name": "logger/2026-02-23/12/pixhawk/BATTERY_STATUS-2026-02-23-14.log",
+            "hash": "4b13ef6daf8f0230ff85006a6eedbc87986708f14fef382de06f5405f4b43e30"
+        }
+    ],
+    "hashType": "sha256"
+}

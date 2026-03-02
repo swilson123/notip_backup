@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-23/19/.2adcc2945b4902cdcdebb92b051e284b55d2f75f-audit.json",
+    "files": [
+        {
+            "date": 1771882639840,
+            "name": "logger/2026-02-23/19/rover_message_handler-2026-02-23-16.log",
+            "hash": "1085d648450c6734af8fe190cc30e2d10e0906d67f962bdc3c5adc107196df6f"
+        }
+    ],
+    "hashType": "sha256"
+}

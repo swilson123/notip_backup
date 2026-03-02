@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-16/19/.696b00a50746a0ab892417b98fec5f3c8d3040e9-audit.json",
+    "files": [
+        {
+            "date": 1771274331251,
+            "name": "logger/2026-02-16/19/update_mav_mode-2026-02-16-15.log",
+            "hash": "869dc3251c71673ba5b94fc08793a75db8fc8d7792e69de81ab802489452194f"
+        }
+    ],
+    "hashType": "sha256"
+}

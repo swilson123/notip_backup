@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-24/33/pixhawk/.4fa8e9770a0d125af150a02043774c40e910f6a1-audit.json",
+    "files": [
+        {
+            "date": 1771969612225,
+            "name": "logger/2026-02-24/33/pixhawk/GLOBAL_POSITION_INT-2026-02-24-16.log",
+            "hash": "386680e63b3746c61e766c597ec19ba8198466521cf863d152094918007e382d"
+        }
+    ],
+    "hashType": "sha256"
+}

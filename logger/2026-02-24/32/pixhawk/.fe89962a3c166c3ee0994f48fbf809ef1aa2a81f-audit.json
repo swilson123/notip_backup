@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-24/32/pixhawk/.fe89962a3c166c3ee0994f48fbf809ef1aa2a81f-audit.json",
+    "files": [
+        {
+            "date": 1771969430869,
+            "name": "logger/2026-02-24/32/pixhawk/SENSOR_OFFSETS-2026-02-24-16.log",
+            "hash": "e1f158b4fdcfb5fb0941e2bfeb126513da18cf154dc7f13b9842a6e3ec4e15c4"
+        }
+    ],
+    "hashType": "sha256"
+}

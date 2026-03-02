@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "logger/2026-02-16/17/.6c8e42166d4281cc53e3b88ad1571a62e318bffc-audit.json",
+    "files": [
+        {
+            "date": 1771274169498,
+            "name": "logger/2026-02-16/17/arduino_message_handler-2026-02-16-15.log",
+            "hash": "511b37f903b98558096f87cc142c97d88621cc19bbbc9da65da93e16d352c37f"
+        }
+    ],
+    "hashType": "sha256"
+}
