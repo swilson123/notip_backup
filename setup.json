@@ -6,7 +6,7 @@
     "motor_driver1_comName": "/dev/ttySC0",
     "motor_driver2_comName": "/dev/ttySC1",
     "motor_steering": "servo_steering",
-    "throttle_percentage": 25,
+    "throttle_percentage": 30,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0"
 }
