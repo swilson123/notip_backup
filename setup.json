@@ -8,5 +8,6 @@
     "motor_steering": "servo_steering",
     "throttle_percentage": 30,
     "waveshare_comName": "/dev/ttySC0",
-    "arduino_comName": "/dev/ttyACM0"
+    "arduino_comName": "/dev/ttyACM0",
+    "realsense_comName": null
 }

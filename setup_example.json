@@ -9,5 +9,6 @@
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/tty.usbmodem213401",
-    "gpio_comName": "/dev/gpiochip0"
+    "gpio_comName": "/dev/gpiochip0",
+    "realsense_comName": null
 }
