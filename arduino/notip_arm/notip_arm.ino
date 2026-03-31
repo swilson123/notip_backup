@@ -210,13 +210,15 @@ void heartbeat() {
   {
 
 
-    //Stop and raise arm back up......
-    if (hook_switch_state == false) {
+    hook_switch_state = false;
+  } else if (digitalRead(hook_limit_switch_pin) == LOW) {
+
+    if (hook_switch_state == false && arm_state == "close") {
+      //Stop and raise arm back up......
       close_arm();
       hook_switch_state = true;
     }
-  } else if (digitalRead(hook_limit_switch_pin) == LOW) {
-    hook_switch_state = false;
+
   }
 
 
