@@ -8,6 +8,7 @@ Servo belt;
 
 int arm_pin = 5;
 int belt_pin = 9;
+int hook_limit_switch_pin = 7; //Set this to the hook limit switch
 int belt_direction_pin = 10; // Set stepping direction
 int belt_enable_pin = 8; // LOW: Driver enabled, HIGH: Driver disabled
 AccelStepper actuator(AccelStepper::DRIVER, belt_pin, belt_direction_pin);
@@ -16,6 +17,7 @@ AccelStepper actuator(AccelStepper::DRIVER, belt_pin, belt_direction_pin);
 bool auto_delivery = false;
 String arm_state = "stopped";
 String belt_state = "stopped";
+bool hook_switch_state = false;
 
 //Servo Timeouts..................................................................................
 int arm_extend_timeout = 5000;
@@ -52,6 +54,7 @@ void setup() {
   actuator.setMaxSpeed(1000);      // steps/sec
   actuator.setAcceleration(500);   // steps/sec^2
   actuator.setCurrentPosition(0);
+  pinMode(hook_limit_switch_pin, INPUT);
   pinMode(belt_enable_pin, OUTPUT);
   digitalWrite(belt_enable_pin, LOW);
 
@@ -157,6 +160,8 @@ void send_current_state() {
   Serial.print(belt_state);
   Serial.print("','arm_state':'");
   Serial.print(arm_state);
+  Serial.print("','hook_switch_state':'");
+  Serial.print(hook_switch_state);
   Serial.print("','auto_delivery':'");
   Serial.print(auto_delivery);
   Serial.println("'}");
@@ -198,6 +203,26 @@ void heartbeat() {
   {
     close_belt();
   }
+
+
+  //Hook Limit Switch................
+  if (digitalRead(hook_limit_switch_pin) == HIGH)
+  {
+
+
+    hook_switch_state = false;
+  } else if (digitalRead(hook_limit_switch_pin) == LOW) {
+
+    if (hook_switch_state == false && arm_state == "close") {
+      //Stop and raise arm back up......
+      close_arm();
+      hook_switch_state = true;
+    }
+
+  }
+
+
+
 
 }
 
