@@ -6,8 +6,11 @@
 Servo arm;
 Servo belt;
 
-int arm_pin = 5;
+int arm_pin = 4;
 int belt_pin = 9;
+int telescope_pin_rpwm = 11;
+int telescope_pin_lpwm = 6;
+int telescope_enable_pin = 3;
 int hook_limit_switch_pin = 7; //Set this to the hook limit switch
 int belt_direction_pin = 10; // Set stepping direction
 int belt_enable_pin = 8; // LOW: Driver enabled, HIGH: Driver disabled
@@ -16,6 +19,7 @@ AccelStepper actuator(AccelStepper::DRIVER, belt_pin, belt_direction_pin);
 //States...................................................................................
 bool auto_delivery = false;
 String arm_state = "stopped";
+String telescope_state = "stopped";
 String belt_state = "stopped";
 bool hook_switch_state = false;
 
@@ -23,12 +27,18 @@ bool hook_switch_state = false;
 int arm_extend_timeout = 5000;
 int arm_retract_timeout = 5000;
 
+int telescope_extend_timeout = 10000;
+int telescope_retract_timeout = 10000;
+
 int belt_extend_timeout = 11000;
 int belt_retract_timeout = 11000;
 
 //Extend and Retract values.................................................................
 int arm_extend_value = 200;
 int arm_retract_value = 0;
+
+int telescope_extend_value = 200;
+int telescope_retract_value = 200;
 
 
 int belt_extend_value = 200;
@@ -38,6 +48,7 @@ int belt_retract_value = 20000;
 //Timestamps...............................................................................
 long arm_time_stamp = 0;
 long belt_time_stamp = 0;
+long telescope_time_stamp = 0;
 long current_time_stamp = 0;
 long old_time_stamp = 0;
 long move_time_stamp = 0;
@@ -51,16 +62,22 @@ String inputString = "";            // a string to hold incoming data from compa
 void setup() {
 
   //Belt Pins...........
-  actuator.setMaxSpeed(1000);      // steps/sec
-  actuator.setAcceleration(500);   // steps/sec^2
+  actuator.setMaxSpeed(4000);      // steps/sec
+  actuator.setAcceleration(2000);   // steps/sec^2
   actuator.setCurrentPosition(0);
-  pinMode(hook_limit_switch_pin, INPUT);
+  pinMode(hook_limit_switch_pin, INPUT_PULLUP);
   pinMode(belt_enable_pin, OUTPUT);
   digitalWrite(belt_enable_pin, LOW);
 
+  pinMode(telescope_enable_pin, OUTPUT);
+  digitalWrite(telescope_enable_pin, LOW);
+
+  pinMode(telescope_pin_rpwm, OUTPUT);
+  pinMode(telescope_pin_lpwm, OUTPUT);
+
   Serial.begin(115200);      //Set Baud Rate
   arm.attach(arm_pin);
-  belt.attach(belt_pin);
+
 }
 
 
@@ -105,6 +122,7 @@ void message_received(String json) {
   String message = doc["message"];
 
   int value = doc["value"];
+  int value_invert = 200 - value;
 
   if (message == "deliver_package") {
     deliver_package(value);
@@ -131,6 +149,28 @@ void message_received(String json) {
   else if (message == "arm") {
     arm.write(value);
     auto_delivery = false;
+  }
+  else if (message == "telescope") {
+    if (value < 90) {
+      //retract telescope
+      digitalWrite(telescope_enable_pin, HIGH);
+      analogWrite(telescope_pin_rpwm, 0);
+      analogWrite(telescope_pin_lpwm, 200);
+    }
+    else if (value > 110) {
+      //extend telescope
+      digitalWrite(telescope_enable_pin, HIGH);
+      analogWrite(telescope_pin_rpwm, 200);
+      analogWrite(telescope_pin_lpwm, 0);
+    } else {
+      //stop telescope
+      analogWrite(telescope_pin_rpwm, 0);
+      analogWrite(telescope_pin_lpwm, 0);
+      digitalWrite(telescope_enable_pin, LOW);
+    }
+
+    auto_delivery = false;
+   
   }
   else {
     Serial.print("unknown message");
@@ -160,6 +200,8 @@ void send_current_state() {
   Serial.print(belt_state);
   Serial.print("','arm_state':'");
   Serial.print(arm_state);
+  Serial.print("','telescope_state':'");
+  Serial.print(telescope_state);
   Serial.print("','hook_switch_state':'");
   Serial.print(hook_switch_state);
   Serial.print("','auto_delivery':'");
@@ -190,6 +232,18 @@ void heartbeat() {
     close_arm();
   }
 
+  //Telescope Up.......................
+  if (telescope_state == "extend" && telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_extend_timeout)
+  {
+    open_telescope();
+  }
+
+  //Telescope Down.......................
+  if (telescope_state == "retract" && telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_retract_timeout)
+  {
+    close_telescope();
+  }
+
 
   //Belt Extended.......................
   if (belt_state == "extend" && belt_time_stamp != 0 && current_time_stamp > belt_time_stamp + belt_extend_timeout)
@@ -209,15 +263,16 @@ void heartbeat() {
   if (digitalRead(hook_limit_switch_pin) == HIGH)
   {
 
-
-    hook_switch_state = false;
-  } else if (digitalRead(hook_limit_switch_pin) == LOW) {
-
-    if (hook_switch_state == false && arm_state == "close") {
+    if (hook_switch_state == false && arm_state == "close" ||  hook_switch_state == false && arm_state == "retract") {
       //Stop and raise arm back up......
+      delay(250);
       close_arm();
       hook_switch_state = true;
     }
+
+  } else if (digitalRead(hook_limit_switch_pin) == LOW) {
+
+    hook_switch_state = false;
 
   }
 
@@ -258,10 +313,46 @@ void close_arm() {
   if (auto_delivery) {
     //Raise arm ........
     extend_arm();
+    retract_telescope();
   }
 
 
 }
+
+//Telescope Actuator...............................................................................
+
+void extend_telescope() {
+  digitalWrite(telescope_enable_pin, HIGH);
+  analogWrite(telescope_pin_rpwm, telescope_extend_value);
+  analogWrite(telescope_pin_lpwm, 0);
+  telescope_state = "extend";
+  telescope_time_stamp = millis();
+}
+
+
+void retract_telescope() {
+  digitalWrite(telescope_enable_pin, HIGH);
+  analogWrite(telescope_pin_lpwm, telescope_retract_value);
+  analogWrite(telescope_pin_rpwm, 0);
+  telescope_state = "retract";
+  telescope_time_stamp = millis();
+}
+
+void open_telescope() {
+  telescope_state = "open";
+  analogWrite(telescope_pin_rpwm, 0);
+  analogWrite(telescope_pin_lpwm, 0);
+  digitalWrite(telescope_enable_pin, LOW);
+}
+
+void close_telescope() {
+  telescope_state = "close";
+  analogWrite(telescope_pin_rpwm, 0);
+  analogWrite(telescope_pin_lpwm, 0);
+  digitalWrite(telescope_enable_pin, LOW);
+
+}
+
 
 
 
@@ -287,6 +378,8 @@ void open_belt() {
   if (auto_delivery) {
     //Belt extended next lower the arm........
     retract_arm();
+
+    extend_telescope();
     //stop belt
     digitalWrite(belt_enable_pin, LOW);
     actuator.stop();
