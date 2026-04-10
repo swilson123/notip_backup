@@ -18,7 +18,14 @@
         "two_wheel_slowdown_yaw_high_deg": 15,
         "two_wheel_speed_limit_low": 130,
         "two_wheel_speed_limit_medium": 95,
-        "two_wheel_speed_limit_high": 70
+        "two_wheel_speed_limit_high": 70,
+        "mission_yaw_start_deg": 20,
+        "mission_yaw_stop_deg": 6,
+        "mission_yaw_stable_cycles": 3,
+        "mission_yaw_gain": 1.1,
+        "mission_yaw_min_speed": 18,
+        "mission_yaw_max_speed": 40,
+        "mission_yaw_brake_window_deg": 15
     },
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/tty.usbmodem213401",
