@@ -41,8 +41,8 @@ int telescope_extend_value = 200;
 int telescope_retract_value = 200;
 
 
-int belt_extend_value = 200;
-int belt_retract_value = 20000;
+int belt_extend_value = 25000;
+int belt_retract_value = 0;
 
 
 //Timestamps...............................................................................
@@ -62,8 +62,8 @@ String inputString = "";            // a string to hold incoming data from compa
 void setup() {
 
   //Belt Pins...........
-  actuator.setMaxSpeed(4000);      // steps/sec
-  actuator.setAcceleration(2000);   // steps/sec^2
+  actuator.setMaxSpeed(1500);      // steps/sec
+  actuator.setAcceleration(600);   // steps/sec^2
   actuator.setCurrentPosition(0);
   pinMode(hook_limit_switch_pin, INPUT_PULLUP);
   pinMode(belt_enable_pin, OUTPUT);
@@ -323,8 +323,8 @@ void close_arm() {
 
 void extend_telescope() {
   digitalWrite(telescope_enable_pin, HIGH);
-  analogWrite(telescope_pin_rpwm, telescope_extend_value);
-  analogWrite(telescope_pin_lpwm, 0);
+  analogWrite(telescope_pin_lpwm, telescope_extend_value);
+  analogWrite(telescope_pin_rpwm, 0);
   telescope_state = "extend";
   telescope_time_stamp = millis();
 }
@@ -332,8 +332,8 @@ void extend_telescope() {
 
 void retract_telescope() {
   digitalWrite(telescope_enable_pin, HIGH);
-  analogWrite(telescope_pin_lpwm, telescope_retract_value);
-  analogWrite(telescope_pin_rpwm, 0);
+  analogWrite(telescope_pin_rpwm, telescope_retract_value);
+  analogWrite(telescope_pin_lpwm, 0);
   telescope_state = "retract";
   telescope_time_stamp = millis();
 }
