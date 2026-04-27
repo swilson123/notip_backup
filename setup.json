@@ -28,5 +28,5 @@
     },
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0",
-    "realsense_comName": "/dev/ttyAMA2"
+    "realsense_comName": "/dev/tty.usbserial-213330"
 }
