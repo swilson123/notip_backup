@@ -6,6 +6,7 @@ import signal
 import sys
 import threading
 import time
+import warnings
 
 try:
     import cv2
@@ -265,7 +266,11 @@ class RealsenseVision:
         if depth_band.size == 0:
             return None, None
 
-        depth_profile = np.nanmedian(depth_band, axis=0)
+        if np.all(np.isnan(depth_band)):
+            return None, None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            depth_profile = np.nanmedian(depth_band, axis=0)
         if np.all(np.isnan(depth_profile)):
             return None, None
 
@@ -304,7 +309,7 @@ class RealsenseVision:
         left = max(0, center_px - 6)
         right = min(roi_depth.shape[1], center_px + 7)
         depth_slice = roi_depth[:, left:right]
-        if depth_slice.size == 0:
+        if depth_slice.size == 0 or np.all(np.isnan(depth_slice)):
             return float("nan")
         return float(np.nanmedian(depth_slice))
 
