@@ -422,6 +422,10 @@ class RealsenseVision:
             raw_area   = int(stats[label, cv2.CC_STAT_AREA])
             confidence = round(min(1.0, raw_area / (500.0 / (ds * ds))), 2)
 
+            # Reject depth-noise clusters: no measurable height or width, or very low confidence
+            if confidence < 0.3 or (round(max(0.0, y_top - y_bottom), 2) == 0.0 and round(max(0.0, x_span), 2) == 0.0):
+                continue
+
             objects.append({
                 "clock_direction":      round(clock_decimal, 1),
                 "clock_direction_str":  self._clock_str(clock_decimal),
