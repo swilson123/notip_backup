@@ -44,6 +44,7 @@ class RealsenseVision:
         self.config = config or {}
         self.running = True
         self.pipeline = None
+        self.pipeline_started = False
         self.align = None
         self.current_fps_target = int(self.config.get("fps_normal", 15))
         self.last_processed_at = 0.0
@@ -69,6 +70,7 @@ class RealsenseVision:
         rs_config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
         rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
         profile = self.pipeline.start(rs_config)
+        self.pipeline_started = True
         self.align = rs.align(rs.stream.color)
 
         device = profile.get_device()
@@ -133,7 +135,7 @@ class RealsenseVision:
                     emit(detection)
                     self.last_emit_at = time.time()
         finally:
-            if self.pipeline is not None:
+            if self.pipeline is not None and self.pipeline_started:
                 self.pipeline.stop()
 
     def process_frames(self, frames, cpu_percent):
@@ -148,6 +150,7 @@ class RealsenseVision:
         intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
 
         result = self.detect_path(color_image, depth_image, intrinsics)
+        objects = self.detect_objects(depth_image, intrinsics)
         self.update_measured_fps()
 
         return {
@@ -162,7 +165,8 @@ class RealsenseVision:
             "fps_target": self.current_fps_target,
             "status": result["status"],
             "source": "realsense_vision",
-            "timestamp": int(time.time() * 1000)
+            "timestamp": int(time.time() * 1000),
+            "objects": objects
         }
 
     def detect_path(self, color_image, depth_image, intrinsics):
@@ -313,6 +317,131 @@ class RealsenseVision:
         if not depth_meters or np.isnan(depth_meters) or fx <= 0:
             return 0
         return (float(meters) * float(fx)) / float(depth_meters)
+
+    # ------------------------------------------------------------------
+    # Object detection
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _clock_str(clock_decimal):
+        hour = int(round(clock_decimal))
+        hour = max(1, min(12, hour))
+        return "{} o'clock".format(hour)
+
+    def detect_objects(self, depth_image, intrinsics):
+        """
+        Back-project the depth frame to world coordinates and cluster
+        pixels that are above the ground but below a person's height.
+        Reports each cluster as an object with clock-face bearing,
+        distance, height-from-ground, and rover-path threat level.
+        """
+        camera_height_m  = float(self.config.get("camera_height_m",  0.406))   # 16 in
+        rover_width_m    = float(self.config.get("rover_width_m",    0.432))   # 17 in
+        rover_length_m   = float(self.config.get("rover_length_m",   0.686))   # 27 in
+        max_dist_m       = float(self.config.get("object_max_distance_m", 4.0))
+        min_height_m     = float(self.config.get("object_min_height_m",  0.05))
+        min_area_px      = int(  self.config.get("object_min_area_px",   200))
+
+        # Downsample 4× to keep CPU load low; scale intrinsics accordingly
+        ds = 4
+        h, w = depth_image.shape[:2]
+        small = cv2.resize(depth_image, (w // ds, h // ds),
+                           interpolation=cv2.INTER_NEAREST)
+        sh, sw = small.shape[:2]
+        fx = intrinsics.fx / ds
+        fy = intrinsics.fy / ds
+        cx = intrinsics.ppx / ds
+        cy = intrinsics.ppy / ds
+
+        depth_m = small.astype(np.float32) * 0.001
+
+        # Back-project every pixel ----------------------------------------
+        rows, cols = np.mgrid[0:sh, 0:sw]
+        valid = (depth_m > 0.2) & (depth_m < max_dist_m)
+
+        # Camera Y is positive-DOWN; world Y is positive-UP from ground
+        cam_Y   = np.where(valid, (rows - cy) * depth_m / fy, np.nan)
+        world_Y = np.where(valid, camera_height_m - cam_Y,     np.nan)
+        world_X = np.where(valid, (cols - cx) * depth_m / fx,  np.nan)  # right +
+        world_Z = np.where(valid, depth_m,                     np.nan)  # forward +
+
+        # Obstacle mask: above the ground, below max object height ----------
+        obstacle_mask = (
+            valid &
+            (world_Y > min_height_m) &
+            (world_Y < 2.5)
+        ).astype(np.uint8)
+
+        kernel = np.ones((3, 3), np.uint8)
+        obstacle_mask = cv2.morphologyEx(obstacle_mask, cv2.MORPH_CLOSE, kernel)
+        obstacle_mask = cv2.morphologyEx(obstacle_mask, cv2.MORPH_OPEN,  kernel)
+
+        # Connected components ---------------------------------------------
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(obstacle_mask)
+
+        # Minimum area scales down by ds²; guard a sensible floor
+        min_area_ds = max(8, min_area_px // (ds * ds))
+
+        objects = []
+        for label in range(1, num_labels):
+            if stats[label, cv2.CC_STAT_AREA] < min_area_ds:
+                continue
+
+            mask = labels == label
+            cZ = world_Z[mask]
+            cX = world_X[mask]
+            cY = world_Y[mask]
+
+            ok = ~np.isnan(cZ) & ~np.isnan(cX) & ~np.isnan(cY)
+            if not np.any(ok):
+                continue
+            cZ, cX, cY = cZ[ok], cX[ok], cY[ok]
+
+            # Use the 20th-percentile depth so we report the near edge
+            z_near      = float(np.percentile(cZ, 20))
+            x_center    = float(np.mean(cX))
+            y_bottom    = float(np.percentile(cY, 10))
+            y_top       = float(np.percentile(cY, 90))
+            x_span      = float(np.percentile(cX, 90) - np.percentile(cX, 10))
+
+            # Clock bearing (12 = straight ahead, 3 = right, 9 = left)
+            bearing_deg   = math.degrees(math.atan2(x_center, z_near))
+            clock_decimal = ((12.0 + bearing_deg / 30.0 - 1.0) % 12.0) + 1.0
+
+            # Rover path threat
+            half_rover_w = rover_width_m / 2.0
+            in_path = abs(x_center) < half_rover_w
+            if in_path and z_near < rover_length_m * 1.5:
+                threat = "high"
+            elif in_path or z_near < rover_length_m:
+                threat = "medium"
+            else:
+                threat = "low"
+
+            # Confidence proxy: larger area → more confident
+            raw_area   = int(stats[label, cv2.CC_STAT_AREA])
+            confidence = round(min(1.0, raw_area / (500.0 / (ds * ds))), 2)
+
+            objects.append({
+                "clock_direction":      round(clock_decimal, 1),
+                "clock_direction_str":  self._clock_str(clock_decimal),
+                "bearing_deg":          round(bearing_deg, 1),
+                "distance_m":           round(z_near, 2),
+                "distance_inches":      round(z_near * 39.3701, 1),
+                "lateral_offset_m":     round(x_center, 3),
+                "height_from_ground_m": round(max(0.0, y_bottom), 2),
+                "max_height_m":         round(y_top, 2),
+                "object_height_m":      round(max(0.0, y_top - y_bottom), 2),
+                "width_m":              round(max(0.0, x_span), 2),
+                "in_rover_path":        bool(in_path),
+                "threat_level":         threat,
+                "pixel_area":           raw_area * ds * ds,
+                "confidence":           confidence
+            })
+
+        # Sort: closest first
+        objects.sort(key=lambda o: o["distance_m"])
+        return objects
 
 
 def stdin_listener(vision):

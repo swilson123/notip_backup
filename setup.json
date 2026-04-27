@@ -31,7 +31,7 @@
     "realsense_comName": "/dev/ttyAMA2",
     "realsense_vision": {
         "enabled": true,
-        "python_path": "python3",
+        "python_path": "/usr/local/bin/python3-realsense",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
         "height": 480,
@@ -45,6 +45,14 @@
         "correction_direction": -1,
         "max_steering_offset_deg": 10,
         "path_center_deadband_m": 0.03,
-        "stale_detection_ms": 1200
+        "stale_detection_ms": 1200,
+        "camera_height_m": 0.406,
+        "rover_width_m": 0.432,
+        "rover_length_m": 0.686,
+        "object_detection_enabled": true,
+        "object_max_distance_m": 2.0,
+        "object_min_height_m": 0.05,
+        "object_min_area_px": 200,
+        "object_emergency_stop_m": 1.0
     }
 }
