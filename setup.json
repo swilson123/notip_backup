@@ -31,7 +31,7 @@
     "realsense_comName": "/dev/ttyAMA2",
     "realsense_vision": {
         "enabled": true,
-        "python_path": "/usr/local/bin/python3-realsense",
+        "python_path": "/usr/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
         "height": 480,
