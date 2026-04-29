@@ -51,7 +51,7 @@
         "rover_length_m": 0.686,
         "object_detection_enabled": true,
         "object_max_distance_m": 2.0,
-        "object_min_height_m": 0.05,
+        "object_min_height_m": 0.127,
         "object_min_area_px": 200,
         "object_emergency_stop_m": 1.0
     }

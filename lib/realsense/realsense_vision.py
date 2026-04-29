@@ -344,7 +344,7 @@ class RealsenseVision:
         rover_width_m    = float(self.config.get("rover_width_m",    0.432))   # 17 in
         rover_length_m   = float(self.config.get("rover_length_m",   0.686))   # 27 in
         max_dist_m       = float(self.config.get("object_max_distance_m", 4.0))
-        min_height_m     = float(self.config.get("object_min_height_m",  0.05))
+        min_height_m     = float(self.config.get("object_min_height_m",  0.127))  # 5 inches
         min_area_px      = int(  self.config.get("object_min_area_px",   200))
 
         # Downsample 4× to keep CPU load low; scale intrinsics accordingly
