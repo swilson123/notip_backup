@@ -51,6 +51,7 @@ class RealsenseVision:
         self.last_processed_at = 0.0
         self.last_emit_at = 0.0
         self.last_path_width_meters = 1.2
+        self.last_fx = 380.0
         self.frame_counter = 0
         self.last_fps_sample_at = time.time()
         self.last_fps_counter = 0
@@ -149,6 +150,7 @@ class RealsenseVision:
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
         intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
+        self.last_fx = intrinsics.fx
 
         result = self.detect_path(color_image, depth_image, intrinsics)
         objects = self.detect_objects(depth_image, intrinsics)
@@ -161,6 +163,7 @@ class RealsenseVision:
             "confidence": result["confidence"],
             "left_boundary_visible": result["left_boundary_visible"],
             "right_boundary_visible": result["right_boundary_visible"],
+            "heading_offset_deg": result["heading_offset_deg"],
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -182,11 +185,17 @@ class RealsenseVision:
         saturation_limit = 80
         min_value = max(45, int(np.mean(hsv[:, :, 2]) * 0.55))
         concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, saturation_limit, 255))
-        green_mask = cv2.inRange(hsv, (28, 40, 25), (95, 255, 255))
-        walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(green_mask))
+        green_mask = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
+        # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
+        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+        non_walkable = cv2.bitwise_or(green_mask, mulch_mask)
+        walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
         walkable_mask = cv2.medianBlur(walkable_mask, 5)
         kernel = np.ones((5, 5), np.uint8)
         walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
+
+        near_cx = self._compute_band_center(walkable_mask, 0.6, 1.0)
+        far_cx = self._compute_band_center(walkable_mask, 0.0, 0.4)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores)
@@ -223,6 +232,7 @@ class RealsenseVision:
                 "confidence": 0,
                 "left_boundary_visible": False,
                 "right_boundary_visible": False,
+                "heading_offset_deg": 0.0,
                 "status": "path_lost"
             }
 
@@ -237,7 +247,8 @@ class RealsenseVision:
             if color_left is not None and depth_left is not None and color_right is not None and depth_right is not None:
                 confidence = 0.92
         else:
-            confidence = 0.55
+            # One boundary visible — confidence reduced but above threshold so corrections still fire
+            confidence = 0.65
 
         if np.isnan(center_depth):
             confidence = min(confidence, 0.35)
@@ -245,14 +256,33 @@ class RealsenseVision:
 
         confidence = float(max(0.0, min(1.0, confidence)))
 
+        heading_offset_deg = 0.0
+        if near_cx is not None and far_cx is not None:
+            dx_px = far_cx - near_cx
+            heading_offset_deg = round(math.degrees(math.atan2(dx_px, self.last_fx)), 2)
+
         return {
             "offset_meters": round(float(offset_meters), 4),
             "path_width_meters": round(float(path_width_meters), 4),
             "confidence": confidence,
             "left_boundary_visible": left_visible,
             "right_boundary_visible": right_visible,
+            "heading_offset_deg": heading_offset_deg,
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
+
+    def _compute_band_center(self, walkable_mask, row_start_frac, row_end_frac):
+        h = walkable_mask.shape[0]
+        r0 = int(h * row_start_frac)
+        r1 = int(h * row_end_frac)
+        band = walkable_mask[r0:r1, :]
+        if band.size == 0:
+            return None
+        col_scores = band.mean(axis=0) / 255.0
+        indices = np.where(col_scores > 0.25)[0]
+        if indices.size < 10:
+            return None
+        return float((int(indices[0]) + int(indices[-1])) / 2.0)
 
     def find_mask_boundaries(self, column_scores):
         threshold = 0.28
