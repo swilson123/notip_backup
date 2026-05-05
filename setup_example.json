@@ -2,6 +2,7 @@
     "pixhawk_comName": "/dev/ttyAMA4",
     "rplidar_comName": "/dev/ttyAMA2",
     "rplidar_directory": "/home/rover/notip/lib/lidar",
+    "rplidar_motor_gpio": 24,
     "motor_type": "ZLAC8015D",
     "motor_driver1_comName": "/dev/ttySC0",
     "motor_driver2_comName": "/dev/ttySC1",
