@@ -50,7 +50,7 @@ class RealsenseVision:
         self.current_fps_target = int(self.config.get("fps_normal", 15))
         self.last_processed_at = 0.0
         self.last_emit_at = 0.0
-        self.last_path_width_meters = 1.2
+        self.last_path_width_meters = 0.9
         self.last_fx = 380.0
         self.frame_counter = 0
         self.last_fps_sample_at = time.time()
@@ -198,7 +198,8 @@ class RealsenseVision:
         far_cx = self._compute_band_center(walkable_mask, 0.0, 0.4)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
-        color_left, color_right = self.find_mask_boundaries(column_scores)
+        green_col_scores = green_mask.mean(axis=0) / 255.0
+        color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
         depth_left, depth_right = self.find_depth_boundaries(roi_depth)
 
         left_px = self.merge_boundary(color_left, depth_left)
@@ -284,7 +285,33 @@ class RealsenseVision:
             return None
         return float((int(indices[0]) + int(indices[-1])) / 2.0)
 
-    def find_mask_boundaries(self, column_scores):
+    def find_mask_boundaries(self, column_scores, green_col_scores=None):
+        # Prefer green-border approach: scan inward from center to find the inner
+        # edge of the turf on each side. This is robust against asphalt contamination
+        # because the gray parking lot beyond the turf is never mistaken for the path.
+        if green_col_scores is not None and len(green_col_scores) > 0:
+            green_threshold = 0.15
+            width = len(green_col_scores)
+            center = width // 2
+
+            # Scan left from center — first green column found is the left path boundary
+            left_boundary = None
+            for col in range(center - 1, -1, -1):
+                if green_col_scores[col] > green_threshold:
+                    left_boundary = col + 1
+                    break
+
+            # Scan right from center — first green column found is the right path boundary
+            right_boundary = None
+            for col in range(center, width):
+                if green_col_scores[col] > green_threshold:
+                    right_boundary = col - 1
+                    break
+
+            if left_boundary is not None and right_boundary is not None and right_boundary > left_boundary:
+                return left_boundary, right_boundary
+
+        # Fallback: outermost concrete pixels (works when no turf border is present)
         threshold = 0.28
         indices = np.where(column_scores > threshold)[0]
         if indices.size == 0:
