@@ -9,8 +9,8 @@
     "motor_steering": "servo_steering",
     "throttle_percentage":25,
     "nav_tuning": {
-        "two_wheel_steering_gain": 1.0,
-        "two_wheel_steering_deadband_deg": 1,
+        "two_wheel_steering_gain": 0.6,
+        "two_wheel_steering_deadband_deg": 2,
         "two_wheel_max_steering_deg": 15,
         "two_wheel_max_steering_delta_deg": 4,
         "two_wheel_slowdown_yaw_low_deg": 6,
@@ -23,9 +23,9 @@
         "mission_yaw_stop_deg": 6,
         "mission_yaw_stable_cycles": 3,
         "mission_yaw_gain": 1.1,
-        "mission_yaw_min_speed": 18,
-        "mission_yaw_max_speed": 40,
-        "mission_yaw_brake_window_deg": 15,
+        "mission_yaw_min_speed": 10,
+        "mission_yaw_max_speed": 28,
+        "mission_yaw_brake_window_deg": 22,
         "rs_block_timeout_ms": 10000
     },
     "waveshare_comName": "/dev/ttySC0",
@@ -56,6 +56,6 @@
         "object_min_height_m": 0.127,
         "object_min_area_px": 200,
         "object_emergency_stop_m": 1.0,
-        "heading_correction_gain": 0
+        "heading_correction_gain": 0.3
     }
 }

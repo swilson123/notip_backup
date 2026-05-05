@@ -175,8 +175,8 @@ class RealsenseVision:
 
     def detect_path(self, color_image, depth_image, intrinsics):
         height, width = depth_image.shape[:2]
-        row_start = int(height * 0.48)
-        row_end = int(height * 0.88)
+        row_start = int(height * 0.35)
+        row_end = int(height * 0.90)
         roi_color = color_image[row_start:row_end, :]
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
@@ -260,7 +260,7 @@ class RealsenseVision:
         heading_offset_deg = 0.0
         if near_cx is not None and far_cx is not None:
             dx_px = far_cx - near_cx
-            heading_offset_deg = round(math.degrees(math.atan2(dx_px, self.last_fx)), 2)
+            heading_offset_deg = round(math.degrees(math.atan2(-dx_px, self.last_fx)), 2)
 
         return {
             "offset_meters": round(float(offset_meters), 4),
