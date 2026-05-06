@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 import signal
 import sys
 import threading
@@ -56,6 +57,12 @@ class RealsenseVision:
         self.last_fps_sample_at = time.time()
         self.last_fps_counter = 0
         self.measured_fps = 0
+        self.seg_session = None
+        self.seg_input_name = None
+        self.seg_h = 256
+        self.seg_w = 512
+        self._SEG_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        self._SEG_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -86,6 +93,7 @@ class RealsenseVision:
             "timestamp": int(time.time() * 1000),
             "fps_target": self.current_fps_target
         })
+        self._load_seg_model()
 
     def update_target_fps(self):
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -173,6 +181,45 @@ class RealsenseVision:
             "objects": objects
         }
 
+    def _load_seg_model(self):
+        model_path = self.config.get("segmentation_model_path") or ""
+        if not model_path or not os.path.isfile(model_path):
+            return
+        try:
+            import onnxruntime as ort
+            opts = ort.SessionOptions()
+            opts.inter_op_num_threads = 2
+            opts.intra_op_num_threads = 2
+            self.seg_session = ort.InferenceSession(
+                model_path, sess_options=opts, providers=["CPUExecutionProvider"]
+            )
+            self.seg_input_name = self.seg_session.get_inputs()[0].name
+            self.seg_h = int(self.config.get("segmentation_input_height", 256))
+            self.seg_w = int(self.config.get("segmentation_input_width", 512))
+            emit({"message_type": "status", "status": "seg_model_loaded",
+                  "input_size": [self.seg_w, self.seg_h],
+                  "timestamp": int(time.time() * 1000)})
+        except Exception as exc:
+            emit({"message_type": "status", "status": "seg_model_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            self.seg_session = None
+
+    def _get_sidewalk_mask(self, color_image):
+        if self.seg_session is None:
+            return None
+        try:
+            img = cv2.resize(color_image, (self.seg_w, self.seg_h))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+            img = (img - self._SEG_MEAN) / self._SEG_STD
+            inp = np.transpose(img, (2, 0, 1))[np.newaxis]
+            logits = self.seg_session.run(None, {self.seg_input_name: inp})[0]  # (1,19,H/4,W/4)
+            pred = np.argmax(logits[0], axis=0).astype(np.uint8)
+            h, w = color_image.shape[:2]
+            pred_full = cv2.resize(pred, (w, h), interpolation=cv2.INTER_NEAREST)
+            return ((pred_full == 1) * 255).astype(np.uint8)  # Cityscapes class 1 = sidewalk
+        except Exception:
+            return None
+
     def detect_path(self, color_image, depth_image, intrinsics):
         height, width = depth_image.shape[:2]
         row_start = int(height * 0.35)
@@ -181,24 +228,31 @@ class RealsenseVision:
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
 
-        hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
-        saturation_limit = 80
-        min_value = max(45, int(np.mean(hsv[:, :, 2]) * 0.55))
-        concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, saturation_limit, 255))
-        green_mask = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
-        # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
-        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
-        non_walkable = cv2.bitwise_or(green_mask, mulch_mask)
-        walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
-        walkable_mask = cv2.medianBlur(walkable_mask, 5)
-        kernel = np.ones((5, 5), np.uint8)
-        walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
+        seg_mask = self._get_sidewalk_mask(color_image)
+        if seg_mask is not None:
+            roi_seg = seg_mask[row_start:row_end, :]
+            walkable_mask = cv2.medianBlur(roi_seg, 5)
+            walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+            green_col_scores = None
+        else:
+            hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
+            saturation_limit = 80
+            min_value = max(45, int(np.mean(hsv[:, :, 2]) * 0.55))
+            concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, saturation_limit, 255))
+            green_mask = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
+            # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
+            mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+            non_walkable = cv2.bitwise_or(green_mask, mulch_mask)
+            walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
+            walkable_mask = cv2.medianBlur(walkable_mask, 5)
+            kernel = np.ones((5, 5), np.uint8)
+            walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
+            green_col_scores = green_mask.mean(axis=0) / 255.0
 
         near_cx = self._compute_band_center(walkable_mask, 0.6, 1.0)
         far_cx = self._compute_band_center(walkable_mask, 0.0, 0.4)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
-        green_col_scores = green_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
         depth_left, depth_right = self.find_depth_boundaries(roi_depth)
 

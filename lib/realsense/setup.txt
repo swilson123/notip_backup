@@ -1,0 +1,22 @@
+The swap is complete. The code now has two modes:
+
+Seg mode (when model is loaded): _get_sidewalk_mask runs ONNX inference → class 1 (Cityscapes "sidewalk") becomes the walkable mask. Green-border detection is skipped since segmentation already knows what's sidewalk.
+HSV fallback (when model path is null or file is missing): existing behavior, no change.
+To activate it:
+
+Prepare the model — run once on any machine with torch installed:
+
+
+pip install torch transformers
+python lib/realsense/prepare_sidewalk_model.py
+Produces lib/realsense/sidewalk_model.onnx (~15MB).
+
+On the Pi:
+
+
+pip install onnxruntime
+In setup.json, change:
+
+
+"segmentation_model_path": "./lib/realsense/sidewalk_model.onnx"
+The model runs at 512×256 input. On Pi 5 CPU it'll likely do 3–6 FPS, which is within the stale_detection_ms: 1200 tolerance — corrections still come fast enough for path following.
