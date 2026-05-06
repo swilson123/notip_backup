@@ -57,7 +57,7 @@
         "object_min_area_px": 200,
         "object_emergency_stop_m": 1.0,
         "heading_correction_gain": 0.3,
-        "segmentation_model_path": null,
+        "segmentation_model_path": "./lib/realsense/sidewalk_model.onnx",
         "segmentation_input_width": 512,
         "segmentation_input_height": 256
     }
