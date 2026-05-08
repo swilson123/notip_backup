@@ -65,6 +65,7 @@
         "sidewalk_seek_exit_m": 0.08,
         "sidewalk_seek_scale": 2.5,
         "sidewalk_seek_confidence_threshold": 0.4,
-        "detection_history_ms": 10000
+        "detection_history_ms": 10000,
+        "max_lateral_adjust_m": 1.0
     }
 }
