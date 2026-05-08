@@ -26,7 +26,8 @@
         "mission_yaw_min_speed": 10,
         "mission_yaw_max_speed": 28,
         "mission_yaw_brake_window_deg": 22,
-        "rs_block_timeout_ms": 10000
+        "rs_block_timeout_ms": 10000,
+        "avoidance_timeout_ms": 30000
     },
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0",
@@ -63,6 +64,7 @@
         "sidewalk_seek_offset_m": 0.1,
         "sidewalk_seek_exit_m": 0.08,
         "sidewalk_seek_scale": 2.5,
-        "sidewalk_seek_confidence_threshold": 0.4
+        "sidewalk_seek_confidence_threshold": 0.4,
+        "detection_history_ms": 10000
     }
 }
