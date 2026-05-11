@@ -276,9 +276,9 @@ void heartbeat() {
 
   //Belt Extend Limit Switch................
   if (digitalRead(belt_extend_limit_switch_pin) == LOW) {
+    digitalWrite(belt_enable_pin, LOW);
+    actuator.stop();
     if (belt_extend_switch_state == false) {
-      digitalWrite(belt_enable_pin, LOW);
-      actuator.stop();
       open_belt();
       belt_extend_switch_state = true;
     }
@@ -288,9 +288,9 @@ void heartbeat() {
 
   //Belt Retract Limit Switch................
   if (digitalRead(belt_retract_limit_switch_pin) == LOW) {
+    digitalWrite(belt_enable_pin, LOW);
+    actuator.stop();
     if (belt_retract_switch_state == false) {
-      digitalWrite(belt_enable_pin, LOW);
-      actuator.stop();
       close_belt();
       belt_retract_switch_state = true;
     }
