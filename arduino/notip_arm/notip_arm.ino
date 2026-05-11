@@ -142,14 +142,10 @@ void message_received(String json) {
   else if (message == "belt") {
     if (value < 1100) {
       auto_delivery = false;
-      if (!belt_extend_switch_state) {
-        extend_belt();
-      }
+      extend_belt();
     } else if (value > 1800) {
       auto_delivery = false;
-      if (!belt_retract_switch_state) {
-        retract_belt();
-      }
+      retract_belt();
     } else {
       digitalWrite(belt_enable_pin, LOW);
       actuator.stop();
