@@ -7,6 +7,7 @@
     "gpiod": "^0.0.0",
     "gps": "^0.8.1",
     "gps-distance": "^0.0.4",
+    "i2c-bus": "^5.2.3",
     "jspack": "^0.0.4",
     "modbus-serial": "^8.0.23",
     "node-libgpiod": "^0.5.3",
