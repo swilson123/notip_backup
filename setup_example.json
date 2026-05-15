@@ -67,5 +67,8 @@
         "sidewalk_seek_confidence_threshold": 0.4,
         "detection_history_ms": 10000,
         "max_lateral_adjust_m": 1.0
+    },
+    "imu": {
+        "compass_offset_deg": 0
     }
 }
