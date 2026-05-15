@@ -44,9 +44,7 @@
         "cpu_high_threshold": 70,
         "cpu_critical_threshold": 85,
         "confidence_threshold": 0.6,
-        "correction_gain_deg_per_meter": 35,
         "correction_direction": -1,
-        "max_steering_offset_deg": 20,
         "path_center_deadband_m": 0.03,
         "stale_detection_ms": 1200,
         "camera_height_m": 0.406,
@@ -57,16 +55,15 @@
         "object_min_height_m": 0.127,
         "object_min_area_px": 200,
         "object_emergency_stop_m": 1.0,
-        "heading_correction_gain": 0.3,
         "segmentation_model_path": "./lib/realsense/sidewalk_model.onnx",
         "segmentation_input_width": 512,
         "segmentation_input_height": 256,
         "sidewalk_seek_offset_m": 0.1,
         "sidewalk_seek_exit_m": 0.08,
-        "sidewalk_seek_scale": 2.5,
         "sidewalk_seek_confidence_threshold": 0.4,
         "detection_history_ms": 10000,
-        "max_lateral_adjust_m": 1.0
+        "max_lateral_adjust_m": 1.0,
+        "carrot_distance_m": 1.5
     },
     "imu": {
         "compass_offset_deg": -10

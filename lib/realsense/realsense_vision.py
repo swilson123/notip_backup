@@ -171,7 +171,7 @@ class RealsenseVision:
             "confidence": result["confidence"],
             "left_boundary_visible": result["left_boundary_visible"],
             "right_boundary_visible": result["right_boundary_visible"],
-            "heading_offset_deg": result["heading_offset_deg"],
+            "centerline": result["centerline"],
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -233,24 +233,24 @@ class RealsenseVision:
             roi_seg = seg_mask[row_start:row_end, :]
             walkable_mask = cv2.medianBlur(roi_seg, 5)
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+            green_mask_roi = None
             green_col_scores = None
         else:
             hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
             saturation_limit = 80
             min_value = max(45, int(np.mean(hsv[:, :, 2]) * 0.55))
             concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, saturation_limit, 255))
-            green_mask = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
+            green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
             # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
             mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
-            non_walkable = cv2.bitwise_or(green_mask, mulch_mask)
+            non_walkable = cv2.bitwise_or(green_mask_roi, mulch_mask)
             walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
             walkable_mask = cv2.medianBlur(walkable_mask, 5)
             kernel = np.ones((5, 5), np.uint8)
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
-            green_col_scores = green_mask.mean(axis=0) / 255.0
+            green_col_scores = green_mask_roi.mean(axis=0) / 255.0
 
-        near_cx = self._compute_band_center(walkable_mask, 0.6, 1.0)
-        far_cx = self._compute_band_center(walkable_mask, 0.0, 0.4)
+        centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
@@ -287,7 +287,7 @@ class RealsenseVision:
                 "confidence": 0,
                 "left_boundary_visible": False,
                 "right_boundary_visible": False,
-                "heading_offset_deg": 0.0,
+                "centerline": [],
                 "status": "path_lost"
             }
 
@@ -311,33 +311,80 @@ class RealsenseVision:
 
         confidence = float(max(0.0, min(1.0, confidence)))
 
-        heading_offset_deg = 0.0
-        if near_cx is not None and far_cx is not None:
-            dx_px = far_cx - near_cx
-            heading_offset_deg = round(math.degrees(math.atan2(-dx_px, self.last_fx)), 2)
-
         return {
             "offset_meters": round(float(offset_meters), 4),
             "path_width_meters": round(float(path_width_meters), 4),
             "confidence": confidence,
             "left_boundary_visible": left_visible,
             "right_boundary_visible": right_visible,
-            "heading_offset_deg": heading_offset_deg,
+            "centerline": centerline,
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
 
-    def _compute_band_center(self, walkable_mask, row_start_frac, row_end_frac):
-        h = walkable_mask.shape[0]
-        r0 = int(h * row_start_frac)
-        r1 = int(h * row_end_frac)
-        band = walkable_mask[r0:r1, :]
-        if band.size == 0:
-            return None
-        col_scores = band.mean(axis=0) / 255.0
-        indices = np.where(col_scores > 0.25)[0]
-        if indices.size < 10:
-            return None
-        return float((int(indices[0]) + int(indices[-1])) / 2.0)
+    def _compute_centerline(self, walkable_mask, green_mask_roi, roi_depth, intrinsics):
+        # Split the ROI into N horizontal bands. For each band, find the sidewalk
+        # center pixel and convert to (forward_m, lateral_offset_m). Result is a
+        # list of points along the sidewalk centerline, ordered near→far. This is
+        # what the carrot-projection uses so it tracks curves instead of cutting
+        # the chord between rover and waypoint.
+        # Sign convention matches offset_meters: positive lateral_offset_m = sidewalk
+        # center is to the LEFT of the camera bore at that forward distance.
+        N_BANDS = 6
+        h, w = walkable_mask.shape
+        band_h = max(1, h // N_BANDS)
+        ppx = intrinsics.ppx
+        fx = intrinsics.fx
+
+        points = []
+        for i in range(N_BANDS):
+            r0 = i * band_h
+            r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
+            if r1 - r0 < 4:
+                continue
+
+            band_walkable = walkable_mask[r0:r1, :]
+            band_depth = roi_depth[r0:r1, :]
+            band_col_scores = band_walkable.mean(axis=0) / 255.0
+            band_green_col = (green_mask_roi[r0:r1, :].mean(axis=0) / 255.0
+                              if green_mask_roi is not None else None)
+
+            color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
+            depth_left, depth_right = self.find_depth_boundaries(band_depth)
+            left_px = self.merge_boundary(color_left, depth_left)
+            right_px = self.merge_boundary(color_right, depth_right)
+
+            if left_px is None and right_px is None:
+                continue
+
+            # Estimate a center depth first using whichever boundary we have, then
+            # use it to scale a half-width assumption when only one boundary is visible.
+            ref_px = left_px if left_px is not None else right_px
+            ref_depth = self.sample_depth_meters(band_depth, ref_px)
+            if not ref_depth or np.isnan(ref_depth):
+                continue
+
+            if left_px is not None and right_px is not None and right_px > left_px:
+                center_px = (left_px + right_px) / 2.0
+            elif left_px is not None:
+                half_w = self.meters_to_pixel_span(self.last_path_width_meters / 2.0, ref_depth, fx)
+                center_px = left_px + half_w
+            else:
+                half_w = self.meters_to_pixel_span(self.last_path_width_meters / 2.0, ref_depth, fx)
+                center_px = right_px - half_w
+
+            center_px = float(np.clip(center_px, 0, w - 1))
+            center_depth = self.sample_depth_meters(band_depth, center_px)
+            if not center_depth or np.isnan(center_depth) or center_depth < 0.2 or center_depth > 8.0:
+                continue
+
+            lateral_offset_m = -((center_px - ppx) / fx) * center_depth
+            points.append({
+                "forward_m": round(float(center_depth), 3),
+                "lateral_offset_m": round(float(lateral_offset_m), 4),
+            })
+
+        points.sort(key=lambda p: p["forward_m"])
+        return points
 
     def find_mask_boundaries(self, column_scores, green_col_scores=None):
         # Prefer green-border approach: scan inward from center to find the inner
