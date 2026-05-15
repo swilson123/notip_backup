@@ -69,6 +69,6 @@
         "max_lateral_adjust_m": 1.0
     },
     "imu": {
-        "compass_offset_deg": 0
+        "compass_offset_deg": -10
     }
 }
