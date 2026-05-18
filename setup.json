@@ -70,6 +70,6 @@
         "speed_scale_smoothing": 0.3
     },
     "imu": {
-        "compass_offset_deg": -10
+        "compass_offset_deg": 0
     }
 }
