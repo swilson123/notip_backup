@@ -66,6 +66,6 @@
         "carrot_distance_m": 1.5
     },
     "imu": {
-        "compass_offset_deg": 0
+        "compass_offset_deg": -84
     }
 }
