@@ -67,7 +67,12 @@
         "speed_scale_min": 0.40,
         "speed_scale_conf_full": 0.85,
         "speed_scale_conf_min": 0.60,
-        "speed_scale_smoothing": 0.3
+        "speed_scale_smoothing": 0.3,
+        "edge_max_lookahead_m": 2.5,
+        "dropoff_min_depth_jump_m": 0.15,
+        "edge_warn_clearance_m": 0.10,
+        "edge_stop_clearance_m": -0.05,
+        "edge_steer_boost": 2.0
     },
     "imu": {
         "compass_offset_deg": 10

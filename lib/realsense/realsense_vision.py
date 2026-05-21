@@ -63,6 +63,14 @@ class RealsenseVision:
         self.seg_w = 512
         self._SEG_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         self._SEG_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        # Latest rover pitch and roll in radians, updated via stdin messages from the
+        # Node.js parent. Used to rotate camera-frame depth into a rover-horizontal frame
+        # so potholes / bumps / off-camber surfaces don't corrupt object heights, lateral
+        # positions, or centerline forward distances.
+        #   pitch positive = nose up
+        #   roll  positive = right side down
+        self.current_pitch_rad = 0.0
+        self.current_roll_rad  = 0.0
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -172,6 +180,10 @@ class RealsenseVision:
             "left_boundary_visible": result["left_boundary_visible"],
             "right_boundary_visible": result["right_boundary_visible"],
             "centerline": result["centerline"],
+            "nearest_edge_m": result["nearest_edge_m"],
+            "nearest_edge_side": result["nearest_edge_side"],
+            "nearest_edge_clearance_m": result["nearest_edge_clearance_m"],
+            "nearest_edge_type": result["nearest_edge_type"],
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -250,7 +262,8 @@ class RealsenseVision:
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
             green_col_scores = green_mask_roi.mean(axis=0) / 255.0
 
-        centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics)
+        centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
+        edge_info = self._compute_edge_clearance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
@@ -288,6 +301,10 @@ class RealsenseVision:
                 "left_boundary_visible": False,
                 "right_boundary_visible": False,
                 "centerline": [],
+                "nearest_edge_m": None,
+                "nearest_edge_side": None,
+                "nearest_edge_clearance_m": None,
+                "nearest_edge_type": None,
                 "status": "path_lost"
             }
 
@@ -318,10 +335,14 @@ class RealsenseVision:
             "left_boundary_visible": left_visible,
             "right_boundary_visible": right_visible,
             "centerline": centerline,
+            "nearest_edge_m": edge_info["nearest_edge_m"],
+            "nearest_edge_side": edge_info["nearest_edge_side"],
+            "nearest_edge_clearance_m": edge_info["nearest_edge_clearance_m"],
+            "nearest_edge_type": edge_info["nearest_edge_type"],
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
 
-    def _compute_centerline(self, walkable_mask, green_mask_roi, roi_depth, intrinsics):
+    def _compute_centerline(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
         # Split the ROI into N horizontal bands. For each band, find the sidewalk
         # center pixel and convert to (forward_m, lateral_offset_m). Result is a
         # list of points along the sidewalk centerline, ordered near→far. This is
@@ -329,11 +350,19 @@ class RealsenseVision:
         # the chord between rover and waypoint.
         # Sign convention matches offset_meters: positive lateral_offset_m = sidewalk
         # center is to the LEFT of the camera bore at that forward distance.
+        # forward_m is corrected for current rover pitch so that bumps/potholes don't
+        # squash or stretch the per-band depth.
         N_BANDS = 6
         h, w = walkable_mask.shape
         band_h = max(1, h // N_BANDS)
         ppx = intrinsics.ppx
+        ppy = intrinsics.ppy
         fx = intrinsics.fx
+        fy = intrinsics.fy
+        pitch = float(self.current_pitch_rad)
+        roll  = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll),  math.sin(roll)
 
         points = []
         for i in range(N_BANDS):
@@ -377,14 +406,176 @@ class RealsenseVision:
             if not center_depth or np.isnan(center_depth) or center_depth < 0.2 or center_depth > 8.0:
                 continue
 
-            lateral_offset_m = -((center_px - ppx) / fx) * center_depth
+            # Roll- and pitch-correct the band's center point.
+            # Use the band's middle row (full-image coords) as the representative row.
+            band_mid_row_full = roi_row_start + (r0 + r1) / 2.0
+            cam_X = (center_px - ppx) * center_depth / fx
+            cam_Y = (band_mid_row_full - ppy) * center_depth / fy
+            # Un-roll: (cam_X, cam_Y) → (rolled_X, rolled_Y)
+            rolled_X = cr * cam_X - sr * cam_Y
+            rolled_Y = sr * cam_X + cr * cam_Y
+            # Un-pitch on the rolled Y/Z → recover horizontal forward
+            horizontal_forward = sp * rolled_Y + cp * center_depth
+            if horizontal_forward < 0.2 or horizontal_forward > 8.0:
+                continue
+
+            lateral_offset_m = -rolled_X
             points.append({
-                "forward_m": round(float(center_depth), 3),
+                "forward_m": round(float(horizontal_forward), 3),
                 "lateral_offset_m": round(float(lateral_offset_m), 4),
             })
 
         points.sort(key=lambda p: p["forward_m"])
         return points
+
+    def _compute_edge_clearance(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
+        # For each near-field band, compute the lateral clearance from the rover's
+        # track edges to the nearest sidewalk boundary. Negative clearance = the
+        # rover's wheel would be off the sidewalk at that forward distance.
+        # Also detect drop-offs (signed depth jumps) which require tighter clearance.
+        # Returns the worst-case (smallest clearance) across all bands within range.
+        no_edge = {
+            "nearest_edge_m": None,
+            "nearest_edge_side": None,
+            "nearest_edge_clearance_m": None,
+            "nearest_edge_type": None,
+        }
+        rover_width_m = float(self.config.get("rover_width_m", 0.432))
+        half_rover_w  = rover_width_m / 2.0
+        max_lookahead_m = float(self.config.get("edge_max_lookahead_m", 2.5))
+        dropoff_jump_m = float(self.config.get("dropoff_min_depth_jump_m", 0.15))
+
+        N_BANDS = 6
+        h, w = walkable_mask.shape
+        band_h = max(1, h // N_BANDS)
+        ppx = intrinsics.ppx
+        ppy = intrinsics.ppy
+        fx = intrinsics.fx
+        fy = intrinsics.fy
+        pitch = float(self.current_pitch_rad)
+        roll  = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll),  math.sin(roll)
+
+        worst = None  # (clearance_m, forward_m, side, edge_type)
+
+        for i in range(N_BANDS):
+            r0 = i * band_h
+            r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
+            if r1 - r0 < 4:
+                continue
+
+            band_walkable = walkable_mask[r0:r1, :]
+            band_depth = roi_depth[r0:r1, :]
+            band_col_scores = band_walkable.mean(axis=0) / 255.0
+            band_green_col = (green_mask_roi[r0:r1, :].mean(axis=0) / 255.0
+                              if green_mask_roi is not None else None)
+
+            color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
+
+            # Signed depth gradient — positive jump = surface farther than expected = drop-off
+            # Negative jump = surface closer than expected = obstacle / curb wall
+            signed_left, signed_right = self._find_signed_depth_edges(band_depth, dropoff_jump_m)
+
+            # Determine each side's boundary pixel, preferring drop-off (more dangerous)
+            left_px  = signed_left  if signed_left  is not None else color_left
+            right_px = signed_right if signed_right is not None else color_right
+            left_is_dropoff  = signed_left  is not None
+            right_is_dropoff = signed_right is not None
+
+            if left_px is None and right_px is None:
+                continue
+
+            # Need a depth to convert pixel offsets to lateral meters.
+            ref_px = left_px if left_px is not None else right_px
+            depth_at_ref = self.sample_depth_meters(band_depth, ref_px)
+            if not depth_at_ref or np.isnan(depth_at_ref):
+                continue
+
+            band_mid_row_full = roi_row_start + (r0 + r1) / 2.0
+            # Forward distance to this band (pitch- and roll-corrected, same convention as centerline)
+            cam_Y_mid = (band_mid_row_full - ppy) * depth_at_ref / fy
+            cam_X_mid = 0.0  # representative col at center for forward distance
+            rolled_Y_mid = sr * cam_X_mid + cr * cam_Y_mid
+            forward_m = sp * rolled_Y_mid + cp * depth_at_ref
+            if forward_m < 0.2 or forward_m > max_lookahead_m:
+                continue
+
+            # Per-side lateral clearance from rover track edge to boundary.
+            # Sign convention: lateral_m > 0 = LEFT of camera bore (matches offset_meters).
+            for side_label, bx, is_dropoff in (
+                ("left",  left_px,  left_is_dropoff),
+                ("right", right_px, right_is_dropoff),
+            ):
+                if bx is None:
+                    continue
+                cam_X_b = (bx - ppx) * depth_at_ref / fx        # +right
+                cam_Y_b = (band_mid_row_full - ppy) * depth_at_ref / fy
+                rolled_X_b = cr * cam_X_b - sr * cam_Y_b
+                boundary_lateral_m = -rolled_X_b  # +left convention
+
+                if side_label == "left":
+                    # Rover's left edge is at +half_rover_w (left of bore). Clearance is
+                    # how far the boundary is OUTSIDE the rover's left edge.
+                    clearance = boundary_lateral_m - half_rover_w
+                else:
+                    # Rover's right edge is at -half_rover_w. Clearance = how far the
+                    # boundary is OUTSIDE the rover's right edge (boundary more negative).
+                    clearance = -half_rover_w - boundary_lateral_m
+
+                edge_type = "dropoff" if is_dropoff else "boundary"
+                if worst is None or clearance < worst[0]:
+                    worst = (clearance, forward_m, side_label, edge_type)
+
+        if worst is None:
+            return no_edge
+        return {
+            "nearest_edge_m":           round(float(worst[1]), 3),
+            "nearest_edge_side":        worst[2],
+            "nearest_edge_clearance_m": round(float(worst[0]), 4),
+            "nearest_edge_type":        worst[3],
+        }
+
+    def _find_signed_depth_edges(self, depth_band, dropoff_jump_m):
+        # Like find_depth_boundaries but uses SIGNED gradients so we can tell
+        # drop-offs (positive jump: surface suddenly farther) apart from obstacles.
+        # Returns (left_dropoff_px, right_dropoff_px) — pixel cols where a drop-off
+        # edge appears on the left/right half of the band, or None on each side.
+        if depth_band.size == 0 or np.all(np.isnan(depth_band)):
+            return None, None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            depth_profile = np.nanmedian(depth_band, axis=0)
+        if np.all(np.isnan(depth_profile)):
+            return None, None
+
+        valid_depth = np.copy(depth_profile)
+        nan_mask = np.isnan(valid_depth)
+        if np.any(~nan_mask):
+            valid_depth[nan_mask] = np.nanmedian(valid_depth[~nan_mask])
+        valid_depth = cv2.GaussianBlur(valid_depth.reshape(1, -1), (9, 1), 0).reshape(-1)
+        # Positive diff = depth INCREASING column-to-column = drop-off as you scan right.
+        # We want the inner edge — for the left side scan from center outward.
+        gradient = np.diff(valid_depth)
+        n = len(valid_depth)
+        center = n // 2
+
+        left_dropoff = None
+        right_dropoff = None
+        # Left side: scanning from center leftward, a drop-off appears as a NEGATIVE
+        # gradient (depth decreasing as col index increases past the cliff into solid ground
+        # would be POSITIVE; depth increasing toward the cliff as we move left means
+        # gradient[col] negative when col goes left-to-right across the cliff). Simpler:
+        # scan left from center, first column where depth jumps up significantly = edge.
+        for col in range(center - 1, 0, -1):
+            if depth_profile[col] - depth_profile[col + 1] > dropoff_jump_m:
+                left_dropoff = col + 1
+                break
+        for col in range(center + 1, n - 1):
+            if depth_profile[col] - depth_profile[col - 1] > dropoff_jump_m:
+                right_dropoff = col - 1
+                break
+        return left_dropoff, right_dropoff
 
     def find_mask_boundaries(self, column_scores, green_col_scores=None):
         # Prefer green-border approach: scan inward from center to find the inner
@@ -522,11 +713,31 @@ class RealsenseVision:
         rows, cols = np.mgrid[0:sh, 0:sw]
         valid = (depth_m > 0.2) & (depth_m < max_dist_m)
 
-        # Camera Y is positive-DOWN; world Y is positive-UP from ground
-        cam_Y   = np.where(valid, (rows - cy) * depth_m / fy, np.nan)
-        world_Y = np.where(valid, camera_height_m - cam_Y,     np.nan)
-        world_X = np.where(valid, (cols - cx) * depth_m / fx,  np.nan)  # right +
-        world_Z = np.where(valid, depth_m,                     np.nan)  # forward +
+        # Pitch- and roll-corrected back-projection. Rotate raw camera coords to a
+        # rover-horizontal frame by un-rolling around Z first, then un-pitching around X.
+        # (For the small angles we see on a rover, the order matters little.)
+        #   pitch positive = nose up      → un-pitch by rotating (Y, Z) by -pitch around X
+        #   roll  positive = right side down → un-roll  by rotating (X, Y) by -roll  around Z
+        pitch = float(self.current_pitch_rad)
+        roll  = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll),  math.sin(roll)
+
+        cam_X_raw = np.where(valid, (cols - cx) * depth_m / fx, np.nan)  # +right in camera
+        cam_Y_raw = np.where(valid, (rows - cy) * depth_m / fy, np.nan)  # +down  in camera
+        cam_Z_raw = np.where(valid, depth_m,                    np.nan)  # along optical axis
+
+        # Un-roll (rotate around Z)
+        rolled_X = cr * cam_X_raw - sr * cam_Y_raw
+        rolled_Y = sr * cam_X_raw + cr * cam_Y_raw
+
+        # Un-pitch (rotate around X)
+        horizontal_down    = cp * rolled_Y - sp * cam_Z_raw
+        horizontal_forward = sp * rolled_Y + cp * cam_Z_raw
+
+        world_Y = np.where(valid, camera_height_m - horizontal_down, np.nan)
+        world_Z = np.where(valid, horizontal_forward,                np.nan)
+        world_X = np.where(valid, rolled_X,                          np.nan)
 
         # Obstacle mask: above the ground, below max object height ----------
         obstacle_mask = (
@@ -619,9 +830,20 @@ def stdin_listener(vision):
             payload = json.loads(raw_line.strip())
         except Exception:
             continue
-        if payload.get("message") == "shutdown":
+        msg = payload.get("message")
+        if msg == "shutdown":
             vision.stop()
             break
+        elif msg == "pitch":
+            try:
+                vision.current_pitch_rad = float(payload.get("value", 0.0))
+            except (TypeError, ValueError):
+                pass
+        elif msg == "roll":
+            try:
+                vision.current_roll_rad = float(payload.get("value", 0.0))
+            except (TypeError, ValueError):
+                pass
 
 
 def main():
