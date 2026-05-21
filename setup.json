@@ -72,7 +72,9 @@
         "dropoff_min_depth_jump_m": 0.15,
         "edge_warn_clearance_m": 0.10,
         "edge_stop_clearance_m": -0.05,
-        "edge_steer_boost": 2.0
+        "edge_steer_boost": 2.0,
+        "perspective_check_max_distance_m": 2.0,
+        "perspective_min_narrowing_ratio": 1.05
     },
     "imu": {
         "compass_offset_deg": 30
