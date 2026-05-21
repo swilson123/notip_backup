@@ -77,6 +77,6 @@
         "perspective_min_narrowing_ratio": 1.05
     },
     "imu": {
-        "compass_offset_deg": 30
+        "compass_offset_deg": 10
     }
 }
