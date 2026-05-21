@@ -86,6 +86,10 @@ class RealsenseVision:
         rs_config = rs.config()
         rs_config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
         rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+        try:
+            rs_config.enable_stream(rs.stream.infrared, 1, width, height, rs.format.y8, fps)
+        except Exception:
+            pass
         profile = self.pipeline.start(rs_config)
         self.pipeline_started = True
         self.align = rs.align(rs.stream.color)
@@ -168,7 +172,12 @@ class RealsenseVision:
         intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
         self.last_fx = intrinsics.fx
 
-        result = self.detect_path(color_image, depth_image, intrinsics)
+        try:
+            ir_frame = frames.get_infrared_frame(1)
+            ir_image = np.asanyarray(ir_frame.get_data()) if ir_frame else None
+        except Exception:
+            ir_image = None
+        result = self.detect_path(color_image, depth_image, intrinsics, ir_image)
         objects = self.detect_objects(depth_image, intrinsics)
         self.update_measured_fps()
 
@@ -232,13 +241,14 @@ class RealsenseVision:
         except Exception:
             return None
 
-    def detect_path(self, color_image, depth_image, intrinsics):
+    def detect_path(self, color_image, depth_image, intrinsics, ir_image=None):
         height, width = depth_image.shape[:2]
         row_start = int(height * 0.35)
         row_end = int(height * 0.90)
         roi_color = color_image[row_start:row_end, :]
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
+        roi_ir = ir_image[row_start:row_end, :] if ir_image is not None else None
 
         seg_mask = self._get_sidewalk_mask(color_image)
         if seg_mask is not None:
@@ -268,9 +278,10 @@ class RealsenseVision:
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
         depth_left, depth_right = self.find_depth_boundaries(roi_depth)
+        ir_left, ir_right = self._ir_boundaries(roi_ir)
 
-        left_px = self.merge_boundary(color_left, depth_left)
-        right_px = self.merge_boundary(color_right, depth_right)
+        left_px = self.merge_boundary(color_left, depth_left, ir_left)
+        right_px = self.merge_boundary(color_right, depth_right, ir_right)
 
         left_visible = left_px is not None
         right_visible = right_px is not None
@@ -647,11 +658,49 @@ class RealsenseVision:
 
         return left_edge, right_edge
 
-    def merge_boundary(self, color_boundary, depth_boundary):
-        boundaries = [value for value in [color_boundary, depth_boundary] if value is not None]
-        if not boundaries:
+    def _ir_boundaries(self, roi_ir):
+        """Find path-edge candidates from the IR brightness gradient.
+
+        Turf and concrete have different near-IR reflectances, so the transition
+        shows as a brightness step in the IR image even when color detection fails
+        (e.g. low light or washed-out concrete).  Color is still primary; IR fills
+        in only for sides where color found nothing (via merge_boundary averaging).
+        """
+        if roi_ir is None or roi_ir.size == 0:
+            return None, None
+
+        # Average rows then smooth horizontally to suppress the IR dot pattern
+        profile = cv2.GaussianBlur(roi_ir.astype(np.float32), (1, 5), 0).mean(axis=0)
+        profile = cv2.GaussianBlur(
+            profile.reshape(1, -1).astype(np.float32), (15, 1), 0
+        ).reshape(-1)
+
+        gradient = np.abs(np.diff(profile))
+        if gradient.max() < 4:          # no meaningful brightness transition
+            return None, None
+
+        threshold = max(4.0, float(gradient.max()) * 0.35)
+        n = len(gradient)
+        center = n // 2
+
+        # Left boundary: rightmost strong edge in the left half (inner turf edge)
+        left_candidates = np.where(gradient[:center] > threshold)[0]
+        ir_left = int(left_candidates[-1]) + 1 if left_candidates.size else None
+
+        # Right boundary: leftmost strong edge in the right half
+        right_candidates = np.where(gradient[center:] > threshold)[0]
+        ir_right = center + int(right_candidates[0]) if right_candidates.size else None
+
+        if ir_left is not None and ir_right is not None and ir_right <= ir_left:
+            return None, None
+
+        return ir_left, ir_right
+
+    def merge_boundary(self, *boundaries):
+        valid = [v for v in boundaries if v is not None]
+        if not valid:
             return None
-        return float(sum(boundaries) / len(boundaries))
+        return float(sum(valid) / len(valid))
 
     def sample_depth_meters(self, roi_depth, center_px):
         center_px = int(np.clip(center_px, 0, roi_depth.shape[1] - 1))
