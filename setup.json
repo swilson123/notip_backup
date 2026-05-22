@@ -86,7 +86,6 @@
         "gps_jump_floor_m": 0.5
     },
     "imu": {
-<<<<<<< HEAD
         "compass_offset_deg": 30
     },
     "memory": {
@@ -110,8 +109,5 @@
     "rc_observer": {
         "enabled": true,
         "observation_interval_ms": 2000
-=======
-        "compass_offset_deg": 10
->>>>>>> b1ebc0feb4c579a13e426506373a8bccb7fcca58
     }
 }
