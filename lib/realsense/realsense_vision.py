@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+import asyncio
 import json
 import math
 import os
+import queue as _queue
 import signal
+import struct
 import sys
 import threading
 import time
@@ -41,6 +44,34 @@ def parse_config():
         return {}
 
 
+class _StreamBroadcaster:
+    """Thread-safe broadcaster: sync capture thread → async WebSocket clients."""
+
+    def __init__(self):
+        self._clients = {}   # websocket → asyncio.Queue(maxsize=2)
+        self._loop    = None
+
+    def set_loop(self, loop):
+        self._loop = loop
+
+    def broadcast(self, msg):
+        if not self._loop or not self._clients:
+            return
+        for q in list(self._clients.values()):
+            try:
+                self._loop.call_soon_threadsafe(q.put_nowait, msg)
+            except Exception:
+                pass   # queue full or loop already closed
+
+    async def add_client(self, websocket):
+        q = asyncio.Queue(maxsize=2)
+        self._clients[websocket] = q
+        return q
+
+    async def remove_client(self, websocket):
+        self._clients.pop(websocket, None)
+
+
 class RealsenseVision:
     def __init__(self, config):
         self.config = config or {}
@@ -71,6 +102,8 @@ class RealsenseVision:
         #   roll  positive = right side down
         self.current_pitch_rad = 0.0
         self.current_roll_rad  = 0.0
+        self._broadcaster  = _StreamBroadcaster()
+        self._stream_port  = int(self.config.get("stream_port", 0))  # 0 = disabled
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -106,6 +139,10 @@ class RealsenseVision:
             "fps_target": self.current_fps_target
         })
         self._load_seg_model()
+        if self._stream_port:
+            threading.Thread(target=self._run_stream_server, daemon=True).start()
+            emit({"message_type": "status", "status": "stream_started",
+                  "port": self._stream_port, "timestamp": int(time.time() * 1000)})
 
     def update_target_fps(self):
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -180,6 +217,21 @@ class RealsenseVision:
         result = self.detect_path(color_image, depth_image, intrinsics, ir_image)
         objects = self.detect_objects(depth_image, intrinsics)
         self.update_measured_fps()
+
+        if self._stream_port:
+            color_rgb = color_image[:, :, ::-1]   # BGR→RGB for viewer
+            ir_b   = bytes(ir_image.tobytes()) if ir_image is not None else b''
+            det_b  = json.dumps({"status": result["status"],
+                                 "bands": [], "objects": objects,
+                                 "left_boundary_visible":  result["left_boundary_visible"],
+                                 "right_boundary_visible": result["right_boundary_visible"]}).encode()
+            color_b = bytes(color_rgb.tobytes())
+            depth_b = bytes(depth_image.tobytes())
+            msg = (struct.pack('<I', len(color_b)) + color_b +
+                   struct.pack('<I', len(depth_b)) + depth_b +
+                   struct.pack('<I', len(ir_b))    + ir_b    +
+                   struct.pack('<I', len(det_b))   + det_b)
+            self._broadcaster.broadcast(msg)
 
         return {
             "message_type": "path_detection",
@@ -869,6 +921,42 @@ class RealsenseVision:
         # Sort: closest first
         objects.sort(key=lambda o: o["distance_m"])
         return objects
+
+
+    def _run_stream_server(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._broadcaster.set_loop(loop)
+        loop.run_until_complete(self._stream_serve())
+
+    async def _stream_serve(self):
+        try:
+            import websockets
+        except ImportError:
+            emit({"message_type": "status", "status": "stream_error",
+                  "error": "websockets not installed — run: pip3 install websockets",
+                  "timestamp": int(time.time() * 1000)})
+            return
+        async with websockets.serve(self._stream_handler, '0.0.0.0', self._stream_port):
+            await asyncio.Future()   # run forever
+
+    async def _stream_handler(self, websocket):
+        addr = getattr(websocket, 'remote_address', '?')
+        emit({"message_type": "status", "status": "stream_client_connected",
+              "address": str(addr), "timestamp": int(time.time() * 1000)})
+        q = await self._broadcaster.add_client(websocket)
+        try:
+            while True:
+                msg = await q.get()
+                if msg is None:
+                    break
+                await websocket.send(msg)
+        except Exception:
+            pass
+        finally:
+            await self._broadcaster.remove_client(websocket)
+            emit({"message_type": "status", "status": "stream_client_disconnected",
+                  "address": str(addr), "timestamp": int(time.time() * 1000)})
 
 
 def stdin_listener(vision):

@@ -34,6 +34,7 @@
     "realsense_comName": "/dev/ttyAMA2",
     "realsense_vision": {
         "enabled": true,
+        "stream_port": 8765,
         "python_path": "/usr/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,

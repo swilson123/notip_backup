@@ -34,6 +34,7 @@
     "realsense_comName": null,
     "realsense_vision": {
         "enabled": false,
+        "stream_port": 8765,
         "python_path": "python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
