@@ -80,12 +80,38 @@
         "path_map_merge_radius_m": 0.25,
         "path_map_max_points": 120,
         "path_map_bin_width_m": 0.5,
-        "path_heading_gain": 0.4,
+        "path_heading_gain": 0,
         "path_heading_seek_thresh_deg": 15,
         "gps_jump_speed_multiplier": 3.0,
         "gps_jump_floor_m": 0.5
     },
     "imu": {
-        "compass_offset_deg": 190
+<<<<<<< HEAD
+        "compass_offset_deg": 30
+    },
+    "memory": {
+        "period_ms": 1000,
+        "window_ms": 5000,
+        "max_archives": 50
+    },
+    "memory_watchdog": {
+        "enabled": true,
+        "stuck_recovery_enabled": true,
+        "vision_trend_enabled": true,
+        "yaw_oscillation_enabled": true
+    },
+    "learning": {
+        "enabled": true
+    },
+    "autonomous": {
+        "enabled": true,
+        "cycle_interval_ms": 30000
+    },
+    "rc_observer": {
+        "enabled": true,
+        "observation_interval_ms": 2000
+=======
+        "compass_offset_deg": 10
+>>>>>>> b1ebc0feb4c579a13e426506373a8bccb7fcca58
     }
 }
