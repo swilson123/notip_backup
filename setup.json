@@ -87,5 +87,27 @@
     },
     "imu": {
         "compass_offset_deg": 30
+    },
+    "memory": {
+        "period_ms": 1000,
+        "window_ms": 5000,
+        "max_archives": 50
+    },
+    "memory_watchdog": {
+        "enabled": true,
+        "stuck_recovery_enabled": true,
+        "vision_trend_enabled": true,
+        "yaw_oscillation_enabled": true
+    },
+    "learning": {
+        "enabled": true
+    },
+    "autonomous": {
+        "enabled": true,
+        "cycle_interval_ms": 30000
+    },
+    "rc_observer": {
+        "enabled": true,
+        "observation_interval_ms": 2000
     }
 }
