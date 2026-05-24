@@ -109,5 +109,35 @@
     "rc_observer": {
         "enabled": true,
         "observation_interval_ms": 2000
+    },
+    "irlock": {
+        "acquisition_radius_m": 3.0,
+        "base_speed": 22,
+        "ramp_detect_delta": 0.12,
+        "level_tolerance": 0.07,
+        "post_ramp_drive_ms": 2500,
+        "steer_gain": 1.2,
+        "steer_invert": false,
+        "pitch_gain": 30,
+        "roll_gain": 20,
+        "max_steer_rpm": 15,
+        "seek_yaw_speed": 12,
+        "seek_sweep_ms": 800,
+        "size_stop_threshold": 0.35
+    },
+    "voice": {
+        "enabled": true,
+        "asr_enabled": true,
+        "wake_word": "noah",
+        "tts_rate": 160,
+        "tts_volume": 180,
+        "tts_voice": "en+m3",
+        "tts_pitch": 52,
+        "python_path": "python3",
+        "asr_model_path": "./models/vosk-model-small-en-us-0.15",
+        "audio_device": 1,
+        "asr_samplerate": 16000,
+        "nudge_speed_rpm": 30,
+        "nudge_mps": 0.15
     }
 }
