@@ -35,7 +35,18 @@
       "Bash(python3 -c \"import sys; print\\(sys.path\\)\")",
       "Bash(/usr/bin/python3 -c \"import vosk\")",
       "Bash(sudo systemctl restart notip.service)",
-      "Bash(sudo systemctl status notip.service)"
+      "Bash(sudo systemctl status notip.service)",
+      "Bash(espeak-ng -d plughw:CARD=Plus,DEV=0 --stdout \"test\")",
+      "Bash(aplay -D plughw:CARD=Plus,DEV=0)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python3 -c \"import subprocess; r = subprocess.run\\(['espeak-ng', '--stdout', 'hello'], capture_output=True\\); print\\('stdout bytes:', len\\(r.stdout\\)\\); print\\('stderr:', r.stderr.decode\\(\\)\\)\")",
+      "Bash(espeak-ng -d plughw:CARD=Plus,DEV=0 -a 1 \"x\")",
+      "Bash(espeak-ng -d hw:CARD=Plus,DEV=0 -a 1 \"x\")",
+      "Read(//usr/share/alsa/**)",
+      "Bash(alsactl info *)",
+      "Bash(systemctl list-units *)",
+      "Bash(systemctl status *)",
+      "Bash(journalctl -u notip.service -n 50 --no-pager)"
     ]
   }
 }
