@@ -51,7 +51,9 @@
       "Bash(systemctl list-units *)",
       "Bash(systemctl status *)",
       "Bash(journalctl -u notip.service -n 50 --no-pager)",
-      "Bash(python3 -m json.tool /Users/swilson123/rover/notip/.claude/settings.local.json)"
+      "Bash(python3 -m json.tool /Users/swilson123/rover/notip/.claude/settings.local.json)",
+      "Bash(/home/rover/notip/.venv/bin/python3 -c \"import sounddevice as sd; [print\\(i, d['name'], 'in:', d['max_input_channels'], 'out:', d['max_output_channels']\\) for i,d in enumerate\\(sd.query_devices\\(\\)\\)]\")",
+      "Bash(espeak-ng -a 200 --stdout \"Ark\")"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib"
