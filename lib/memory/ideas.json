@@ -1,0 +1,12 @@
+{
+    "example_idea": {
+        "idea_tried": true,
+        "idea_passed": false,
+        "idea_priority": 1,
+        "idea_category": "voice",
+        "idea_description": "",
+        "idea_reason": ""
+    }
+}
+
+//This is an example of how to store ideas in memory. You can add as many ideas as you want, just make sure to give them a unique name (like "example_idea" in the example above). Each idea should have the following properties and more...

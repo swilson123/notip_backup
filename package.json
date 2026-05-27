@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
     "@serialport/parser-byte-length": "^13.0.0",
     "angles": "^0.5.1",
     "bufferpack": "^0.0.6",

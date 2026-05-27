@@ -139,5 +139,12 @@
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,
         "nudge_mps": 0.15
+    },
+    "intelligence": {
+        "enabled": true,
+        "claude_enabled": true,
+        "auto_apply_params": true,
+        "consult_cooldown_ms": 60000,
+        "api_key": ""
     }
 }
