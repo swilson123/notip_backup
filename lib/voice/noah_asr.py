@@ -33,6 +33,43 @@ def fatal(msg):
     emit({'type': 'error', 'msg': msg})
     sys.exit(1)
 
+# Restricted vocabulary fed to Vosk — dramatically improves accuracy for
+# known words by preventing the model from guessing unrelated phonemes.
+# Keep in sync with commands.js patterns.  Include [unk] so silence/noise
+# is absorbed gracefully rather than hallucinated as vocabulary words.
+GRAMMAR_VOCAB = [
+    # Wake word variants (vosk often hears "noah" as "noa" or "no")
+    "noah", "noa", "no",
+    # Mission control
+    "stop", "halt", "freeze", "emergency",
+    "abort", "cancel", "mission",
+    "resume", "go", "continue", "carry", "on", "out",
+    "return", "home", "come", "rtl",
+    # Motion
+    "move", "forward", "advance", "back", "up", "reverse",
+    "left", "right", "spin", "rotate",
+    # Delivery
+    "deliver", "drop", "package", "deploy", "it",
+    # Diagnostics
+    "status", "what", "where", "doing", "location", "gps", "coordinates",
+    "fault", "battery", "power", "charge", "stuck", "wrong",
+    "scan", "calibrate", "recalibrate", "survey", "look", "around",
+    "help", "me", "need", "i",
+    "mission", "waypoint",
+    # Speed / volume
+    "speed", "faster", "slower", "down", "increase", "decrease",
+    "louder", "quieter", "quiet", "volume",
+    # Feedback
+    "good", "bad", "boy", "correct", "incorrect", "well", "done",
+    "nice", "work", "job",
+    # Filler / connectors that appear in multi-word commands
+    "the", "a", "are", "you", "your", "how", "is",
+    # Easter egg
+    "speak",
+    # Out-of-vocabulary catch-all — absorbs noise/unknown words
+    "[unk]",
+]
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--model',       default='./models/vosk-model-small-en-us-0.15')
@@ -63,7 +100,12 @@ def main():
     except Exception as e:
         fatal('failed to load vosk model: ' + str(e))
 
-    rec   = KaldiRecognizer(model, args.samplerate)
+    grammar = json.dumps(GRAMMAR_VOCAB)
+    try:
+        rec = KaldiRecognizer(model, args.samplerate, grammar)
+    except Exception:
+        # Fall back to unrestricted if grammar arg not supported by this vosk version
+        rec = KaldiRecognizer(model, args.samplerate)
     rec.SetWords(False)
 
     audio_q = queue.Queue()
