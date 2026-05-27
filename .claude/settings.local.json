@@ -5,10 +5,7 @@
       "Bash(xargs ls -lh)",
       "Bash(mkdir -p /Users/swilson123/rover/notip/lib/intelligence)",
       "Skill(claude-api)",
-      "Skill(claude-api:*)"
-    ],
-    "additionalDirectories": [
-      "/Users/swilson123/rover/notip/lib"
+      "Skill(claude-api:*)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('voice', {}\\), indent=2\\)\\)\")",
       "Bash(aplay -l)",
       "Bash(arecord -l)",
@@ -53,7 +50,11 @@
       "Bash(alsactl info *)",
       "Bash(systemctl list-units *)",
       "Bash(systemctl status *)",
-      "Bash(journalctl -u notip.service -n 50 --no-pager)"
+      "Bash(journalctl -u notip.service -n 50 --no-pager)",
+      "Bash(python3 -m json.tool /Users/swilson123/rover/notip/.claude/settings.local.json)"
+    ],
+    "additionalDirectories": [
+      "/Users/swilson123/rover/notip/lib"
     ]
   }
 }
