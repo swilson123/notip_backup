@@ -60,9 +60,9 @@
         "segmentation_input_width": 512,
         "segmentation_input_height": 256,
         "appearance_mode": "blend",
-        "appearance_tolerance_l": 40,
-        "appearance_tolerance_a": 10,
-        "appearance_tolerance_b": 10,
+        "appearance_tolerance_l": 20,
+        "appearance_tolerance_a": 8,
+        "appearance_tolerance_b": 8,
         "appearance_seed_y_frac": 0.92,
         "appearance_seed_ttl_ms": 2000,
         "sidewalk_seek_offset_m": 0.1,
@@ -93,7 +93,7 @@
         "gps_jump_floor_m": 0.5
     },
     "imu": {
-        "compass_offset_deg": -86
+        "compass_offset_deg": 0
     },
     "memory": {
         "period_ms": 1000,

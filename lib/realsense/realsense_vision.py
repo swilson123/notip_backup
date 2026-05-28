@@ -804,7 +804,11 @@ class RealsenseVision:
         center_px = int(np.clip(center_px, 0, roi_depth.shape[1] - 1))
         left = max(0, center_px - 6)
         right = min(roi_depth.shape[1], center_px + 7)
-        depth_slice = roi_depth[:, left:right]
+        # Sample only the bottom 40% of the ROI (nearest ground, where boundaries are measured)
+        near_start = int(roi_depth.shape[0] * 0.6)
+        depth_slice = roi_depth[near_start:, left:right]
+        if depth_slice.size == 0 or np.all(np.isnan(depth_slice)):
+            depth_slice = roi_depth[:, left:right]
         if depth_slice.size == 0 or np.all(np.isnan(depth_slice)):
             return float("nan")
         return float(np.nanmedian(depth_slice))
