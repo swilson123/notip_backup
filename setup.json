@@ -27,6 +27,7 @@
         "mission_yaw_max_speed": 28,
         "mission_yaw_brake_window_deg": 22,
         "rs_block_timeout_ms": 10000,
+        "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000
     },
     "waveshare_comName": "/dev/ttySC0",
