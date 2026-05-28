@@ -66,6 +66,14 @@ GRAMMAR_VOCAB = [
     "the", "a", "are", "you", "your", "how", "is",
     # Easter egg
     "speak",
+    # Numbers (must match ONES/TENS in commands.js normalize_numbers)
+    "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+    "sixteen", "seventeen", "eighteen", "nineteen",
+    "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    "hundred", "and",
+    # Distance + angle units (must match DISTANCE_RE/ANGLE_RE in commands.js)
+    "foot", "feet", "inch", "inches", "meter", "meters", "degree", "degrees",
     # Out-of-vocabulary catch-all — absorbs noise/unknown words
     "[unk]",
 ]
