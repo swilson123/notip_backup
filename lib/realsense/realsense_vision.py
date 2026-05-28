@@ -71,12 +71,19 @@ class RealsenseVision:
         #   roll  positive = right side down
         self.current_pitch_rad = 0.0
         self.current_roll_rad  = 0.0
-        # Adaptive seed for appearance-based ground segmentation. Updated
-        # after each successful detection to track the previous frame's
-        # near-band centerline pixel. None = no recent track, fall back to
-        # bottom-center.
+        # Adaptive seed for appearance-based / SAM ground segmentation.
+        # Updated after each successful detection to track the previous
+        # frame's near-band centerline pixel. None = no recent track, fall
+        # back to bottom-center.
         self.last_seed_x = None
         self.last_seed_x_ts = 0.0
+        # MobileSAM segmenter — loaded lazily in start(). When the ONNX
+        # Cityscapes classifier returns a sparse mask, SAM is queried with
+        # the adaptive seed point as a foreground prompt and its mask
+        # becomes the walkable region. Class-agnostic, so it works on any
+        # surface the rover is actually standing on.
+        self.sam_segmenter = None
+        self.sam_load_attempted = False
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -108,6 +115,7 @@ class RealsenseVision:
             "fps_target": self.current_fps_target
         })
         self._load_seg_model()
+        self._load_sam_model()
 
     def update_target_fps(self):
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -254,29 +262,51 @@ class RealsenseVision:
                 x = int(np.clip(self.last_seed_x, 0, w - 1))
         return (x, y)
 
-    # Region-growing ground segmentation (Photoshop paint-bucket style).
-    # Works in CIELAB so the L (lightness) tolerance can be wider than A/B
-    # (color) — that gives shadow tolerance without bleeding across hue
-    # boundaries (concrete → grass, etc.). The seed pixel is whatever the
-    # rover is currently standing on, so the resulting mask is "stuff that
-    # looks like the current ground." Generalizes to any surface, not just
-    # the trained sidewalk class.
-    def _get_appearance_mask(self, color_image):
+    # MobileSAM ground segmentation. Class-agnostic ML segmenter: feed it an
+    # image plus a foreground point (the adaptive seed — whatever surface
+    # the rover is standing on), get back a high-quality mask of that
+    # region. Replaces the older Photoshop-paint-bucket-style flood fill;
+    # SAM understands shadows, two-tone surfaces, paint markings, and
+    # perspective in ways pure color similarity cannot.
+    def _load_sam_model(self):
+        if self.sam_load_attempted:
+            return
+        self.sam_load_attempted = True
+        if not bool(self.config.get("sam_enabled", True)):
+            return
+        encoder_path = self.config.get("sam_encoder_path") or "./lib/realsense/mobilesam/mobile_sam_encoder.onnx"
+        decoder_path = self.config.get("sam_decoder_path") or "./lib/realsense/mobilesam/mobile_sam_decoder.onnx"
         try:
-            h, w = color_image.shape[:2]
-            seed = self._pick_appearance_seed(color_image)
-            lab = cv2.cvtColor(color_image, cv2.COLOR_BGR2LAB)
-            lo_l = int(self.config.get("appearance_tolerance_l", 40))
-            lo_a = int(self.config.get("appearance_tolerance_a", 10))
-            lo_b = int(self.config.get("appearance_tolerance_b", 10))
-            lo_diff = (lo_l, lo_a, lo_b)
-            up_diff = (lo_l, lo_a, lo_b)
-            ff_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
-            # 4-connectivity | mask fill value 255 | mask-only (don't modify image)
-            flags = 4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY
-            cv2.floodFill(lab, ff_mask, seed, 0, lo_diff, up_diff, flags)
-            return (ff_mask[1:-1, 1:-1] > 0).astype(np.uint8) * 255
+            from mobilesam.mobilesam import MobileSAMSegmenter
         except Exception:
+            # Fall back to file-path import when the script isn't launched as a package.
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobilesam"))
+            try:
+                from mobilesam import MobileSAMSegmenter  # type: ignore
+            except Exception as exc:
+                emit({"message_type": "status", "status": "sam_load_failed",
+                      "error": "import failed: " + str(exc),
+                      "timestamp": int(time.time() * 1000)})
+                return
+        try:
+            self.sam_segmenter = MobileSAMSegmenter(encoder_path, decoder_path)
+            emit({"message_type": "status", "status": "sam_loaded",
+                  "encoder": encoder_path, "decoder": decoder_path,
+                  "timestamp": int(time.time() * 1000)})
+        except Exception as exc:
+            emit({"message_type": "status", "status": "sam_load_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            self.sam_segmenter = None
+
+    def _get_sam_mask(self, color_image):
+        if self.sam_segmenter is None:
+            return None
+        try:
+            seed = self._pick_appearance_seed(color_image)
+            return self.sam_segmenter.infer(color_image, seed)
+        except Exception as exc:
+            emit({"message_type": "status", "status": "sam_infer_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
             return None
 
     def detect_path(self, color_image, depth_image, intrinsics):
@@ -288,25 +318,36 @@ class RealsenseVision:
         roi_depth[roi_depth <= 0] = np.nan
 
         # Mask source selection:
-        #   "off"   — ONNX only (original behavior)
-        #   "blend" — ONNX OR appearance-based (default; either can vote yes)
-        #   "only"  — appearance-based only (skips the ONNX run entirely)
-        # The downstream perspective-narrowing check filters out garbage from
-        # either source, so OR-blending is safer than AND. If both sources
-        # are unavailable, we fall through to the HSV-based fallback below.
+        #   "off"   — ONNX only (original behavior; SAM not consulted)
+        #   "blend" — ONNX as a fast sanity check; SAM fills in when ONNX gives up
+        #             (default). The threshold for "ONNX gave up" is whether
+        #             its mask covers at least sam_onnx_min_area_frac of pixels.
+        #   "only"  — SAM only (ONNX inference skipped entirely; slower but
+        #             generalises off-sidewalk)
+        # Either way we never OR ONNX and SAM — they were producing inflated
+        # masks that shifted the boundary search. If both sources fail, the
+        # HSV fallback below tries to do something.
         appearance_mode = str(self.config.get("appearance_mode", "blend")).lower()
+        min_area_frac   = float(self.config.get("sam_onnx_min_area_frac", 0.02))
 
-        seg_mask = self._get_sidewalk_mask(color_image) if appearance_mode != "only" else None
-        abg_mask = self._get_appearance_mask(color_image) if appearance_mode in ("blend", "only") else None
-
-        if seg_mask is not None and abg_mask is not None:
-            combined_mask = cv2.bitwise_or(seg_mask, abg_mask)
-        elif seg_mask is not None:
+        seg_mask = None
+        sam_mask = None
+        if appearance_mode == "off":
+            seg_mask = self._get_sidewalk_mask(color_image)
             combined_mask = seg_mask
-        elif abg_mask is not None:
-            combined_mask = abg_mask
-        else:
-            combined_mask = None
+        elif appearance_mode == "only":
+            sam_mask = self._get_sam_mask(color_image)
+            combined_mask = sam_mask
+        else:  # "blend"
+            seg_mask = self._get_sidewalk_mask(color_image)
+            img_pixels = color_image.shape[0] * color_image.shape[1]
+            onnx_confident = (seg_mask is not None and
+                              cv2.countNonZero(seg_mask) >= int(min_area_frac * img_pixels))
+            if onnx_confident:
+                combined_mask = seg_mask
+            else:
+                sam_mask = self._get_sam_mask(color_image)
+                combined_mask = sam_mask if sam_mask is not None else seg_mask
 
         if combined_mask is not None:
             roi_seg = combined_mask[row_start:row_end, :]
