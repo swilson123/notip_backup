@@ -71,6 +71,12 @@ class RealsenseVision:
         #   roll  positive = right side down
         self.current_pitch_rad = 0.0
         self.current_roll_rad  = 0.0
+        # Adaptive seed for appearance-based ground segmentation. Updated
+        # after each successful detection to track the previous frame's
+        # near-band centerline pixel. None = no recent track, fall back to
+        # bottom-center.
+        self.last_seed_x = None
+        self.last_seed_x_ts = 0.0
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -232,6 +238,47 @@ class RealsenseVision:
         except Exception:
             return None
 
+    # Adaptive seed for appearance-based ground segmentation: pick a pixel
+    # near the bottom of the frame that's likely on the surface the rover
+    # is currently traversing. Use the previous frame's near-centerline x
+    # (clipped to image bounds) if recent enough; otherwise bottom-center.
+    def _pick_appearance_seed(self, color_image):
+        h, w = color_image.shape[:2]
+        seed_y_frac = float(self.config.get("appearance_seed_y_frac", 0.92))
+        ttl_ms = float(self.config.get("appearance_seed_ttl_ms", 2000))
+        y = int(np.clip(h * seed_y_frac, 0, h - 1))
+        x = w // 2
+        if self.last_seed_x is not None:
+            age_ms = (time.time() - self.last_seed_x_ts) * 1000.0
+            if age_ms <= ttl_ms:
+                x = int(np.clip(self.last_seed_x, 0, w - 1))
+        return (x, y)
+
+    # Region-growing ground segmentation (Photoshop paint-bucket style).
+    # Works in CIELAB so the L (lightness) tolerance can be wider than A/B
+    # (color) — that gives shadow tolerance without bleeding across hue
+    # boundaries (concrete → grass, etc.). The seed pixel is whatever the
+    # rover is currently standing on, so the resulting mask is "stuff that
+    # looks like the current ground." Generalizes to any surface, not just
+    # the trained sidewalk class.
+    def _get_appearance_mask(self, color_image):
+        try:
+            h, w = color_image.shape[:2]
+            seed = self._pick_appearance_seed(color_image)
+            lab = cv2.cvtColor(color_image, cv2.COLOR_BGR2LAB)
+            lo_l = int(self.config.get("appearance_tolerance_l", 40))
+            lo_a = int(self.config.get("appearance_tolerance_a", 10))
+            lo_b = int(self.config.get("appearance_tolerance_b", 10))
+            lo_diff = (lo_l, lo_a, lo_b)
+            up_diff = (lo_l, lo_a, lo_b)
+            ff_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+            # 4-connectivity | mask fill value 255 | mask-only (don't modify image)
+            flags = 4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY
+            cv2.floodFill(lab, ff_mask, seed, 0, lo_diff, up_diff, flags)
+            return (ff_mask[1:-1, 1:-1] > 0).astype(np.uint8) * 255
+        except Exception:
+            return None
+
     def detect_path(self, color_image, depth_image, intrinsics):
         height, width = depth_image.shape[:2]
         row_start = int(height * 0.35)
@@ -240,9 +287,29 @@ class RealsenseVision:
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
 
-        seg_mask = self._get_sidewalk_mask(color_image)
-        if seg_mask is not None:
-            roi_seg = seg_mask[row_start:row_end, :]
+        # Mask source selection:
+        #   "off"   — ONNX only (original behavior)
+        #   "blend" — ONNX OR appearance-based (default; either can vote yes)
+        #   "only"  — appearance-based only (skips the ONNX run entirely)
+        # The downstream perspective-narrowing check filters out garbage from
+        # either source, so OR-blending is safer than AND. If both sources
+        # are unavailable, we fall through to the HSV-based fallback below.
+        appearance_mode = str(self.config.get("appearance_mode", "blend")).lower()
+
+        seg_mask = self._get_sidewalk_mask(color_image) if appearance_mode != "only" else None
+        abg_mask = self._get_appearance_mask(color_image) if appearance_mode in ("blend", "only") else None
+
+        if seg_mask is not None and abg_mask is not None:
+            combined_mask = cv2.bitwise_or(seg_mask, abg_mask)
+        elif seg_mask is not None:
+            combined_mask = seg_mask
+        elif abg_mask is not None:
+            combined_mask = abg_mask
+        else:
+            combined_mask = None
+
+        if combined_mask is not None:
+            roi_seg = combined_mask[row_start:row_end, :]
             walkable_mask = cv2.medianBlur(roi_seg, 5)
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
             green_mask_roi = None
@@ -342,6 +409,15 @@ class RealsenseVision:
             offset_meters = 0
 
         confidence = float(max(0.0, min(1.0, confidence)))
+
+        # Track where the path centered in this frame so the next frame's
+        # appearance-based flood-fill can seed adaptively (otherwise we'd
+        # always seed at bottom-center and lose the path the moment the
+        # rover drifts laterally). Skip on weak detections so we don't lock
+        # the seed onto noise.
+        if confidence >= 0.5:
+            self.last_seed_x = float(center_px)
+            self.last_seed_x_ts = time.time()
 
         return {
             "offset_meters": round(float(offset_meters), 4),
