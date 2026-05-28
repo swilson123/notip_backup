@@ -324,6 +324,21 @@ class RealsenseVision:
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
             green_col_scores = green_mask_roi.mean(axis=0) / 255.0
 
+        if not self._validate_perspective_narrowing(walkable_mask, green_mask_roi, roi_depth):
+            return {
+                "offset_meters": 0,
+                "path_width_meters": self.last_path_width_meters,
+                "confidence": 0,
+                "left_boundary_visible": False,
+                "right_boundary_visible": False,
+                "centerline": [],
+                "nearest_edge_m": None,
+                "nearest_edge_side": None,
+                "nearest_edge_clearance_m": None,
+                "nearest_edge_type": None,
+                "status": "perspective_invalid"
+            }
+
         centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
         edge_info = self._compute_edge_clearance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
 
@@ -404,6 +419,62 @@ class RealsenseVision:
             "nearest_edge_type": edge_info["nearest_edge_type"],
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
+
+    def _validate_perspective_narrowing(self, walkable_mask, green_mask_roi, roi_depth):
+        # A real sidewalk of ~constant real-world width projects to a pixel
+        # width that scales as fx/depth, so the detected band-by-band pixel
+        # width must shrink with distance. A flat wall ahead or a misclassified
+        # blob (sky, building face) won't narrow with depth. If the trend fails,
+        # reject the frame.
+        #
+        # Only bands inside perspective_check_max_distance_m are considered so
+        # curves at long range don't trip the check.
+        max_depth_m = float(self.config.get("perspective_check_max_distance_m", 2.0))
+        min_ratio   = float(self.config.get("perspective_min_narrowing_ratio", 1.05))
+
+        N_BANDS = 6
+        h, _ = walkable_mask.shape
+        band_h = max(1, h // N_BANDS)
+
+        measurements = []  # (depth_m, pixel_width)
+        for i in range(N_BANDS):
+            r0 = i * band_h
+            r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
+            if r1 - r0 < 4:
+                continue
+
+            band_walkable = walkable_mask[r0:r1, :]
+            band_depth = roi_depth[r0:r1, :]
+            band_col_scores = band_walkable.mean(axis=0) / 255.0
+            band_green_col = (green_mask_roi[r0:r1, :].mean(axis=0) / 255.0
+                              if green_mask_roi is not None else None)
+
+            color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
+            depth_left, depth_right = self.find_depth_boundaries(band_depth)
+            left_px = self.merge_boundary(color_left, depth_left)
+            right_px = self.merge_boundary(color_right, depth_right)
+            if left_px is None or right_px is None or right_px <= left_px:
+                continue
+
+            center_px = (left_px + right_px) / 2.0
+            center_depth = self.sample_depth_meters(band_depth, center_px)
+            if not center_depth or np.isnan(center_depth) or center_depth <= 0.2 or center_depth > max_depth_m:
+                continue
+            measurements.append((float(center_depth), float(right_px - left_px)))
+
+        # Not enough measurements within range to draw a conclusion — accept.
+        if len(measurements) < 2:
+            return True
+
+        measurements.sort(key=lambda m: m[0])
+        near_depth, near_width = measurements[0]
+        far_depth,  far_width  = measurements[-1]
+
+        # Bands too close in depth to distinguish noise from real perspective.
+        if far_depth - near_depth < 0.3:
+            return True
+
+        return near_width >= far_width * min_ratio
 
     def _compute_centerline(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
         # Split the ROI into N horizontal bands. For each band, find the sidewalk
