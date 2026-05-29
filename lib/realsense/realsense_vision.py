@@ -303,7 +303,14 @@ class RealsenseVision:
             return None
         try:
             seed = self._pick_appearance_seed(color_image)
-            return self.sam_segmenter.infer(color_image, seed)
+            h, w = color_image.shape[:2]
+            # Background points at 4 % and 96 % of image width, same row as the
+            # seed: these columns are almost always outside the path, so they tell
+            # SAM what NOT to include and prevent mask bleed into adjacent surfaces.
+            bg_y = seed[1]
+            bg_left  = (int(w * 0.04), bg_y)
+            bg_right = (int(w * 0.96), bg_y)
+            return self.sam_segmenter.infer(color_image, seed, background_points=[bg_left, bg_right])
         except Exception as exc:
             emit({"message_type": "status", "status": "sam_infer_failed",
                   "error": str(exc), "timestamp": int(time.time() * 1000)})
@@ -742,9 +749,6 @@ class RealsenseVision:
         if np.any(~nan_mask):
             valid_depth[nan_mask] = np.nanmedian(valid_depth[~nan_mask])
         valid_depth = cv2.GaussianBlur(valid_depth.reshape(1, -1), (9, 1), 0).reshape(-1)
-        # Positive diff = depth INCREASING column-to-column = drop-off as you scan right.
-        # We want the inner edge — for the left side scan from center outward.
-        gradient = np.diff(valid_depth)
         n = len(valid_depth)
         center = n // 2
 

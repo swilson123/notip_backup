@@ -81,12 +81,14 @@ class MobileSAMSegmenter:
         tensor = np.transpose(padded, (2, 0, 1))[np.newaxis]
         return tensor, scale, (h, w)
 
-    def infer(self, image_bgr, point_xy):
+    def infer(self, image_bgr, point_xy, background_points=None):
         """Return a binary mask (uint8 0/255) same size as image_bgr.
 
         point_xy: (x, y) in the original image coordinates of a foreground
-        prompt — typically the bottom-center of the frame (the surface the
-        rover is currently standing on)."""
+        prompt — typically the near-field centerline pixel of the path.
+        background_points: optional list of (x, y) points that should NOT
+        be included in the mask (label=0). Passing edge-of-image points
+        prevents SAM from bleeding into adjacent surfaces."""
 
         tensor, scale, (orig_h, orig_w) = self._preprocess(image_bgr)
         image_id = id(image_bgr)
@@ -97,11 +99,15 @@ class MobileSAMSegmenter:
             self._last_image_id = image_id
             self._last_embedding = image_embeddings
 
-        # Map the prompt point into 1024-space
-        px = float(point_xy[0]) * scale
-        py = float(point_xy[1]) * scale
-        point_coords = np.array([[[px, py]]], dtype=np.float32)
-        point_labels = np.array([[1.0]], dtype=np.float32)
+        # Foreground point (label=1) + optional background points (label=0)
+        coords = [(float(point_xy[0]) * scale, float(point_xy[1]) * scale)]
+        labels = [1.0]
+        if background_points:
+            for bp in background_points:
+                coords.append((float(bp[0]) * scale, float(bp[1]) * scale))
+                labels.append(0.0)
+        point_coords = np.array([coords], dtype=np.float32)
+        point_labels = np.array([labels], dtype=np.float32)
 
         decoder_inputs = {
             "image_embeddings": image_embeddings,

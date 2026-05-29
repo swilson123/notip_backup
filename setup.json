@@ -88,7 +88,7 @@
         "path_map_merge_radius_m": 0.25,
         "path_map_max_points": 120,
         "path_map_bin_width_m": 0.5,
-        "path_heading_gain": 0,
+        "path_heading_gain": 0.15,
         "path_heading_seek_thresh_deg": 15,
         "gps_jump_speed_multiplier": 3.0,
         "gps_jump_floor_m": 0.5
