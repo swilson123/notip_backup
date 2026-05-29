@@ -35,6 +35,7 @@
     "realsense_comName": null,
     "realsense_vision": {
         "enabled": false,
+        "follow_sidewalk_enabled": false,
         "python_path": "python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
