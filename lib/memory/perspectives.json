@@ -1,6 +1,338 @@
 {
   "history": [
     {
+      "session_id": "1780063763469",
+      "generated_at": "2026-05-29T14:09:23.469Z",
+      "situation": "stuck_detected",
+      "context_snapshot": {
+        "situation": "stuck_detected",
+        "lat": 39.3375854,
+        "lng": -84.2877074,
+        "heading_deg": 84.375,
+        "yaw_to_waypoint_deg": 5.550128071847837,
+        "mission_seq": 1,
+        "mission_count": 5,
+        "package_delivered": true,
+        "vision_confidence": 0,
+        "vision_offset_m": 0,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 80,
+        "learning_speed_mul": 0.81,
+        "heart_intent": "recover"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780063763470_3934",
+          "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
+          "parameters": {
+            "nav_tuning.mission_yaw_start_deg": 15
+          },
+          "priority": 0.82,
+          "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780063763470_3856",
+          "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
+          "parameters": {
+            "nav_tuning.two_wheel_steering_gain": 0.5
+          },
+          "priority": 0.7,
+          "priority_reason": "Over-responsive steering produces S-curve wobble that memory watchdog classifies as stuck"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780063763470_9388",
+          "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
+          "parameters": {
+            "nav_tuning.mission_yaw_max_speed": 23
+          },
+          "priority": 0.6,
+          "priority_reason": "A slow, precise yaw correction avoids the repeated overshoot pattern that looks like looping stuck"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780063763470_9527",
+          "description": "Extend the carrot lookahead distance so GPS noise is averaged over a longer path segment",
+          "parameters": {
+            "realsense_vision.carrot_distance_m": 2
+          },
+          "priority": 0.45,
+          "priority_reason": "A close carrot reacts to every GPS jitter; a distant one steers toward trend rather than noise"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780004426445",
+      "generated_at": "2026-05-28T21:40:26.445Z",
+      "situation": "path_blocked",
+      "context_snapshot": {
+        "situation": "path_blocked",
+        "lat": 39.3375954,
+        "lng": -84.2877609,
+        "heading_deg": 229.4375,
+        "yaw_to_waypoint_deg": 6.395465384177754,
+        "mission_seq": 5,
+        "mission_count": 5,
+        "package_delivered": null,
+        "vision_confidence": 0.92,
+        "vision_offset_m": -0.3794,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": 5,
+        "speed_cmd": 60,
+        "learning_speed_mul": 0.64,
+        "heart_intent": "blocked"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004426445_4629",
+          "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+          "parameters": {
+            "nav_tuning.rs_block_timeout_ms": 15000
+          },
+          "priority": 0.8,
+          "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004426446_1791",
+          "description": "Lower vision confidence threshold so a partial path reading clears the block",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.65,
+          "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004426446_7075",
+          "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
+          "parameters": {
+            "realsense_vision.object_emergency_stop_m": 1.3
+          },
+          "priority": 0.55,
+          "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004426446_1693",
+          "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.5,
+          "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780004360733",
+      "generated_at": "2026-05-28T21:39:20.733Z",
+      "situation": "path_blocked",
+      "context_snapshot": {
+        "situation": "path_blocked",
+        "lat": 39.3375917,
+        "lng": -84.2876757,
+        "heading_deg": 247.3125,
+        "yaw_to_waypoint_deg": 16.814174681080033,
+        "mission_seq": 2,
+        "mission_count": 5,
+        "package_delivered": null,
+        "vision_confidence": 0.92,
+        "vision_offset_m": 0.4521,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": 3,
+        "speed_cmd": 100,
+        "learning_speed_mul": 0.61,
+        "heart_intent": "blocked"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004360734_9344",
+          "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+          "parameters": {
+            "nav_tuning.rs_block_timeout_ms": 15000
+          },
+          "priority": 0.8,
+          "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004360734_4861",
+          "description": "Lower vision confidence threshold so a partial path reading clears the block",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.65,
+          "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004360734_9930",
+          "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
+          "parameters": {
+            "realsense_vision.object_emergency_stop_m": 1.3
+          },
+          "priority": 0.55,
+          "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004360734_5102",
+          "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.5,
+          "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780004119232",
+      "generated_at": "2026-05-28T21:35:19.232Z",
+      "situation": "path_blocked",
+      "context_snapshot": {
+        "situation": "path_blocked",
+        "lat": 39.33759,
+        "lng": -84.2877,
+        "heading_deg": 245.25,
+        "yaw_to_waypoint_deg": 43.02596595269381,
+        "mission_seq": 3,
+        "mission_count": 5,
+        "package_delivered": null,
+        "vision_confidence": 0.92,
+        "vision_offset_m": 0.0539,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": 7,
+        "speed_cmd": 60,
+        "learning_speed_mul": 0.5800000000000001,
+        "heart_intent": "blocked"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004119235_1322",
+          "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+          "parameters": {
+            "nav_tuning.rs_block_timeout_ms": 15000
+          },
+          "priority": 0.8,
+          "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004119235_6370",
+          "description": "Lower vision confidence threshold so a partial path reading clears the block",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.65,
+          "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004119235_8867",
+          "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
+          "parameters": {
+            "realsense_vision.object_emergency_stop_m": 1.3
+          },
+          "priority": 0.55,
+          "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780004119235_6611",
+          "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.5,
+          "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
       "session_id": "1779998529277",
       "generated_at": "2026-05-28T20:02:09.277Z",
       "situation": "path_blocked",
@@ -251,26 +583,26 @@
     }
   ],
   "latest": {
-    "session_id": "1779998529277",
-    "generated_at": "2026-05-28T20:02:09.277Z",
-    "situation": "path_blocked",
+    "session_id": "1780063763469",
+    "generated_at": "2026-05-29T14:09:23.469Z",
+    "situation": "stuck_detected",
     "context_snapshot": {
-      "situation": "path_blocked",
-      "lat": 39.3375889,
-      "lng": -84.2876466,
-      "heading_deg": 286.3125,
-      "yaw_to_waypoint_deg": 37.91036338164383,
-      "mission_seq": 0,
+      "situation": "stuck_detected",
+      "lat": 39.3375854,
+      "lng": -84.2877074,
+      "heading_deg": 84.375,
+      "yaw_to_waypoint_deg": 5.550128071847837,
+      "mission_seq": 1,
       "mission_count": 5,
-      "package_delivered": null,
-      "vision_confidence": 0.65,
-      "vision_offset_m": 2.2234,
+      "package_delivered": true,
+      "vision_confidence": 0,
+      "vision_offset_m": 0,
       "vision_enabled": true,
       "avoidance_active": true,
-      "blocked_ms": 3,
-      "speed_cmd": 60,
-      "learning_speed_mul": 0.54,
-      "heart_intent": "blocked"
+      "blocked_ms": null,
+      "speed_cmd": 80,
+      "learning_speed_mul": 0.81,
+      "heart_intent": "recover"
     },
     "source": "local",
     "perspectives": [
@@ -280,13 +612,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1779998529278_5320",
-        "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+        "id": "p_1780063763470_3934",
+        "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
         "parameters": {
-          "nav_tuning.rs_block_timeout_ms": 15000
+          "nav_tuning.mission_yaw_start_deg": 15
         },
-        "priority": 0.8,
-        "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery"
+        "priority": 0.82,
+        "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events"
       },
       {
         "tried": false,
@@ -294,13 +626,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1779998529278_6515",
-        "description": "Lower vision confidence threshold so a partial path reading clears the block",
+        "id": "p_1780063763470_3856",
+        "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
         "parameters": {
-          "realsense_vision.confidence_threshold": 0.5
+          "nav_tuning.two_wheel_steering_gain": 0.5
         },
-        "priority": 0.65,
-        "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation"
+        "priority": 0.7,
+        "priority_reason": "Over-responsive steering produces S-curve wobble that memory watchdog classifies as stuck"
       },
       {
         "tried": false,
@@ -308,13 +640,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1779998529278_3622",
-        "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
+        "id": "p_1780063763470_9388",
+        "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
         "parameters": {
-          "realsense_vision.object_emergency_stop_m": 1.3
+          "nav_tuning.mission_yaw_max_speed": 23
         },
-        "priority": 0.55,
-        "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle"
+        "priority": 0.6,
+        "priority_reason": "A slow, precise yaw correction avoids the repeated overshoot pattern that looks like looping stuck"
       },
       {
         "tried": false,
@@ -322,13 +654,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1779998529278_2182",
-        "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+        "id": "p_1780063763470_9527",
+        "description": "Extend the carrot lookahead distance so GPS noise is averaged over a longer path segment",
         "parameters": {
-          "realsense_vision.speed_scale_min": 0.30000000000000004
+          "realsense_vision.carrot_distance_m": 2
         },
-        "priority": 0.5,
-        "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path"
+        "priority": 0.45,
+        "priority_reason": "A close carrot reacts to every GPS jitter; a distant one steers toward trend rather than noise"
       }
     ],
     "parameter_edits_applied": []
