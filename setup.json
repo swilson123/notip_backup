@@ -27,6 +27,7 @@
         "mission_yaw_max_speed": 28,
         "mission_yaw_brake_window_deg": 22,
         "rs_block_timeout_ms": 10000,
+        "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000
     },
     "waveshare_comName": "/dev/ttySC0",
@@ -59,6 +60,13 @@
         "segmentation_model_path": "./lib/realsense/sidewalk_model.onnx",
         "segmentation_input_width": 512,
         "segmentation_input_height": 256,
+        "appearance_mode": "blend",
+        "appearance_seed_y_frac": 0.92,
+        "appearance_seed_ttl_ms": 2000,
+        "sam_enabled": true,
+        "sam_encoder_path": "./lib/realsense/mobilesam/mobile_sam_encoder.onnx",
+        "sam_decoder_path": "./lib/realsense/mobilesam/mobile_sam_decoder.onnx",
+        "sam_onnx_min_area_frac": 0.02,
         "sidewalk_seek_offset_m": 0.1,
         "sidewalk_seek_exit_m": 0.08,
         "sidewalk_seek_confidence_threshold": 0.4,
@@ -81,13 +89,13 @@
         "path_map_merge_radius_m": 0.25,
         "path_map_max_points": 120,
         "path_map_bin_width_m": 0.5,
-        "path_heading_gain": 0,
+        "path_heading_gain": 0.15,
         "path_heading_seek_thresh_deg": 15,
         "gps_jump_speed_multiplier": 3.0,
         "gps_jump_floor_m": 0.5
     },
     "imu": {
-        "compass_offset_deg": 30
+        "compass_offset_deg": -86
     },
     "memory": {
         "period_ms": 1000,

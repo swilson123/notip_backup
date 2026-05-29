@@ -104,6 +104,19 @@ class RealsenseVision:
         self.current_roll_rad  = 0.0
         self._broadcaster  = _StreamBroadcaster()
         self._stream_port  = int(self.config.get("stream_port", 0))  # 0 = disabled
+        # Adaptive seed for appearance-based / SAM ground segmentation.
+        # Updated after each successful detection to track the previous
+        # frame's near-band centerline pixel. None = no recent track, fall
+        # back to bottom-center.
+        self.last_seed_x = None
+        self.last_seed_x_ts = 0.0
+        # MobileSAM segmenter — loaded lazily in start(). When the ONNX
+        # Cityscapes classifier returns a sparse mask, SAM is queried with
+        # the adaptive seed point as a foreground prompt and its mask
+        # becomes the walkable region. Class-agnostic, so it works on any
+        # surface the rover is actually standing on.
+        self.sam_segmenter = None
+        self.sam_load_attempted = False
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -139,6 +152,7 @@ class RealsenseVision:
             "fps_target": self.current_fps_target
         })
         self._load_seg_model()
+        self._load_sam_model()
         if self._stream_port:
             threading.Thread(target=self._run_stream_server, daemon=True).start()
             emit({"message_type": "status", "status": "stream_started",
@@ -293,6 +307,76 @@ class RealsenseVision:
         except Exception:
             return None
 
+    # Adaptive seed for appearance-based ground segmentation: pick a pixel
+    # near the bottom of the frame that's likely on the surface the rover
+    # is currently traversing. Use the previous frame's near-centerline x
+    # (clipped to image bounds) if recent enough; otherwise bottom-center.
+    def _pick_appearance_seed(self, color_image):
+        h, w = color_image.shape[:2]
+        seed_y_frac = float(self.config.get("appearance_seed_y_frac", 0.92))
+        ttl_ms = float(self.config.get("appearance_seed_ttl_ms", 2000))
+        y = int(np.clip(h * seed_y_frac, 0, h - 1))
+        x = w // 2
+        if self.last_seed_x is not None:
+            age_ms = (time.time() - self.last_seed_x_ts) * 1000.0
+            if age_ms <= ttl_ms:
+                x = int(np.clip(self.last_seed_x, 0, w - 1))
+        return (x, y)
+
+    # MobileSAM ground segmentation. Class-agnostic ML segmenter: feed it an
+    # image plus a foreground point (the adaptive seed — whatever surface
+    # the rover is standing on), get back a high-quality mask of that
+    # region. Replaces the older Photoshop-paint-bucket-style flood fill;
+    # SAM understands shadows, two-tone surfaces, paint markings, and
+    # perspective in ways pure color similarity cannot.
+    def _load_sam_model(self):
+        if self.sam_load_attempted:
+            return
+        self.sam_load_attempted = True
+        if not bool(self.config.get("sam_enabled", True)):
+            return
+        encoder_path = self.config.get("sam_encoder_path") or "./lib/realsense/mobilesam/mobile_sam_encoder.onnx"
+        decoder_path = self.config.get("sam_decoder_path") or "./lib/realsense/mobilesam/mobile_sam_decoder.onnx"
+        try:
+            from mobilesam.mobilesam import MobileSAMSegmenter
+        except Exception:
+            # Fall back to file-path import when the script isn't launched as a package.
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobilesam"))
+            try:
+                from mobilesam import MobileSAMSegmenter  # type: ignore
+            except Exception as exc:
+                emit({"message_type": "status", "status": "sam_load_failed",
+                      "error": "import failed: " + str(exc),
+                      "timestamp": int(time.time() * 1000)})
+                return
+        try:
+            self.sam_segmenter = MobileSAMSegmenter(encoder_path, decoder_path)
+            emit({"message_type": "status", "status": "sam_loaded",
+                  "encoder": encoder_path, "decoder": decoder_path,
+                  "timestamp": int(time.time() * 1000)})
+        except Exception as exc:
+            emit({"message_type": "status", "status": "sam_load_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            self.sam_segmenter = None
+
+    def _get_sam_mask(self, color_image):
+        if self.sam_segmenter is None:
+            return None
+        try:
+            seed = self._pick_appearance_seed(color_image)
+            h, w = color_image.shape[:2]
+            # Background points at 4 % and 96 % of image width, same row as the
+            # seed: these columns are almost always outside the path, so they tell
+            # SAM what NOT to include and prevent mask bleed into adjacent surfaces.
+            bg_y = seed[1]
+            bg_left  = (int(w * 0.04), bg_y)
+            bg_right = (int(w * 0.96), bg_y)
+            return self.sam_segmenter.infer(color_image, seed, background_points=[bg_left, bg_right])
+        except Exception as exc:
+            emit({"message_type": "status", "status": "sam_infer_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            return None
+
     def detect_path(self, color_image, depth_image, intrinsics, ir_image=None):
         height, width = depth_image.shape[:2]
         row_start = int(height * 0.35)
@@ -302,9 +386,40 @@ class RealsenseVision:
         roi_depth[roi_depth <= 0] = np.nan
         roi_ir = ir_image[row_start:row_end, :] if ir_image is not None else None
 
-        seg_mask = self._get_sidewalk_mask(color_image)
-        if seg_mask is not None:
-            roi_seg = seg_mask[row_start:row_end, :]
+        # Mask source selection:
+        #   "off"   — ONNX only (original behavior; SAM not consulted)
+        #   "blend" — ONNX as a fast sanity check; SAM fills in when ONNX gives up
+        #             (default). The threshold for "ONNX gave up" is whether
+        #             its mask covers at least sam_onnx_min_area_frac of pixels.
+        #   "only"  — SAM only (ONNX inference skipped entirely; slower but
+        #             generalises off-sidewalk)
+        # Either way we never OR ONNX and SAM — they were producing inflated
+        # masks that shifted the boundary search. If both sources fail, the
+        # HSV fallback below tries to do something.
+        appearance_mode = str(self.config.get("appearance_mode", "blend")).lower()
+        min_area_frac   = float(self.config.get("sam_onnx_min_area_frac", 0.02))
+
+        seg_mask = None
+        sam_mask = None
+        if appearance_mode == "off":
+            seg_mask = self._get_sidewalk_mask(color_image)
+            combined_mask = seg_mask
+        elif appearance_mode == "only":
+            sam_mask = self._get_sam_mask(color_image)
+            combined_mask = sam_mask
+        else:  # "blend"
+            seg_mask = self._get_sidewalk_mask(color_image)
+            img_pixels = color_image.shape[0] * color_image.shape[1]
+            onnx_confident = (seg_mask is not None and
+                              cv2.countNonZero(seg_mask) >= int(min_area_frac * img_pixels))
+            if onnx_confident:
+                combined_mask = seg_mask
+            else:
+                sam_mask = self._get_sam_mask(color_image)
+                combined_mask = sam_mask if sam_mask is not None else seg_mask
+
+        if combined_mask is not None:
+            roi_seg = combined_mask[row_start:row_end, :]
             walkable_mask = cv2.medianBlur(roi_seg, 5)
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
             green_mask_roi = None
@@ -405,6 +520,15 @@ class RealsenseVision:
             offset_meters = 0
 
         confidence = float(max(0.0, min(1.0, confidence)))
+
+        # Track where the path centered in this frame so the next frame's
+        # appearance-based flood-fill can seed adaptively (otherwise we'd
+        # always seed at bottom-center and lose the path the moment the
+        # rover drifts laterally). Skip on weak detections so we don't lock
+        # the seed onto noise.
+        if confidence >= 0.5:
+            self.last_seed_x = float(center_px)
+            self.last_seed_x_ts = time.time()
 
         return {
             "offset_meters": round(float(offset_meters), 4),
@@ -688,9 +812,6 @@ class RealsenseVision:
         if np.any(~nan_mask):
             valid_depth[nan_mask] = np.nanmedian(valid_depth[~nan_mask])
         valid_depth = cv2.GaussianBlur(valid_depth.reshape(1, -1), (9, 1), 0).reshape(-1)
-        # Positive diff = depth INCREASING column-to-column = drop-off as you scan right.
-        # We want the inner edge — for the left side scan from center outward.
-        gradient = np.diff(valid_depth)
         n = len(valid_depth)
         center = n // 2
 
