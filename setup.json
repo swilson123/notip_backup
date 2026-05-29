@@ -95,7 +95,7 @@
         "gps_jump_floor_m": 0.5
     },
     "imu": {
-        "compass_offset_deg": 0
+        "compass_offset_deg": -87
     },
     "memory": {
         "period_ms": 1000,

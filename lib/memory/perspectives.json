@@ -1,6 +1,213 @@
 {
   "history": [
     {
+      "session_id": "1780075480038",
+      "generated_at": "2026-05-29T17:24:40.038Z",
+      "situation": "avoidance_started",
+      "context_snapshot": {
+        "situation": "avoidance_started",
+        "lat": 39.3376421,
+        "lng": -84.2876897,
+        "heading_deg": 278.9375,
+        "yaw_to_waypoint_deg": 6.64664111861407,
+        "mission_seq": 2,
+        "mission_count": 5,
+        "package_delivered": true,
+        "vision_confidence": 0.85,
+        "vision_offset_m": 0.1763,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.57,
+        "heart_intent": "homestretch_return"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075480039_8888",
+          "description": "Extend the avoidance timeout to allow more time to find a clear arc",
+          "parameters": {
+            "nav_tuning.avoidance_timeout_ms": 40000
+          },
+          "priority": 0.78,
+          "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075480039_2374",
+          "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.62,
+          "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075480039_1953",
+          "description": "Lower speed floor so Noah can creep around tight obstacle margins",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.55,
+          "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780075318187",
+      "generated_at": "2026-05-29T17:21:58.187Z",
+      "situation": "avoidance_started",
+      "context_snapshot": {
+        "situation": "avoidance_started",
+        "lat": 39.3376295,
+        "lng": -84.2877807,
+        "heading_deg": 349.9375,
+        "yaw_to_waypoint_deg": 9.977675897914878,
+        "mission_seq": 2,
+        "mission_count": 5,
+        "package_delivered": null,
+        "vision_confidence": 0.85,
+        "vision_offset_m": -0.1101,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.5,
+        "heart_intent": "outbound"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075318187_8039",
+          "description": "Extend the avoidance timeout to allow more time to find a clear arc",
+          "parameters": {
+            "nav_tuning.avoidance_timeout_ms": 40000
+          },
+          "priority": 0.78,
+          "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075318187_4364",
+          "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.62,
+          "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075318188_9864",
+          "description": "Lower speed floor so Noah can creep around tight obstacle margins",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.55,
+          "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780075240171",
+      "generated_at": "2026-05-29T17:20:40.171Z",
+      "situation": "avoidance_started",
+      "context_snapshot": {
+        "situation": "avoidance_started",
+        "lat": 39.3375723,
+        "lng": -84.2877786,
+        "heading_deg": 358.25,
+        "yaw_to_waypoint_deg": -0.11681249930842341,
+        "mission_seq": 1,
+        "mission_count": 5,
+        "package_delivered": null,
+        "vision_confidence": 0.65,
+        "vision_offset_m": 1.7987,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.5,
+        "heart_intent": "undocking"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075240172_8409",
+          "description": "Extend the avoidance timeout to allow more time to find a clear arc",
+          "parameters": {
+            "nav_tuning.avoidance_timeout_ms": 40000
+          },
+          "priority": 0.78,
+          "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075240172_6946",
+          "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.62,
+          "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive"
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780075240172_4088",
+          "description": "Lower speed floor so Noah can creep around tight obstacle margins",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.55,
+          "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass"
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
       "session_id": "1780071104412",
       "generated_at": "2026-05-29T16:11:44.412Z",
       "situation": "stuck_detected",
@@ -915,26 +1122,26 @@
     }
   ],
   "latest": {
-    "session_id": "1780071104412",
-    "generated_at": "2026-05-29T16:11:44.412Z",
-    "situation": "stuck_detected",
+    "session_id": "1780075480038",
+    "generated_at": "2026-05-29T17:24:40.038Z",
+    "situation": "avoidance_started",
     "context_snapshot": {
-      "situation": "stuck_detected",
-      "lat": 39.3375942,
-      "lng": -84.2876671,
-      "heading_deg": 300.6875,
-      "yaw_to_waypoint_deg": -2.490843563766248,
-      "mission_seq": 1,
+      "situation": "avoidance_started",
+      "lat": 39.3376421,
+      "lng": -84.2876897,
+      "heading_deg": 278.9375,
+      "yaw_to_waypoint_deg": 6.64664111861407,
+      "mission_seq": 2,
       "mission_count": 5,
-      "package_delivered": null,
+      "package_delivered": true,
       "vision_confidence": 0.85,
-      "vision_offset_m": -0.0052,
+      "vision_offset_m": 0.1763,
       "vision_enabled": true,
-      "avoidance_active": false,
+      "avoidance_active": true,
       "blocked_ms": null,
-      "speed_cmd": 60,
-      "learning_speed_mul": 0.6999999999999995,
-      "heart_intent": "recover"
+      "speed_cmd": 0,
+      "learning_speed_mul": 0.57,
+      "heart_intent": "homestretch_return"
     },
     "source": "local",
     "perspectives": [
@@ -944,13 +1151,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780071104414_5720",
-        "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
+        "id": "p_1780075480039_8888",
+        "description": "Extend the avoidance timeout to allow more time to find a clear arc",
         "parameters": {
-          "nav_tuning.mission_yaw_start_deg": 15
+          "nav_tuning.avoidance_timeout_ms": 40000
         },
-        "priority": 0.82,
-        "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events"
+        "priority": 0.78,
+        "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily"
       },
       {
         "tried": false,
@@ -958,13 +1165,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780071104414_2937",
-        "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
+        "id": "p_1780075480039_2374",
+        "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
         "parameters": {
-          "nav_tuning.two_wheel_steering_gain": 0.5
+          "realsense_vision.confidence_threshold": 0.5
         },
-        "priority": 0.7,
-        "priority_reason": "Over-responsive steering produces S-curve wobble that memory watchdog classifies as stuck"
+        "priority": 0.62,
+        "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive"
       },
       {
         "tried": false,
@@ -972,27 +1179,13 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780071104415_4806",
-        "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
+        "id": "p_1780075480039_1953",
+        "description": "Lower speed floor so Noah can creep around tight obstacle margins",
         "parameters": {
-          "nav_tuning.mission_yaw_max_speed": 23
+          "realsense_vision.speed_scale_min": 0.30000000000000004
         },
-        "priority": 0.6,
-        "priority_reason": "A slow, precise yaw correction avoids the repeated overshoot pattern that looks like looping stuck"
-      },
-      {
-        "tried": false,
-        "tried_at": null,
-        "outcome": null,
-        "outcome_at": null,
-        "outcome_notes": null,
-        "id": "p_1780071104415_9574",
-        "description": "Extend the carrot lookahead distance so GPS noise is averaged over a longer path segment",
-        "parameters": {
-          "realsense_vision.carrot_distance_m": 2
-        },
-        "priority": 0.45,
-        "priority_reason": "A close carrot reacts to every GPS jitter; a distant one steers toward trend rather than noise"
+        "priority": 0.55,
+        "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass"
       }
     ],
     "parameter_edits_applied": []
