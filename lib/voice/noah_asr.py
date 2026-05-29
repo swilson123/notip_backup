@@ -81,10 +81,25 @@ GRAMMAR_VOCAB = [
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--model',       default='./models/vosk-model-small-en-us-0.15')
-    p.add_argument('--device',      type=int, default=1,    help='ALSA device index (int)')
+    p.add_argument('--device',      default='4,1',
+                   help='Device index or comma-separated list to try in order')
     p.add_argument('--samplerate',  type=int, default=16000)
     p.add_argument('--blocksize',   type=int, default=8000)
     return p.parse_args()
+
+def probe_device(sd, device, samplerate):
+    try:
+        info = sd.query_devices(device)
+        if info['max_input_channels'] < 1:
+            return False
+        s = sd.RawInputStream(samplerate=samplerate, blocksize=1024,
+                              device=device, dtype='int16', channels=1)
+        s.start()
+        s.stop()
+        s.close()
+        return True
+    except Exception:
+        return False
 
 def main():
     args = parse_args()
@@ -98,6 +113,12 @@ def main():
         import sounddevice as sd
     except ImportError:
         fatal('sounddevice not installed — run: pip install sounddevice')
+
+    candidates = [int(x.strip()) for x in str(args.device).split(',')]
+    chosen = next((d for d in candidates if probe_device(sd, d, args.samplerate)), None)
+    if chosen is None:
+        fatal('no working audio input device found among: ' + repr(candidates))
+    args.device = chosen
 
     import os
     if not os.path.isdir(args.model):

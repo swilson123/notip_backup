@@ -57,7 +57,10 @@
       "Bash(i2cdetect -y 1)",
       "Bash(timeout 10 node server.js)",
       "Bash(timeout 12 node server.js)",
-      "Bash(git -C /home/rover/notip log --oneline -15 -- lib/lcd_screen/write_to_lcd.js lib/lidar/lidar_message_handler.js lib/mission/avoid_object.js)"
+      "Bash(git -C /home/rover/notip log --oneline -15 -- lib/lcd_screen/write_to_lcd.js lib/lidar/lidar_message_handler.js lib/mission/avoid_object.js)",
+      "Bash(pactl info *)",
+      "Bash(pactl list *)",
+      "Bash(/home/rover/notip/.venv/bin/python3 -c ' *)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib"
