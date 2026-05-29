@@ -72,7 +72,7 @@
         "sidewalk_seek_confidence_threshold": 0.4,
         "detection_history_ms": 10000,
         "max_lateral_adjust_m": 1.0,
-        "carrot_distance_m": 1.5,
+        "carrot_distance_m": 1.0,
         "speed_scale_min": 0.40,
         "speed_scale_conf_full": 0.85,
         "speed_scale_conf_min": 0.60,
@@ -89,7 +89,7 @@
         "path_map_merge_radius_m": 0.25,
         "path_map_max_points": 120,
         "path_map_bin_width_m": 0.5,
-        "path_heading_gain": 0.15,
+        "path_heading_gain": 0.30,
         "path_heading_seek_thresh_deg": 15,
         "gps_jump_speed_multiplier": 3.0,
         "gps_jump_floor_m": 0.5
