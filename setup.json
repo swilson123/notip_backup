@@ -162,7 +162,9 @@
         "wheel_diameter_m": 0.254,
         "cpr_pulses_per_rev": 16385,
         "max_nudge_ms": 30000,
-        "stall_timeout_ms": 2000
+        "stall_timeout_ms": 2000,
+        "low_battery_voltage": 20.0,
+        "low_battery_repeat_ms": 30000
     },
     "intelligence": {
         "enabled": true,
