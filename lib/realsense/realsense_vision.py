@@ -53,6 +53,9 @@ class RealsenseVision:
         self.last_emit_at = 0.0
         self.last_path_width_meters = 0.9
         self.last_fx = 380.0
+        # TRON-grid ground-plane filter: fraction of the appearance mask removed
+        # last frame because it wasn't flat ground at the expected height.
+        self._last_ground_removed_frac = 0.0
         self.frame_counter = 0
         self.last_fps_sample_at = time.time()
         self.last_fps_counter = 0
@@ -188,6 +191,8 @@ class RealsenseVision:
 
         return {
             "message_type": "path_detection",
+            "x_angle_deg": result.get("x_angle_deg", 0),
+            "ground_grid_removed_frac": result.get("ground_grid_removed_frac", 0),
             "offset_meters": result["offset_meters"],
             "path_width_meters": result["path_width_meters"],
             "confidence": result["confidence"],
@@ -377,6 +382,12 @@ class RealsenseVision:
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
             green_col_scores = green_mask_roi.mean(axis=0) / 255.0
 
+        # TRON-grid ground-plane filter: drop appearance pixels that aren't
+        # physically flat ground at the expected camera height (walls, raised
+        # beds, bushes, parked cars, grass berms). This is what stops Noah from
+        # locking onto surfaces that merely look like sidewalk.
+        walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
+
         if not self._validate_perspective_narrowing(walkable_mask, green_mask_roi, roi_depth):
             return {
                 "offset_meters": 0,
@@ -443,6 +454,11 @@ class RealsenseVision:
         path_center_x_m = ((center_px - intrinsics.ppx) / intrinsics.fx) * center_depth
         offset_meters = -path_center_x_m
 
+        # X-axis angle to the sidewalk center — the one signal the rover steers on.
+        #   x_angle_deg > 0  -> sidewalk center is to the RIGHT -> steer right
+        #   x_angle_deg < 0  -> sidewalk center is to the LEFT  -> steer left
+        x_angle_deg = math.degrees(math.atan2(path_center_x_m, center_depth)) if center_depth and center_depth > 0 else 0.0
+
         confidence = 0.0
         if left_visible and right_visible:
             confidence = 0.85
@@ -468,6 +484,7 @@ class RealsenseVision:
             self.last_seed_x_ts = time.time()
 
         return {
+            "x_angle_deg": round(float(x_angle_deg), 2),
             "offset_meters": round(float(offset_meters), 4),
             "path_width_meters": round(float(path_width_meters), 4),
             "confidence": confidence,
@@ -478,8 +495,106 @@ class RealsenseVision:
             "nearest_edge_side": edge_info["nearest_edge_side"],
             "nearest_edge_clearance_m": edge_info["nearest_edge_clearance_m"],
             "nearest_edge_type": edge_info["nearest_edge_type"],
+            "ground_grid_removed_frac": self._last_ground_removed_frac,
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
+
+    def _apply_ground_grid_filter(self, walkable_mask, roi_depth, intrinsics, row_start):
+        """
+        TRON-grid ground-plane filter.
+
+        Validates the appearance-based walkable_mask against real 3D geometry.
+        Every ROI pixel under the mask is deprojected into a rover-horizontal
+        frame (same pitch/roll-corrected math as detect_objects), then a grid of
+        cell_m x cell_m cells is laid over the X/Z ground plane. A cell whose
+        depth samples mostly sit OFF the ground plane (|height| >= tolerance) is
+        "not ground" -- walls, raised beds, bushes, fences, parked cars, grass
+        berms -- and its mask pixels are dropped. Flat ground at the expected
+        camera height, and any cell we can't measure (sparse depth), are left
+        untouched so a real sidewalk survives even with imperfect depth.
+
+        This is a precision filter: it removes the appearance false-positives
+        that aren't physically flat ground -- exactly what makes Noah chase
+        sidewalks that aren't there and steer when it shouldn't.
+
+        Returns a filtered 0/255 mask the same shape as walkable_mask.
+        """
+        self._last_ground_removed_frac = 0.0
+        if not bool(self.config.get("ground_grid_filter_enabled", True)):
+            return walkable_mask
+
+        cam_h          = float(self.config.get("camera_height_m",            0.406))
+        tol            = float(self.config.get("ground_height_tol_m",        0.10))
+        cell_m         = float(self.config.get("ground_grid_cell_m",         0.25))
+        min_samples    = int(  self.config.get("ground_grid_min_samples",    4))
+        nonground_frac = float(self.config.get("ground_grid_nonground_ratio", 0.5))
+
+        if cell_m <= 0:
+            return walkable_mask
+
+        mask_bool = walkable_mask > 0
+        mask_count = int(np.count_nonzero(mask_bool))
+        if mask_count == 0:
+            return walkable_mask
+
+        valid = mask_bool & np.isfinite(roi_depth) & (roi_depth > 0.2) & (roi_depth < 15.0)
+        vy, vx = np.where(valid)
+        if vy.size == 0:
+            return walkable_mask
+
+        # Deproject + un-roll/un-pitch into the rover-horizontal frame.
+        # roi rows are offset from the full image by row_start.
+        fx, fy   = intrinsics.fx, intrinsics.fy
+        ppx, ppy = intrinsics.ppx, intrinsics.ppy
+        pitch = float(self.current_pitch_rad)
+        roll  = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll),  math.sin(roll)
+
+        z = roi_depth[vy, vx].astype(np.float32)
+        cam_X = (vx - ppx) * z / fx
+        cam_Y = ((vy + row_start) - ppy) * z / fy
+        rolled_X = cr * cam_X - sr * cam_Y
+        rolled_Y = sr * cam_X + cr * cam_Y
+        horizontal_down    = cp * rolled_Y - sp * z
+        horizontal_forward = sp * rolled_Y + cp * z
+        world_Y = cam_h - horizontal_down        # 0 = ground plane, + = above ground
+        world_X = rolled_X                        # + = right
+        world_Z = horizontal_forward             # + = forward
+
+        finite = np.isfinite(world_X) & np.isfinite(world_Z) & np.isfinite(world_Y)
+        if not np.any(finite):
+            return walkable_mask
+        vy, vx = vy[finite], vx[finite]
+        world_X, world_Z, world_Y = world_X[finite], world_Z[finite], world_Y[finite]
+
+        off_ground = (np.abs(world_Y) >= tol).astype(np.float32)
+
+        # Lay the world-space grid and flatten (X, Z) cell indices to ids.
+        ix = np.floor(world_X / cell_m).astype(np.int64)
+        iz = np.floor(world_Z / cell_m).astype(np.int64)
+        ix -= ix.min()
+        iz -= iz.min()
+        ncols = int(ix.max()) + 1
+        cell_id = iz * ncols + ix
+        ncells = int(cell_id.max()) + 1
+
+        total  = np.bincount(cell_id, minlength=ncells).astype(np.float32)
+        offcnt = np.bincount(cell_id, weights=off_ground, minlength=ncells)
+        # A cell is "not ground" only when it has enough samples AND most of them
+        # are off the plane. Sparse/unmeasured cells stay (benefit of the doubt).
+        cell_nonground = (total >= min_samples) & ((offcnt / np.maximum(total, 1.0)) >= nonground_frac)
+
+        remove = cell_nonground[cell_id]
+        filtered = walkable_mask.copy()
+        filtered[vy[remove], vx[remove]] = 0
+
+        # Knit the surviving ground region back together.
+        filtered = cv2.morphologyEx(filtered, cv2.MORPH_OPEN,  np.ones((3, 3), np.uint8))
+        filtered = cv2.morphologyEx(filtered, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+
+        self._last_ground_removed_frac = round(int(np.count_nonzero(remove)) / float(max(1, mask_count)), 3)
+        return filtered
 
     def _validate_perspective_narrowing(self, walkable_mask, green_mask_roi, roi_depth):
         # A real sidewalk of ~constant real-world width projects to a pixel
