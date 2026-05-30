@@ -60,7 +60,13 @@
       "Bash(git -C /home/rover/notip log --oneline -15 -- lib/lcd_screen/write_to_lcd.js lib/lidar/lidar_message_handler.js lib/mission/avoid_object.js)",
       "Bash(pactl info *)",
       "Bash(pactl list *)",
-      "Bash(/home/rover/notip/.venv/bin/python3 -c ' *)"
+      "Bash(/home/rover/notip/.venv/bin/python3 -c ' *)",
+      "Bash(python3 -c \"import pyrealsense2 as rs; ctx = rs.context\\(\\); devices = ctx.query_devices\\(\\); print\\(f'Devices found: {len\\(devices\\)}'\\); [print\\(f'  {d.get_info\\(rs.camera_info.name\\)}'\\) for d in devices]\")",
+      "Read(//usr/lib/**)",
+      "Bash(find / -name \"pyrealsense2*.so\")",
+      "Bash(/home/rover/notip/.venv/bin/python3 -c \"import pyrealsense2 as rs; ctx = rs.context\\(\\); devices = ctx.query_devices\\(\\); print\\(f'Devices found: {len\\(devices\\)}'\\); [print\\(f'  {d.get_info\\(rs.camera_info.name\\)}'\\) for d in devices]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); rv=d.get\\('realsense_vision',{}\\); print\\('python_path:', rv.get\\('python_path','not set'\\)\\); print\\('enabled:', rv.get\\('enabled','not set'\\)\\)\")",
+      "Bash(/usr/bin/python3 -c \"import pyrealsense2 as rs; ctx = rs.context\\(\\); devices = ctx.query_devices\\(\\); print\\(f'Devices found: {len\\(devices\\)}'\\); [print\\(f'  {d.get_info\\(rs.camera_info.name\\)}'\\) for d in devices]\")"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib"
