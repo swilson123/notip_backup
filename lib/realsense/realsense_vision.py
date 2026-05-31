@@ -80,6 +80,13 @@ class RealsenseVision:
         # back to bottom-center.
         self.last_seed_x = None
         self.last_seed_x_ts = 0.0
+        # Edge-guidance hysteresis: once an edge is chosen as the steering reference,
+        # stick with it as long as it stays confident — only switch sides when the
+        # chosen edge degrades or the OTHER edge becomes substantially more confident.
+        # Prevents the rover oscillating between left/right when the two edge
+        # confidences are close and jitter by a few percent frame to frame.
+        self.last_edge_used = None        # "left" / "right" / None
+        self.last_edge_used_ts = 0.0
         # MobileSAM segmenter — loaded lazily in start(). When the ONNX
         # Cityscapes classifier returns a sparse mask, SAM is queried with
         # the adaptive seed point as a foreground prompt and its mask
@@ -204,6 +211,14 @@ class RealsenseVision:
             "nearest_edge_side": result["nearest_edge_side"],
             "nearest_edge_clearance_m": result["nearest_edge_clearance_m"],
             "nearest_edge_type": result["nearest_edge_type"],
+            "edge_left_m": result.get("edge_left_m"),
+            "edge_left_conf": result.get("edge_left_conf", 0),
+            "edge_right_m": result.get("edge_right_m"),
+            "edge_right_conf": result.get("edge_right_conf", 0),
+            "edge_used": result.get("edge_used", "none"),
+            "edge_target_offset_m": result.get("edge_target_offset_m"),
+            "edge_forward_m": result.get("edge_forward_m"),
+            "edge_guidance_valid": result.get("edge_guidance_valid", False),
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -476,6 +491,10 @@ class RealsenseVision:
 
         centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
         edge_info = self._compute_edge_clearance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
+        # Edge guidance is the guiding key: a single near-field band ~2 ft ahead drives
+        # steering. The centerline/offset math below is still computed for the path map
+        # and edge-clearance safety, but the emitted steering signal comes from edges.
+        edge_guidance = self._compute_edge_guidance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
@@ -554,20 +573,44 @@ class RealsenseVision:
             self.last_seed_x = float(center_px)
             self.last_seed_x_ts = time.time()
 
+        # Emit edge-guidance as the steering signal. When edges are visible we steer off
+        # them; when they're not, we suppress the vision nudge (low confidence) and the
+        # Node.js side latches/fades the last good correction.
+        if edge_guidance["valid"]:
+            out_x_angle = edge_guidance["x_angle_deg"]
+            out_offset  = edge_guidance["offset_m"]
+            out_conf    = edge_guidance["confidence"]
+            out_left_vis  = edge_guidance["left_m"] is not None
+            out_right_vis = edge_guidance["right_m"] is not None
+        else:
+            out_x_angle = 0.0
+            out_offset  = round(float(offset_meters), 4)
+            out_conf    = min(confidence, 0.3)
+            out_left_vis  = left_visible
+            out_right_vis = right_visible
+
         return {
-            "x_angle_deg": round(float(x_angle_deg), 2),
-            "offset_meters": round(float(offset_meters), 4),
+            "x_angle_deg": round(float(out_x_angle), 2),
+            "offset_meters": round(float(out_offset), 4),
             "path_width_meters": round(float(path_width_meters), 4),
-            "confidence": confidence,
-            "left_boundary_visible": left_visible,
-            "right_boundary_visible": right_visible,
+            "confidence": float(out_conf),
+            "left_boundary_visible": out_left_vis,
+            "right_boundary_visible": out_right_vis,
             "centerline": centerline,
             "nearest_edge_m": edge_info["nearest_edge_m"],
             "nearest_edge_side": edge_info["nearest_edge_side"],
             "nearest_edge_clearance_m": edge_info["nearest_edge_clearance_m"],
             "nearest_edge_type": edge_info["nearest_edge_type"],
+            "edge_left_m": edge_guidance["left_m"],
+            "edge_left_conf": edge_guidance["left_conf"],
+            "edge_right_m": edge_guidance["right_m"],
+            "edge_right_conf": edge_guidance["right_conf"],
+            "edge_used": edge_guidance["used"],
+            "edge_target_offset_m": edge_guidance["offset_m"] if edge_guidance["valid"] else None,
+            "edge_forward_m": edge_guidance["forward_m"],
+            "edge_guidance_valid": edge_guidance["valid"],
             "ground_grid_removed_frac": self._last_ground_removed_frac,
-            "status": "tracking" if confidence >= 0.6 else "low_confidence"
+            "status": "tracking" if out_conf >= 0.6 else "low_confidence"
         }
 
     def _apply_ground_grid_filter(self, walkable_mask, roi_depth, intrinsics, row_start):
@@ -916,6 +959,176 @@ class RealsenseVision:
             "nearest_edge_clearance_m": round(float(worst[0]), 4),
             "nearest_edge_type":        worst[3],
         }
+
+    def _edge_guidance_default(self):
+        return {
+            "valid": False,
+            "x_angle_deg": 0.0,
+            "offset_m": 0.0,
+            "left_m": None, "left_conf": 0.0,
+            "right_m": None, "right_conf": 0.0,
+            "used": "none",
+            "forward_m": None,
+            "confidence": 0.0,
+        }
+
+    def _compute_edge_guidance(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
+        # Edge-as-guiding-key: look at a single near-field band ~edge_lookahead_m ahead
+        # (default 2 ft) and steer to hold the rover edge_side_offset_m (default 1.5 ft)
+        # off the sidewalk edge. "I only want to see edge detection 2 feet ahead" — so
+        # we ignore everything else and pick the one band closest to the lookahead that
+        # actually has an edge in view (nearest visible band, robust to camera pitch).
+        #
+        # Per-side confidence comes from how many independent detectors agree on that
+        # boundary (appearance/color, depth gradient, signed drop-off). When BOTH edges
+        # are visible we steer off the higher-confidence one. When only one is visible
+        # we steer off it. Sign convention matches offset_meters / x_angle_deg:
+        #   lateral_m > 0 = LEFT of camera bore;  x_angle_deg > 0 = target to RIGHT.
+        result = self._edge_guidance_default()
+        lookahead_m   = float(self.config.get("edge_lookahead_m",   0.6096))  # 2 ft
+        side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))  # 1.5 ft
+        max_forward_m = float(self.config.get("edge_max_lookahead_m", 2.5))
+        dropoff_jump_m = float(self.config.get("dropoff_min_depth_jump_m", 0.15))
+
+        N_BANDS = int(self.config.get("edge_guidance_bands", 8))
+        h, w = walkable_mask.shape
+        band_h = max(1, h // N_BANDS)
+        ppx, ppy = intrinsics.ppx, intrinsics.ppy
+        fx, fy   = intrinsics.fx, intrinsics.fy
+        pitch = float(self.current_pitch_rad)
+        roll  = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll),  math.sin(roll)
+
+        def side_edge(color_px, depth_px, signed_px):
+            # Merge the detectors that fired on this side; confidence rises with agreement.
+            dets = [p for p in (color_px, depth_px, signed_px) if p is not None]
+            if not dets:
+                return None, 0.0
+            px = float(np.mean(dets))
+            if len(dets) >= 2:
+                conf = 0.9 if (max(dets) - min(dets)) <= 15 else 0.7
+            else:
+                conf = 0.6
+            if signed_px is not None:
+                conf = min(1.0, conf + 0.05)  # a real drop-off is a strong physical cue
+            return px, conf
+
+        best = None  # band closest to the lookahead with at least one usable edge
+        for i in range(N_BANDS):
+            r0 = i * band_h
+            r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
+            if r1 - r0 < 4:
+                continue
+
+            band_walkable = walkable_mask[r0:r1, :]
+            band_depth = roi_depth[r0:r1, :]
+            band_col_scores = band_walkable.mean(axis=0) / 255.0
+            band_green_col = (green_mask_roi[r0:r1, :].mean(axis=0) / 255.0
+                              if green_mask_roi is not None else None)
+
+            color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
+            depth_left, depth_right = self.find_depth_boundaries(band_depth)
+            signed_left, signed_right = self._find_signed_depth_edges(band_depth, dropoff_jump_m)
+
+            all_px = [p for p in (color_left, color_right, depth_left, depth_right,
+                                  signed_left, signed_right) if p is not None]
+            if not all_px:
+                continue
+            ref_depth = self.sample_depth_meters(band_depth, float(np.mean(all_px)))
+            if not ref_depth or np.isnan(ref_depth):
+                continue
+
+            band_mid_row_full = roi_row_start + (r0 + r1) / 2.0
+            cam_Y_mid = (band_mid_row_full - ppy) * ref_depth / fy
+            rolled_Y_mid = cr * cam_Y_mid                       # cam_X_mid = 0 at center
+            forward_m = sp * rolled_Y_mid + cp * ref_depth
+            if forward_m < 0.2 or forward_m > max_forward_m:
+                continue
+
+            left_px,  left_conf  = side_edge(color_left,  depth_left,  signed_left)
+            right_px, right_conf = side_edge(color_right, depth_right, signed_right)
+            if left_px is None and right_px is None:
+                continue
+
+            def lateral_of(bx):
+                cam_X_b = (bx - ppx) * ref_depth / fx
+                cam_Y_b = (band_mid_row_full - ppy) * ref_depth / fy
+                rolled_X_b = cr * cam_X_b - sr * cam_Y_b
+                return -rolled_X_b                              # +left convention
+
+            band_info = {
+                "forward_m": float(forward_m),
+                "left_m":  lateral_of(left_px)  if left_px  is not None else None,
+                "left_conf":  left_conf  if left_px  is not None else 0.0,
+                "right_m": lateral_of(right_px) if right_px is not None else None,
+                "right_conf": right_conf if right_px is not None else 0.0,
+            }
+            if best is None or abs(forward_m - lookahead_m) < abs(best["forward_m"] - lookahead_m):
+                best = band_info
+
+        if best is None:
+            return result
+
+        left_m,  left_conf  = best["left_m"],  best["left_conf"]
+        right_m, right_conf = best["right_m"], best["right_conf"]
+        forward_m = best["forward_m"]
+
+        # Hysteresis: stick with the previously chosen edge while it stays confident.
+        keep_conf     = float(self.config.get("edge_hysteresis_keep_conf",     0.6))
+        switch_margin = float(self.config.get("edge_hysteresis_switch_margin", 0.2))
+        ttl_ms        = float(self.config.get("edge_hysteresis_ttl_ms",        3000))
+
+        present = {"left": left_m is not None, "right": right_m is not None}
+        conf    = {"left": left_conf, "right": right_conf}
+
+        # Forget a stale choice so a fresh pick can be made after a gap in tracking.
+        if self.last_edge_used is not None and (time.time() - self.last_edge_used_ts) * 1000.0 > ttl_ms:
+            self.last_edge_used = None
+
+        prev = self.last_edge_used
+        other = "right" if prev == "left" else "left"
+        if prev is not None and present.get(prev) and conf[prev] >= keep_conf:
+            # Keep the current edge unless the other one is substantially more confident.
+            if present.get(other) and (conf[other] - conf[prev]) >= switch_margin:
+                use = other
+            else:
+                use = prev
+        elif left_m is not None and right_m is not None:
+            use = "left" if left_conf >= right_conf else "right"
+        elif left_m is not None:
+            use = "left"
+        elif right_m is not None:
+            use = "right"
+        else:
+            return result
+
+        self.last_edge_used = use
+        self.last_edge_used_ts = time.time()
+
+        if use == "left":
+            u_target = left_m - side_offset_m   # hold 1.5 ft RIGHT of the left edge
+            chosen_conf = left_conf
+        else:
+            u_target = right_m + side_offset_m  # hold 1.5 ft LEFT of the right edge
+            chosen_conf = right_conf
+
+        # Angle to the desired track position. +right target → x_angle_deg > 0 → steer right.
+        x_angle_deg = math.degrees(math.atan2(-u_target, forward_m)) if forward_m > 0 else 0.0
+
+        result.update({
+            "valid": True,
+            "x_angle_deg": round(float(x_angle_deg), 2),
+            "offset_m": round(float(u_target), 4),
+            "left_m":  round(float(left_m), 4)  if left_m  is not None else None,
+            "left_conf":  round(float(left_conf), 2),
+            "right_m": round(float(right_m), 4) if right_m is not None else None,
+            "right_conf": round(float(right_conf), 2),
+            "used": use,
+            "forward_m": round(float(forward_m), 3),
+            "confidence": round(float(chosen_conf), 2),
+        })
+        return result
 
     def _find_signed_depth_edges(self, depth_band, dropoff_jump_m):
         # Like find_depth_boundaries but uses SIGNED gradients so we can tell

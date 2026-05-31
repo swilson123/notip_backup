@@ -28,7 +28,8 @@
         "mission_yaw_brake_window_deg": 22,
         "rs_block_timeout_ms": 10000,
         "rs_block_persistence_ticks": 3,
-        "avoidance_timeout_ms": 30000
+        "avoidance_timeout_ms": 30000,
+        "sidewalk_gate_turn_deg": 90
     },
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0",
@@ -82,6 +83,12 @@
         "edge_warn_clearance_m": 0.10,
         "edge_stop_clearance_m": -0.05,
         "edge_steer_boost": 2.0,
+        "edge_lookahead_m": 0.6096,
+        "edge_side_offset_m": 0.4572,
+        "edge_guidance_bands": 8,
+        "edge_hysteresis_keep_conf": 0.6,
+        "edge_hysteresis_switch_margin": 0.2,
+        "edge_hysteresis_ttl_ms": 3000,
         "perspective_check_max_distance_m": 2.0,
         "perspective_min_narrowing_ratio": 1.05,
         "ground_grid_filter_enabled": true,
