@@ -350,6 +350,13 @@ class RealsenseVision:
             return None
         try:
             seed = seed_override if seed_override is not None else self._pick_appearance_seed(color_image)
+            if bool(self.config.get("sam_clahe_enabled", True)):
+                clip  = float(self.config.get("sam_clahe_clip",      2.0))
+                tile  = int(  self.config.get("sam_clahe_tile_size",  8))
+                lab = cv2.cvtColor(color_image, cv2.COLOR_BGR2LAB)
+                lab[:, :, 0] = cv2.createCLAHE(clipLimit=clip,
+                                                tileGridSize=(tile, tile)).apply(lab[:, :, 0])
+                color_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
             h, w = color_image.shape[:2]
             # Background points at 4 % and 96 % of image width, same row as the
             # seed: these columns are almost always outside the path, so they tell

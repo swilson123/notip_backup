@@ -103,7 +103,10 @@
         "gps_jump_speed_multiplier": 3.0,
         "gps_jump_floor_m": 0.5,
         "funnel_warp_enabled": true,
-        "funnel_warp_gamma": 2
+        "funnel_warp_gamma": 2,
+        "sam_clahe_enabled": true,
+        "sam_clahe_clip": 2.0,
+        "sam_clahe_tile_size": 8
     },
     "imu": {
         "compass_offset_deg": 0
