@@ -35,7 +35,7 @@
     "realsense_comName": null,
     "realsense_vision": {
         "enabled": false,
-        "follow_sidewalk_enabled": false,
+        "follow_sidewalk_enabled": true,
         "python_path": "python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
@@ -48,7 +48,7 @@
         "confidence_threshold": 0.6,
         "correction_direction": -1,
         "path_center_deadband_m": 0.03,
-        "stale_detection_ms": 1200,
+        "stale_detection_ms": 2000,
         "camera_height_m": 0.406,
         "rover_width_m": 0.432,
         "rover_length_m": 0.686,
