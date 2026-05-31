@@ -1,5 +1,13 @@
 # Claude Notes — notip rover project
 
+## Memory
+The `.claude/memory/` directory in this repo IS the God variable of project knowledge.
+It travels with the repo across every machine. Read it at the start of every conversation.
+When a conversation produces lasting context — decisions, philosophy, fixes, who Scott is —
+write it there. Treat every `.md` like the God variable: everything accessible, always.
+
+Start here: [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md)
+
 ## Standing rules
 
 ### setup.json / setup_example.json

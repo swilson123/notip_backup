@@ -35,7 +35,7 @@
     "realsense_comName": "/dev/ttyAMA2",
     "realsense_vision": {
         "enabled": true,
-        "follow_sidewalk_enabled": false,
+        "follow_sidewalk_enabled": true,
         "python_path": "/usr/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
@@ -48,12 +48,12 @@
         "confidence_threshold": 0.6,
         "correction_direction": -1,
         "path_center_deadband_m": 0.03,
-        "stale_detection_ms": 1200,
+        "stale_detection_ms": 2000,
         "camera_height_m": 0.406,
         "rover_width_m": 0.432,
         "rover_length_m": 0.686,
         "object_detection_enabled": true,
-        "object_max_distance_m": 2.0,
+        "object_max_distance_m": 3.5,
         "object_min_height_m": 0.127,
         "object_min_area_px": 200,
         "object_emergency_stop_m": 1.0,
@@ -101,10 +101,16 @@
         "path_heading_gain": 0.15,
         "path_heading_seek_thresh_deg": 15,
         "gps_jump_speed_multiplier": 3.0,
-        "gps_jump_floor_m": 0.5
+        "gps_jump_floor_m": 0.5,
+        "funnel_warp_enabled": true,
+        "funnel_warp_gamma": 2,
+        "sam_clahe_enabled": true,
+        "sam_clahe_clip": 2.0,
+        "sam_clahe_tile_size": 8
     },
     "imu": {
-        "compass_offset_deg": 0
+        "compass_offset_deg": 0,
+        "auto_calibrate": true
     },
     "memory": {
         "period_ms": 1000,

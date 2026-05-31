@@ -87,6 +87,7 @@ class RealsenseVision:
         # surface the rover is actually standing on.
         self.sam_segmenter = None
         self.sam_load_attempted = False
+        self._funnel_cache_key = None
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
@@ -303,11 +304,59 @@ class RealsenseVision:
                   "error": str(exc), "timestamp": int(time.time() * 1000)})
             self.sam_segmenter = None
 
-    def _get_sam_mask(self, color_image):
+    def _get_funnel_maps(self, h, w):
+        """
+        Lazily build and cache forward + inverse remap tables for funnel vision.
+
+        Forward map (fwd_x, fwd_y): used by cv2.remap to warp the color image so
+        the center is magnified.  Each output pixel (dx, dy) samples from
+            src = (fwd_x[dy,dx], fwd_y[dy,dx])
+        using r_src = r_dst^gamma (gamma > 1 → center of output is magnified).
+
+        Inverse map (inv_x, inv_y): used to un-warp the segmentation mask back to
+        original image coordinates.  Each original pixel (ox, oy) looks up its
+        value from the warped mask at (inv_x[oy,ox], inv_y[oy,ox]).
+        """
+        gamma = float(self.config.get("funnel_warp_gamma", 1.5))
+        key = (h, w, gamma)
+        if self._funnel_cache_key == key:
+            return self._funnel_fwd_x, self._funnel_fwd_y, self._funnel_inv_x, self._funnel_inv_y
+
+        cx = (w - 1) / 2.0
+        cy_c = (h - 1) / 2.0
+        ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+        xn = (xs - cx) / max(cx, 1.0)
+        yn = (ys - cy_c) / max(cy_c, 1.0)
+        r = np.sqrt(xn ** 2 + yn ** 2)
+        r_safe = np.maximum(r, 1e-9)
+
+        # Forward: output ← source.  r_src = r_dst^gamma → fwd_scale = r_dst^(gamma-1).
+        # Near center r≈0: fwd_scale≈0 → many output pixels all pull from near the center
+        # → center is magnified in the output.
+        fwd_scale = r_safe ** (gamma - 1.0)
+        self._funnel_fwd_x = (cx  + xn * fwd_scale * cx ).astype(np.float32)
+        self._funnel_fwd_y = (cy_c + yn * fwd_scale * cy_c).astype(np.float32)
+
+        # Inverse: original ← warped mask.  r_dst = r_src^(1/gamma) → inv_scale = r_src^(1/gamma-1).
+        inv_scale = r_safe ** (1.0 / gamma - 1.0)
+        self._funnel_inv_x = (cx  + xn * inv_scale * cx ).astype(np.float32)
+        self._funnel_inv_y = (cy_c + yn * inv_scale * cy_c).astype(np.float32)
+
+        self._funnel_cache_key = key
+        return self._funnel_fwd_x, self._funnel_fwd_y, self._funnel_inv_x, self._funnel_inv_y
+
+    def _get_sam_mask(self, color_image, seed_override=None):
         if self.sam_segmenter is None:
             return None
         try:
-            seed = self._pick_appearance_seed(color_image)
+            seed = seed_override if seed_override is not None else self._pick_appearance_seed(color_image)
+            if bool(self.config.get("sam_clahe_enabled", True)):
+                clip  = float(self.config.get("sam_clahe_clip",      2.0))
+                tile  = int(  self.config.get("sam_clahe_tile_size",  8))
+                lab = cv2.cvtColor(color_image, cv2.COLOR_BGR2LAB)
+                lab[:, :, 0] = cv2.createCLAHE(clipLimit=clip,
+                                                tileGridSize=(tile, tile)).apply(lab[:, :, 0])
+                color_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
             h, w = color_image.shape[:2]
             # Background points at 4 % and 96 % of image width, same row as the
             # seed: these columns are almost always outside the path, so they tell
@@ -342,24 +391,46 @@ class RealsenseVision:
         appearance_mode = str(self.config.get("appearance_mode", "blend")).lower()
         min_area_frac   = float(self.config.get("sam_onnx_min_area_frac", 0.02))
 
+        # Funnel-vision warp: stretch the center of the color image before feeding it
+        # to the seg models so the path occupies more pixels and is easier to classify.
+        # The resulting mask is un-warped back to original coords before any depth or
+        # intrinsics math touches it, so the rest of the pipeline is unaffected.
+        funnel_enabled = bool(self.config.get("funnel_warp_enabled", False))
+        if funnel_enabled:
+            fwd_x, fwd_y, inv_x, inv_y = self._get_funnel_maps(height, width)
+            color_for_seg = cv2.remap(color_image, fwd_x, fwd_y, cv2.INTER_LINEAR)
+            # Transform the SAM seed from original coords into warped coords.
+            orig_seed = self._pick_appearance_seed(color_image)
+            sx = int(np.clip(orig_seed[0], 0, width - 1))
+            sy = int(np.clip(orig_seed[1], 0, height - 1))
+            sam_seed_override = (int(round(float(inv_x[sy, sx]))),
+                                 int(round(float(inv_y[sy, sx]))))
+        else:
+            color_for_seg = color_image
+            sam_seed_override = None
+
         seg_mask = None
         sam_mask = None
         if appearance_mode == "off":
-            seg_mask = self._get_sidewalk_mask(color_image)
+            seg_mask = self._get_sidewalk_mask(color_for_seg)
             combined_mask = seg_mask
         elif appearance_mode == "only":
-            sam_mask = self._get_sam_mask(color_image)
+            sam_mask = self._get_sam_mask(color_for_seg, seed_override=sam_seed_override)
             combined_mask = sam_mask
         else:  # "blend"
-            seg_mask = self._get_sidewalk_mask(color_image)
-            img_pixels = color_image.shape[0] * color_image.shape[1]
+            seg_mask = self._get_sidewalk_mask(color_for_seg)
+            img_pixels = color_for_seg.shape[0] * color_for_seg.shape[1]
             onnx_confident = (seg_mask is not None and
                               cv2.countNonZero(seg_mask) >= int(min_area_frac * img_pixels))
             if onnx_confident:
                 combined_mask = seg_mask
             else:
-                sam_mask = self._get_sam_mask(color_image)
+                sam_mask = self._get_sam_mask(color_for_seg, seed_override=sam_seed_override)
                 combined_mask = sam_mask if sam_mask is not None else seg_mask
+
+        # Un-warp the mask back to original image coordinates.
+        if combined_mask is not None and funnel_enabled:
+            combined_mask = cv2.remap(combined_mask, inv_x, inv_y, cv2.INTER_NEAREST)
 
         if combined_mask is not None:
             roi_seg = combined_mask[row_start:row_end, :]
