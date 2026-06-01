@@ -87,6 +87,9 @@ class RealsenseVision:
         # confidences are close and jitter by a few percent frame to frame.
         self.last_edge_used = None        # "left" / "right" / None
         self.last_edge_used_ts = 0.0
+        # Last-known per-side edge observations, populated from nearest-band detections.
+        # Stored so telemetry can report each side reliably even if one edge blinks out.
+        self.last_edge_obs = {"left": None, "right": None}
         # MobileSAM segmenter — loaded lazily in start(). When the ONNX
         # Cityscapes classifier returns a sparse mask, SAM is queried with
         # the adaptive seed point as a foreground prompt and its mask
@@ -215,8 +218,16 @@ class RealsenseVision:
             "right_edge_clearance_m": result.get("right_edge_clearance_m"),
             "edge_left_m": result.get("edge_left_m"),
             "edge_left_conf": result.get("edge_left_conf", 0),
+            "edge_left_x_m": result.get("edge_left_x_m"),
+            "edge_left_y_m": result.get("edge_left_y_m"),
+            "edge_left_known": result.get("edge_left_known", False),
+            "edge_left_known_age_ms": result.get("edge_left_known_age_ms"),
             "edge_right_m": result.get("edge_right_m"),
             "edge_right_conf": result.get("edge_right_conf", 0),
+            "edge_right_x_m": result.get("edge_right_x_m"),
+            "edge_right_y_m": result.get("edge_right_y_m"),
+            "edge_right_known": result.get("edge_right_known", False),
+            "edge_right_known_age_ms": result.get("edge_right_known_age_ms"),
             "edge_used": result.get("edge_used", "none"),
             "edge_target_offset_m": result.get("edge_target_offset_m"),
             "edge_forward_m": result.get("edge_forward_m"),
@@ -611,8 +622,16 @@ class RealsenseVision:
             "right_edge_clearance_m": edge_info.get("right_edge_clearance_m"),
             "edge_left_m": edge_guidance["left_m"],
             "edge_left_conf": edge_guidance["left_conf"],
+            "edge_left_x_m": edge_guidance["left_x_m"],
+            "edge_left_y_m": edge_guidance["left_y_m"],
+            "edge_left_known": edge_guidance["left_known"],
+            "edge_left_known_age_ms": edge_guidance["left_known_age_ms"],
             "edge_right_m": edge_guidance["right_m"],
             "edge_right_conf": edge_guidance["right_conf"],
+            "edge_right_x_m": edge_guidance["right_x_m"],
+            "edge_right_y_m": edge_guidance["right_y_m"],
+            "edge_right_known": edge_guidance["right_known"],
+            "edge_right_known_age_ms": edge_guidance["right_known_age_ms"],
             "edge_used": edge_guidance["used"],
             "edge_target_offset_m": edge_guidance["offset_m"] if edge_guidance["valid"] else None,
             "edge_forward_m": edge_guidance["forward_m"],
@@ -987,6 +1006,10 @@ class RealsenseVision:
             "offset_m": 0.0,
             "left_m": None, "left_conf": 0.0,
             "right_m": None, "right_conf": 0.0,
+            "left_x_m": None, "left_y_m": None,
+            "right_x_m": None, "right_y_m": None,
+            "left_known": False, "right_known": False,
+            "left_known_age_ms": None, "right_known_age_ms": None,
             "used": "none",
             "forward_m": None,
             "confidence": 0.0,
@@ -1009,6 +1032,7 @@ class RealsenseVision:
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))  # 1.5 ft
         max_forward_m = float(self.config.get("edge_max_lookahead_m", 2.5))
         dropoff_jump_m = float(self.config.get("dropoff_min_depth_jump_m", 0.15))
+        known_ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
 
         N_BANDS = int(self.config.get("edge_guidance_bands", 8))
         h, w = walkable_mask.shape
@@ -1035,6 +1059,7 @@ class RealsenseVision:
             return px, conf
 
         best = None  # band closest to the lookahead with at least one usable edge
+        closest = {"left": None, "right": None}  # nearest currently visible edge per side
         for i in range(N_BANDS):
             r0 = i * band_h
             r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
@@ -1077,15 +1102,81 @@ class RealsenseVision:
                 rolled_X_b = cr * cam_X_b - sr * cam_Y_b
                 return -rolled_X_b                              # +left convention
 
+            def x_right_of(bx):
+                cam_X_b = (bx - ppx) * ref_depth / fx
+                cam_Y_b = (band_mid_row_full - ppy) * ref_depth / fy
+                return cr * cam_X_b - sr * cam_Y_b             # +right convention
+
             band_info = {
                 "forward_m": float(forward_m),
                 "left_m":  lateral_of(left_px)  if left_px  is not None else None,
                 "left_conf":  left_conf  if left_px  is not None else 0.0,
                 "right_m": lateral_of(right_px) if right_px is not None else None,
                 "right_conf": right_conf if right_px is not None else 0.0,
+                "left_x_m": x_right_of(left_px) if left_px is not None else None,
+                "right_x_m": x_right_of(right_px) if right_px is not None else None,
             }
+
+            if left_px is not None:
+                left_obs = {
+                    "m": float(band_info["left_m"]),
+                    "x_m": float(band_info["left_x_m"]),
+                    "y_m": float(forward_m),
+                    "conf": float(left_conf),
+                    "ts": time.time(),
+                }
+                if closest["left"] is None or left_obs["y_m"] < closest["left"]["y_m"]:
+                    closest["left"] = left_obs
+            if right_px is not None:
+                right_obs = {
+                    "m": float(band_info["right_m"]),
+                    "x_m": float(band_info["right_x_m"]),
+                    "y_m": float(forward_m),
+                    "conf": float(right_conf),
+                    "ts": time.time(),
+                }
+                if closest["right"] is None or right_obs["y_m"] < closest["right"]["y_m"]:
+                    closest["right"] = right_obs
+
             if best is None or abs(forward_m - lookahead_m) < abs(best["forward_m"] - lookahead_m):
                 best = band_info
+
+        # Refresh last-known per-side observations from the nearest currently visible edges.
+        now_ts = time.time()
+        for side in ("left", "right"):
+            if closest[side] is not None:
+                self.last_edge_obs[side] = closest[side]
+
+        # Read the freshest known edge for each side (current frame preferred, then cache).
+        def known_edge(side):
+            cur = closest[side]
+            if cur is not None:
+                return cur, 0.0, True
+            last = self.last_edge_obs.get(side)
+            if last is None:
+                return None, None, False
+            age_ms = (now_ts - float(last.get("ts", now_ts))) * 1000.0
+            if age_ms > known_ttl_ms:
+                return None, None, False
+            return last, age_ms, True
+
+        left_known, left_age_ms, left_known_ok = known_edge("left")
+        right_known, right_age_ms, right_known_ok = known_edge("right")
+
+        result.update({
+            "left_m": round(float(left_known["m"]), 4) if left_known_ok else None,
+            "left_conf": round(float(left_known["conf"]), 2) if left_known_ok else 0.0,
+            "left_x_m": round(float(left_known["x_m"]), 4) if left_known_ok else None,
+            "left_y_m": round(float(left_known["y_m"]), 3) if left_known_ok else None,
+            "right_m": round(float(right_known["m"]), 4) if right_known_ok else None,
+            "right_conf": round(float(right_known["conf"]), 2) if right_known_ok else 0.0,
+            "right_x_m": round(float(right_known["x_m"]), 4) if right_known_ok else None,
+            "right_y_m": round(float(right_known["y_m"]), 3) if right_known_ok else None,
+            "left_known": bool(left_known_ok),
+            "right_known": bool(right_known_ok),
+            "left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
+            "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
+        })
 
         if best is None:
             return result
