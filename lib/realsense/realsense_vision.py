@@ -60,12 +60,6 @@ class RealsenseVision:
         self.last_fps_sample_at = time.time()
         self.last_fps_counter = 0
         self.measured_fps = 0
-        self.seg_session = None
-        self.seg_input_name = None
-        self.seg_h = 256
-        self.seg_w = 512
-        self._SEG_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        self._SEG_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
         # Latest rover pitch and roll in radians, updated via stdin messages from the
         # Node.js parent. Used to rotate camera-frame depth into a rover-horizontal frame
         # so potholes / bumps / off-camber surfaces don't corrupt object heights, lateral
@@ -74,12 +68,6 @@ class RealsenseVision:
         #   roll  positive = right side down
         self.current_pitch_rad = 0.0
         self.current_roll_rad  = 0.0
-        # Adaptive seed for appearance-based / SAM ground segmentation.
-        # Updated after each successful detection to track the previous
-        # frame's near-band centerline pixel. None = no recent track, fall
-        # back to bottom-center.
-        self.last_seed_x = None
-        self.last_seed_x_ts = 0.0
         # Edge-guidance hysteresis: once an edge is chosen as the steering reference,
         # stick with it as long as it stays confident — only switch sides when the
         # chosen edge degrades or the OTHER edge becomes substantially more confident.
@@ -90,315 +78,225 @@ class RealsenseVision:
         # Last-known per-side edge observations, populated from nearest-band detections.
         # Stored so telemetry can report each side reliably even if one edge blinks out.
         self.last_edge_obs = {"left": None, "right": None}
-        # MobileSAM segmenter — loaded lazily in start(). When the ONNX
-        # Cityscapes classifier returns a sparse mask, SAM is queried with
-        # the adaptive seed point as a foreground prompt and its mask
-        # becomes the walkable region. Class-agnostic, so it works on any
-        # surface the rover is actually standing on.
-        self.sam_segmenter = None
-        self.sam_load_attempted = False
-        self._funnel_cache_key = None
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
     def stop(self, *_args):
         self.running = False
 
-    def start(self):
-        width = int(self.config.get("width", 640))
-        height = int(self.config.get("height", 480))
-        fps = int(self.config.get("fps_normal", 15))
+    def _detect_path_from_lines(self, color_image, depth_image, intrinsics):
+        # Line-only edge detector: build a simple walkable strip mask, keep the
+        # most central connected component, then extract the nearest left/right
+        # edge positions from that mask.
+        height, width = depth_image.shape[:2]
+        row_start = int(height * float(self.config.get("edge_roi_top_frac", 0.40)))
+        row_end = int(height * float(self.config.get("edge_roi_bottom_frac", 0.95)))
+        row_start = int(np.clip(row_start, 0, height - 2))
+        row_end = int(np.clip(max(row_start + 2, row_end), row_start + 2, height))
 
-        self.pipeline = rs.pipeline()
-        rs_config = rs.config()
-        rs_config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
-        rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
-        profile = self.pipeline.start(rs_config)
-        self.pipeline_started = True
-        self.align = rs.align(rs.stream.color)
+        roi_color = color_image[row_start:row_end, :]
+        roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
+        roi_depth[roi_depth <= 0] = np.nan
 
-        device = profile.get_device()
-        for sensor in device.sensors:
-            if sensor.supports(rs.option.emitter_enabled):
-                sensor.set_option(rs.option.emitter_enabled, 1)
+        walkable_mask, green_mask_roi = self._build_simple_ground_mask(roi_color)
+        walkable_mask = self._select_center_component(walkable_mask)
+        walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
 
-        emit({
-            "message_type": "status",
-            "status": "ready",
-            "timestamp": int(time.time() * 1000),
-            "fps_target": self.current_fps_target
-        })
-        self._load_seg_model()
-        self._load_sam_model()
+        if not self._validate_perspective_narrowing(walkable_mask, green_mask_roi, roi_depth):
+            return {
+                "offset_meters": 0,
+                "path_width_meters": self.last_path_width_meters,
+                "confidence": 0,
+                "left_boundary_visible": False,
+                "right_boundary_visible": False,
+                "centerline": [],
+                "nearest_edge_m": None,
+                "nearest_edge_side": None,
+                "nearest_edge_clearance_m": None,
+                "nearest_edge_type": None,
+                "left_edge_clearance_m": None,
+                "right_edge_clearance_m": None,
+                "edge_left_m": None,
+                "edge_left_conf": 0,
+                "edge_left_x_m": None,
+                "edge_left_y_m": None,
+                "edge_left_known": False,
+                "edge_left_known_age_ms": None,
+                "edge_right_m": None,
+                "edge_right_conf": 0,
+                "edge_right_x_m": None,
+                "edge_right_y_m": None,
+                "edge_right_known": False,
+                "edge_right_known_age_ms": None,
+                "edge_used": "none",
+                "edge_target_offset_m": None,
+                "edge_forward_m": None,
+                "edge_guidance_valid": False,
+                "ground_grid_removed_frac": self._last_ground_removed_frac,
+                "nearest_seen_left_edge": {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+                "nearest_seen_right_edge": {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+                "status": "perspective_invalid",
+            }
 
-    def update_target_fps(self):
-        cpu_percent = psutil.cpu_percent(interval=None)
-        high_threshold = float(self.config.get("cpu_high_threshold", 70))
-        critical_threshold = float(self.config.get("cpu_critical_threshold", 85))
+        h, w = walkable_mask.shape
+        n_bands = int(self.config.get("edge_line_bands", 6))
+        band_h = max(1, h // n_bands)
+        lookahead_frac = float(self.config.get("edge_line_lookahead_frac", 0.82))
+        y_look = int(np.clip(h * lookahead_frac, 0, h - 1))
+        ppx, ppy = intrinsics.ppx, intrinsics.ppy
+        fx, fy = intrinsics.fx, intrinsics.fy
+        pitch = float(self.current_pitch_rad)
+        roll = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll), math.sin(roll)
 
-        if cpu_percent >= critical_threshold:
-            self.current_fps_target = int(self.config.get("fps_critical_cpu", 7))
-        elif cpu_percent >= high_threshold:
-            self.current_fps_target = int(self.config.get("fps_high_cpu", 10))
-        else:
-            self.current_fps_target = int(self.config.get("fps_normal", 15))
+        def edge_obs_from_px(x_px, y_px, seg_len_px):
+            depth_m = self._sample_depth_at(roi_depth, x_px, y_px)
+            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
+                return None
+            full_y = row_start + y_px
+            cam_X = (x_px - ppx) * depth_m / fx
+            cam_Y = (full_y - ppy) * depth_m / fy
+            rolled_X = cr * cam_X - sr * cam_Y
+            rolled_Y = sr * cam_X + cr * cam_Y
+            forward_m = sp * rolled_Y + cp * depth_m
+            if forward_m < 0.1 or forward_m > 8.0:
+                return None
+            confidence = 0.45 + min(0.5, float(seg_len_px) / 260.0)
+            confidence = float(max(0.0, min(0.99, confidence)))
+            return {
+                "seen": True,
+                "x_distance_m": round(float(rolled_X), 4),
+                "y_distance_m": round(float(forward_m), 3),
+                "confidence": round(float(confidence), 2),
+                "m": round(float(-rolled_X), 4),
+                "x_m": round(float(rolled_X), 4),
+                "y_m": round(float(forward_m), 3),
+                "ts": time.time(),
+            }
 
-        return cpu_percent
+        nearest_left = None
+        nearest_right = None
+        for i in range(n_bands):
+            r0 = i * band_h
+            r1 = min(h, r0 + band_h) if i < n_bands - 1 else h
+            if r1 - r0 < 4:
+                continue
 
-    def should_process_frame(self):
-        if self.current_fps_target <= 0:
-            return True
+            band_mask = walkable_mask[r0:r1, :]
+            band_scores = band_mask.mean(axis=0) / 255.0
+            left_px, right_px = self.find_nearest_mask_edges(
+                band_scores,
+                threshold=float(self.config.get("edge_mask_threshold", 0.14)),
+                min_run_px=int(self.config.get("edge_min_run_px", 6)),
+            )
+            if left_px is None and right_px is None:
+                continue
 
-        now = time.time()
-        min_interval = 1.0 / float(self.current_fps_target)
-        if now - self.last_processed_at < min_interval:
-            return False
+            band_y = int((r0 + r1) / 2.0)
+            if left_px is not None:
+                seg_len = max(1, int(np.count_nonzero(band_mask[:, max(0, left_px - 1):min(w, left_px + 2)])))
+                obs = edge_obs_from_px(left_px, band_y, seg_len)
+                if obs is not None and (nearest_left is None or obs["y_distance_m"] < nearest_left["y_distance_m"]):
+                    nearest_left = obs
+            if right_px is not None:
+                seg_len = max(1, int(np.count_nonzero(band_mask[:, max(0, right_px - 1):min(w, right_px + 2)])))
+                obs = edge_obs_from_px(right_px, band_y, seg_len)
+                if obs is not None and (nearest_right is None or obs["y_distance_m"] < nearest_right["y_distance_m"]):
+                    nearest_right = obs
 
-        self.last_processed_at = now
-        return True
+        # Update per-side cached values with the newest seen edges.
+        now_ts = time.time()
+        ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
+        if nearest_left is not None:
+            self.last_edge_obs["left"] = nearest_left
+        if nearest_right is not None:
+            self.last_edge_obs["right"] = nearest_right
 
-    def update_measured_fps(self):
-        now = time.time()
-        self.frame_counter += 1
-        self.last_fps_counter += 1
-        elapsed = now - self.last_fps_sample_at
-        if elapsed >= 1.0:
-            self.measured_fps = self.last_fps_counter / elapsed
-            self.last_fps_counter = 0
-            self.last_fps_sample_at = now
+        def known(side, cur):
+            if cur is not None:
+                return cur, 0.0, True
+            prev = self.last_edge_obs.get(side)
+            if prev is None:
+                return None, None, False
+            age_ms = (now_ts - float(prev.get("ts", now_ts))) * 1000.0
+            if age_ms > ttl_ms:
+                return None, None, False
+            return prev, age_ms, True
 
-    def run(self):
-        try:
-            self.start()
-            while self.running:
-                frames = self.pipeline.wait_for_frames(1000)
-                cpu_percent = self.update_target_fps()
-                if not self.should_process_frame():
-                    continue
+        left_k, left_age_ms, left_ok = known("left", nearest_left)
+        right_k, right_age_ms, right_ok = known("right", nearest_right)
 
-                detection = self.process_frames(frames, cpu_percent)
-                if detection is not None:
-                    emit(detection)
-                    self.last_emit_at = time.time()
-        finally:
-            if self.pipeline is not None and self.pipeline_started:
-                self.pipeline.stop()
+        side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
+        use = "none"
+        if nearest_left is not None and nearest_right is not None:
+            use = "left" if nearest_left["confidence"] >= nearest_right["confidence"] else "right"
+        elif nearest_left is not None:
+            use = "left"
+        elif nearest_right is not None:
+            use = "right"
 
-    def process_frames(self, frames, cpu_percent):
-        aligned_frames = self.align.process(frames)
-        depth_frame = aligned_frames.get_depth_frame()
-        color_frame = aligned_frames.get_color_frame()
-        if not depth_frame or not color_frame:
-            return None
+        valid = use in ("left", "right")
+        target_offset = 0.0
+        chosen_conf = 0.0
+        edge_forward_m = None
+        if valid:
+            chosen = nearest_left if use == "left" else nearest_right
+            if use == "left":
+                target_offset = chosen["m"] - side_offset_m
+            else:
+                target_offset = chosen["m"] + side_offset_m
+            edge_forward_m = chosen["y_distance_m"]
+            chosen_conf = chosen["confidence"]
 
-        depth_image = np.asanyarray(depth_frame.get_data())
-        color_image = np.asanyarray(color_frame.get_data())
-        intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
-        self.last_fx = intrinsics.fx
-
-        result = self.detect_path(color_image, depth_image, intrinsics)
-        objects = self.detect_objects(depth_image, intrinsics)
-        self.update_measured_fps()
+        x_angle_deg = math.degrees(math.atan2(-target_offset, max(0.1, edge_forward_m))) if valid else 0.0
+        width_m = self.last_path_width_meters
+        if nearest_left is not None and nearest_right is not None:
+            current_width = abs(nearest_left["m"] - nearest_right["m"])
+            if 0.4 <= current_width <= 2.0:
+                width_m = current_width
+                self.last_path_width_meters = current_width
 
         return {
-            "message_type": "path_detection",
-            "x_angle_deg": result.get("x_angle_deg", 0),
-            "ground_grid_removed_frac": result.get("ground_grid_removed_frac", 0),
-            "offset_meters": result["offset_meters"],
-            "path_width_meters": result["path_width_meters"],
-            "confidence": result["confidence"],
-            "left_boundary_visible": result["left_boundary_visible"],
-            "right_boundary_visible": result["right_boundary_visible"],
-            "centerline": result["centerline"],
-            "nearest_edge_m": result["nearest_edge_m"],
-            "nearest_edge_side": result["nearest_edge_side"],
-            "nearest_edge_clearance_m": result["nearest_edge_clearance_m"],
-            "nearest_edge_type": result["nearest_edge_type"],
-            "left_edge_clearance_m": result.get("left_edge_clearance_m"),
-            "right_edge_clearance_m": result.get("right_edge_clearance_m"),
-            "edge_left_m": result.get("edge_left_m"),
-            "edge_left_conf": result.get("edge_left_conf", 0),
-            "edge_left_x_m": result.get("edge_left_x_m"),
-            "edge_left_y_m": result.get("edge_left_y_m"),
-            "edge_left_known": result.get("edge_left_known", False),
-            "edge_left_known_age_ms": result.get("edge_left_known_age_ms"),
-            "edge_right_m": result.get("edge_right_m"),
-            "edge_right_conf": result.get("edge_right_conf", 0),
-            "edge_right_x_m": result.get("edge_right_x_m"),
-            "edge_right_y_m": result.get("edge_right_y_m"),
-            "edge_right_known": result.get("edge_right_known", False),
-            "edge_right_known_age_ms": result.get("edge_right_known_age_ms"),
-            "edge_used": result.get("edge_used", "none"),
-            "edge_target_offset_m": result.get("edge_target_offset_m"),
-            "edge_forward_m": result.get("edge_forward_m"),
-            "edge_guidance_valid": result.get("edge_guidance_valid", False),
-            "cpu_percent": round(cpu_percent, 1),
-            "fps_current": round(self.measured_fps, 1),
-            "fps_target": self.current_fps_target,
-            "status": result["status"],
-            "source": "realsense_vision",
-            "timestamp": int(time.time() * 1000),
-            "objects": objects
+            "x_angle_deg": round(float(x_angle_deg), 2),
+            "offset_meters": round(float(target_offset), 4) if valid else 0.0,
+            "path_width_meters": round(float(width_m), 4),
+            "confidence": round(float(chosen_conf), 2) if valid else 0.0,
+            "left_boundary_visible": nearest_left is not None,
+            "right_boundary_visible": nearest_right is not None,
+            "centerline": [],
+            "nearest_edge_m": edge_forward_m,
+            "nearest_edge_side": use if valid else None,
+            "nearest_edge_clearance_m": None,
+            "nearest_edge_type": "boundary" if valid else None,
+            "left_edge_clearance_m": None,
+            "right_edge_clearance_m": None,
+            "edge_left_m": round(float(left_k["m"]), 4) if left_ok else None,
+            "edge_left_conf": round(float(left_k["confidence"]), 2) if left_ok else 0.0,
+            "edge_left_x_m": round(float(left_k["x_distance_m"]), 4) if left_ok else None,
+            "edge_left_y_m": round(float(left_k["y_distance_m"]), 3) if left_ok else None,
+            "edge_left_known": bool(left_ok),
+            "edge_left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
+            "edge_right_m": round(float(right_k["m"]), 4) if right_ok else None,
+            "edge_right_conf": round(float(right_k["confidence"]), 2) if right_ok else 0.0,
+            "edge_right_x_m": round(float(right_k["x_distance_m"]), 4) if right_ok else None,
+            "edge_right_y_m": round(float(right_k["y_distance_m"]), 3) if right_ok else None,
+            "edge_right_known": bool(right_ok),
+            "edge_right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
+            "edge_used": use,
+            "edge_target_offset_m": round(float(target_offset), 4) if valid else None,
+            "edge_forward_m": round(float(edge_forward_m), 3) if edge_forward_m is not None else None,
+            "edge_guidance_valid": bool(valid),
+            "ground_grid_removed_frac": self._last_ground_removed_frac,
+            "nearest_seen_left_edge": left_k if left_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+            "nearest_seen_right_edge": right_k if right_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+            "status": "tracking" if valid else "low_confidence",
         }
 
-    def _load_seg_model(self):
-        model_path = self.config.get("segmentation_model_path") or ""
-        if not model_path or not os.path.isfile(model_path):
-            return
-        try:
-            import onnxruntime as ort
-            opts = ort.SessionOptions()
-            opts.inter_op_num_threads = 2
-            opts.intra_op_num_threads = 2
-            self.seg_session = ort.InferenceSession(
-                model_path, sess_options=opts, providers=["CPUExecutionProvider"]
-            )
-            self.seg_input_name = self.seg_session.get_inputs()[0].name
-            self.seg_h = int(self.config.get("segmentation_input_height", 256))
-            self.seg_w = int(self.config.get("segmentation_input_width", 512))
-            emit({"message_type": "status", "status": "seg_model_loaded",
-                  "input_size": [self.seg_w, self.seg_h],
-                  "timestamp": int(time.time() * 1000)})
-        except Exception as exc:
-            emit({"message_type": "status", "status": "seg_model_failed",
-                  "error": str(exc), "timestamp": int(time.time() * 1000)})
-            self.seg_session = None
-
-    def _get_sidewalk_mask(self, color_image):
-        if self.seg_session is None:
-            return None
-        try:
-            img = cv2.resize(color_image, (self.seg_w, self.seg_h))
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-            img = (img - self._SEG_MEAN) / self._SEG_STD
-            inp = np.transpose(img, (2, 0, 1))[np.newaxis]
-            logits = self.seg_session.run(None, {self.seg_input_name: inp})[0]  # (1,19,H/4,W/4)
-            pred = np.argmax(logits[0], axis=0).astype(np.uint8)
-            h, w = color_image.shape[:2]
-            pred_full = cv2.resize(pred, (w, h), interpolation=cv2.INTER_NEAREST)
-            return ((pred_full == 1) * 255).astype(np.uint8)  # Cityscapes class 1 = sidewalk
-        except Exception:
-            return None
-
-    # Adaptive seed for appearance-based ground segmentation: pick a pixel
-    # near the bottom of the frame that's likely on the surface the rover
-    # is currently traversing. Use the previous frame's near-centerline x
-    # (clipped to image bounds) if recent enough; otherwise bottom-center.
-    def _pick_appearance_seed(self, color_image):
-        h, w = color_image.shape[:2]
-        seed_y_frac = float(self.config.get("appearance_seed_y_frac", 0.92))
-        ttl_ms = float(self.config.get("appearance_seed_ttl_ms", 2000))
-        y = int(np.clip(h * seed_y_frac, 0, h - 1))
-        x = w // 2
-        if self.last_seed_x is not None:
-            age_ms = (time.time() - self.last_seed_x_ts) * 1000.0
-            if age_ms <= ttl_ms:
-                x = int(np.clip(self.last_seed_x, 0, w - 1))
-        return (x, y)
-
-    # MobileSAM ground segmentation. Class-agnostic ML segmenter: feed it an
-    # image plus a foreground point (the adaptive seed — whatever surface
-    # the rover is standing on), get back a high-quality mask of that
-    # region. Replaces the older Photoshop-paint-bucket-style flood fill;
-    # SAM understands shadows, two-tone surfaces, paint markings, and
-    # perspective in ways pure color similarity cannot.
-    def _load_sam_model(self):
-        if self.sam_load_attempted:
-            return
-        self.sam_load_attempted = True
-        if not bool(self.config.get("sam_enabled", True)):
-            return
-        encoder_path = self.config.get("sam_encoder_path") or "./lib/realsense/mobilesam/mobile_sam_encoder.onnx"
-        decoder_path = self.config.get("sam_decoder_path") or "./lib/realsense/mobilesam/mobile_sam_decoder.onnx"
-        try:
-            from mobilesam.mobilesam import MobileSAMSegmenter
-        except Exception:
-            # Fall back to file-path import when the script isn't launched as a package.
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobilesam"))
-            try:
-                from mobilesam import MobileSAMSegmenter  # type: ignore
-            except Exception as exc:
-                emit({"message_type": "status", "status": "sam_load_failed",
-                      "error": "import failed: " + str(exc),
-                      "timestamp": int(time.time() * 1000)})
-                return
-        try:
-            self.sam_segmenter = MobileSAMSegmenter(encoder_path, decoder_path)
-            emit({"message_type": "status", "status": "sam_loaded",
-                  "encoder": encoder_path, "decoder": decoder_path,
-                  "timestamp": int(time.time() * 1000)})
-        except Exception as exc:
-            emit({"message_type": "status", "status": "sam_load_failed",
-                  "error": str(exc), "timestamp": int(time.time() * 1000)})
-            self.sam_segmenter = None
-
-    def _get_funnel_maps(self, h, w):
-        """
-        Lazily build and cache forward + inverse remap tables for funnel vision.
-
-        Forward map (fwd_x, fwd_y): used by cv2.remap to warp the color image so
-        the center is magnified.  Each output pixel (dx, dy) samples from
-            src = (fwd_x[dy,dx], fwd_y[dy,dx])
-        using r_src = r_dst^gamma (gamma > 1 → center of output is magnified).
-
-        Inverse map (inv_x, inv_y): used to un-warp the segmentation mask back to
-        original image coordinates.  Each original pixel (ox, oy) looks up its
-        value from the warped mask at (inv_x[oy,ox], inv_y[oy,ox]).
-        """
-        gamma = float(self.config.get("funnel_warp_gamma", 1.5))
-        key = (h, w, gamma)
-        if self._funnel_cache_key == key:
-            return self._funnel_fwd_x, self._funnel_fwd_y, self._funnel_inv_x, self._funnel_inv_y
-
-        cx = (w - 1) / 2.0
-        cy_c = (h - 1) / 2.0
-        ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
-        xn = (xs - cx) / max(cx, 1.0)
-        yn = (ys - cy_c) / max(cy_c, 1.0)
-        r = np.sqrt(xn ** 2 + yn ** 2)
-        r_safe = np.maximum(r, 1e-9)
-
-        # Forward: output ← source.  r_src = r_dst^gamma → fwd_scale = r_dst^(gamma-1).
-        # Near center r≈0: fwd_scale≈0 → many output pixels all pull from near the center
-        # → center is magnified in the output.
-        fwd_scale = r_safe ** (gamma - 1.0)
-        self._funnel_fwd_x = (cx  + xn * fwd_scale * cx ).astype(np.float32)
-        self._funnel_fwd_y = (cy_c + yn * fwd_scale * cy_c).astype(np.float32)
-
-        # Inverse: original ← warped mask.  r_dst = r_src^(1/gamma) → inv_scale = r_src^(1/gamma-1).
-        inv_scale = r_safe ** (1.0 / gamma - 1.0)
-        self._funnel_inv_x = (cx  + xn * inv_scale * cx ).astype(np.float32)
-        self._funnel_inv_y = (cy_c + yn * inv_scale * cy_c).astype(np.float32)
-
-        self._funnel_cache_key = key
-        return self._funnel_fwd_x, self._funnel_fwd_y, self._funnel_inv_x, self._funnel_inv_y
-
-    def _get_sam_mask(self, color_image, seed_override=None):
-        if self.sam_segmenter is None:
-            return None
-        try:
-            seed = seed_override if seed_override is not None else self._pick_appearance_seed(color_image)
-            if bool(self.config.get("sam_clahe_enabled", True)):
-                clip  = float(self.config.get("sam_clahe_clip",      2.0))
-                tile  = int(  self.config.get("sam_clahe_tile_size",  8))
-                lab = cv2.cvtColor(color_image, cv2.COLOR_BGR2LAB)
-                lab[:, :, 0] = cv2.createCLAHE(clipLimit=clip,
-                                                tileGridSize=(tile, tile)).apply(lab[:, :, 0])
-                color_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-            h, w = color_image.shape[:2]
-            # Background points at 4 % and 96 % of image width, same row as the
-            # seed: these columns are almost always outside the path, so they tell
-            # SAM what NOT to include and prevent mask bleed into adjacent surfaces.
-            bg_y = seed[1]
-            bg_left  = (int(w * 0.04), bg_y)
-            bg_right = (int(w * 0.96), bg_y)
-            return self.sam_segmenter.infer(color_image, seed, background_points=[bg_left, bg_right])
-        except Exception as exc:
-            emit({"message_type": "status", "status": "sam_infer_failed",
-                  "error": str(exc), "timestamp": int(time.time() * 1000)})
-            return None
-
     def detect_path(self, color_image, depth_image, intrinsics):
+        if bool(self.config.get("edge_lines_only", True)):
+            return self._detect_path_from_lines(color_image, depth_image, intrinsics)
+
         height, width = depth_image.shape[:2]
         row_start = int(height * 0.35)
         row_end = int(height * 0.90)
@@ -406,59 +304,7 @@ class RealsenseVision:
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
 
-        # Mask source selection:
-        #   "off"   — ONNX only (original behavior; SAM not consulted)
-        #   "blend" — ONNX as a fast sanity check; SAM fills in when ONNX gives up
-        #             (default). The threshold for "ONNX gave up" is whether
-        #             its mask covers at least sam_onnx_min_area_frac of pixels.
-        #   "only"  — SAM only (ONNX inference skipped entirely; slower but
-        #             generalises off-sidewalk)
-        # Either way we never OR ONNX and SAM — they were producing inflated
-        # masks that shifted the boundary search. If both sources fail, the
-        # HSV fallback below tries to do something.
-        appearance_mode = str(self.config.get("appearance_mode", "blend")).lower()
-        min_area_frac   = float(self.config.get("sam_onnx_min_area_frac", 0.02))
-
-        # Funnel-vision warp: stretch the center of the color image before feeding it
-        # to the seg models so the path occupies more pixels and is easier to classify.
-        # The resulting mask is un-warped back to original coords before any depth or
-        # intrinsics math touches it, so the rest of the pipeline is unaffected.
-        funnel_enabled = bool(self.config.get("funnel_warp_enabled", False))
-        if funnel_enabled:
-            fwd_x, fwd_y, inv_x, inv_y = self._get_funnel_maps(height, width)
-            color_for_seg = cv2.remap(color_image, fwd_x, fwd_y, cv2.INTER_LINEAR)
-            # Transform the SAM seed from original coords into warped coords.
-            orig_seed = self._pick_appearance_seed(color_image)
-            sx = int(np.clip(orig_seed[0], 0, width - 1))
-            sy = int(np.clip(orig_seed[1], 0, height - 1))
-            sam_seed_override = (int(round(float(inv_x[sy, sx]))),
-                                 int(round(float(inv_y[sy, sx]))))
-        else:
-            color_for_seg = color_image
-            sam_seed_override = None
-
-        seg_mask = None
-        sam_mask = None
-        if appearance_mode == "off":
-            seg_mask = self._get_sidewalk_mask(color_for_seg)
-            combined_mask = seg_mask
-        elif appearance_mode == "only":
-            sam_mask = self._get_sam_mask(color_for_seg, seed_override=sam_seed_override)
-            combined_mask = sam_mask
-        else:  # "blend"
-            seg_mask = self._get_sidewalk_mask(color_for_seg)
-            img_pixels = color_for_seg.shape[0] * color_for_seg.shape[1]
-            onnx_confident = (seg_mask is not None and
-                              cv2.countNonZero(seg_mask) >= int(min_area_frac * img_pixels))
-            if onnx_confident:
-                combined_mask = seg_mask
-            else:
-                sam_mask = self._get_sam_mask(color_for_seg, seed_override=sam_seed_override)
-                combined_mask = sam_mask if sam_mask is not None else seg_mask
-
-        # Un-warp the mask back to original image coordinates.
-        if combined_mask is not None and funnel_enabled:
-            combined_mask = cv2.remap(combined_mask, inv_x, inv_y, cv2.INTER_NEAREST)
+        combined_mask = fallback_mask
 
         # Indoor-friendly concrete strip fallback (e.g. light concrete over dark carpet).
         hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
@@ -1017,6 +863,87 @@ class RealsenseVision:
             "right_edge_clearance_m":   round(float(worst_right[0]), 3) if worst_right is not None else None,
         }
 
+    def _build_rover_bev_mask(self, walkable_mask, roi_depth, intrinsics, roi_row_start):
+        # Project the walkable mask into a rover-horizontal occupancy map.
+        # In this view, forward distance is the row axis and left/right offset is
+        # the column axis, which makes path edges much easier to reason about.
+        cam_h = float(self.config.get("camera_height_m", 0.406))
+        ground_tol = float(self.config.get("ground_height_tol_m", 0.10))
+        max_forward_m = max(float(self.config.get("edge_max_lookahead_m", 2.5)) + 0.75, 2.0)
+        half_width_m = max(
+            1.5,
+            float(self.config.get("rover_width_m", 0.432)) * 2.5,
+            float(self.config.get("edge_side_offset_m", 0.4572)) * 2.0 + 0.8,
+        )
+        cell_m = 0.05
+        bev_w = max(3, int(math.ceil((2.0 * half_width_m) / cell_m)) + 1)
+        bev_h = max(3, int(math.ceil(max_forward_m / cell_m)) + 1)
+        bev = np.zeros((bev_h, bev_w), dtype=np.uint8)
+
+        mask_bool = walkable_mask > 0
+        valid = mask_bool & np.isfinite(roi_depth) & (roi_depth > 0.2) & (roi_depth < (max_forward_m + 2.0))
+        vy, vx = np.where(valid)
+        if vy.size == 0:
+            return None
+
+        fx, fy = intrinsics.fx, intrinsics.fy
+        ppx, ppy = intrinsics.ppx, intrinsics.ppy
+        pitch = float(self.current_pitch_rad)
+        roll = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll), math.sin(roll)
+
+        z = roi_depth[vy, vx].astype(np.float32)
+        cam_X = (vx - ppx) * z / fx
+        cam_Y = ((vy + roi_row_start) - ppy) * z / fy
+        rolled_X = cr * cam_X - sr * cam_Y
+        rolled_Y = sr * cam_X + cr * cam_Y
+        horizontal_down = cp * rolled_Y - sp * z
+        horizontal_forward = sp * rolled_Y + cp * z
+        world_Y = cam_h - horizontal_down
+        world_X = rolled_X
+        world_Z = horizontal_forward
+
+        finite = np.isfinite(world_X) & np.isfinite(world_Z) & np.isfinite(world_Y)
+        if not np.any(finite):
+            return None
+
+        world_X = world_X[finite]
+        world_Z = world_Z[finite]
+        world_Y = world_Y[finite]
+
+        keep = (
+            (np.abs(world_Y) <= ground_tol)
+            & (world_Z >= 0.0)
+            & (world_Z <= max_forward_m)
+            & (np.abs(world_X) <= half_width_m)
+        )
+        if not np.any(keep):
+            return None
+
+        world_X = world_X[keep]
+        world_Z = world_Z[keep]
+
+        xi = np.floor((world_X + half_width_m) / cell_m).astype(np.int64)
+        zi = np.floor(world_Z / cell_m).astype(np.int64)
+        xi = np.clip(xi, 0, bev_w - 1)
+        zi = np.clip(zi, 0, bev_h - 1)
+        bev[zi, xi] = 255
+
+        bev = cv2.medianBlur(bev, 3)
+        bev = cv2.morphologyEx(bev, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        bev = cv2.morphologyEx(bev, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        bev = self._select_center_component(bev)
+        if np.count_nonzero(bev) == 0:
+            return None
+
+        return {
+            "mask": bev,
+            "cell_m": cell_m,
+            "half_width_m": half_width_m,
+            "max_forward_m": max_forward_m,
+        }
+
     def _edge_guidance_default(self):
         return {
             "valid": False,
@@ -1046,6 +973,209 @@ class RealsenseVision:
         # we steer off it. Sign convention matches offset_meters / x_angle_deg:
         #   lateral_m > 0 = LEFT of camera bore;  x_angle_deg > 0 = target to RIGHT.
         result = self._edge_guidance_default()
+        bev = self._build_rover_bev_mask(walkable_mask, roi_depth, intrinsics, roi_row_start)
+        if bev is not None:
+            bev_mask = bev["mask"]
+            cell_m = float(bev["cell_m"])
+            half_width_m = float(bev["half_width_m"])
+            max_forward_m = float(bev["max_forward_m"])
+            lookahead_m = float(self.config.get("edge_lookahead_m", 0.6096))
+            side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
+            known_ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
+
+            h, w = bev_mask.shape
+            n_bands = max(1, int(self.config.get("edge_guidance_bands", 8)))
+            band_span_m = min(
+                max(0.35, lookahead_m * 0.75),
+                max(0.35, max_forward_m - lookahead_m),
+            )
+            band_thickness_m = max(0.08, min(0.22, lookahead_m * 0.18))
+            band_centers_m = np.linspace(
+                max(0.2, lookahead_m - band_span_m),
+                min(max_forward_m, lookahead_m + band_span_m),
+                n_bands,
+            )
+
+            closest = {"left": None, "right": None}
+            best = None
+
+            def obs_from_bev(px, band_forward_m, band_width_px, side_label):
+                x_right_m = (float(px) + 0.5) * cell_m - half_width_m
+                left_m = -x_right_m
+                confidence = 0.55 + min(0.3, (float(band_width_px) / max(1.0, float(w))) * 0.9)
+                if 0.4 <= float(band_width_px) * cell_m <= 3.5:
+                    confidence += 0.1
+                if side_label == "left" and left_m >= 0.0:
+                    confidence += 0.03
+                if side_label == "right" and left_m <= 0.0:
+                    confidence += 0.03
+                confidence = float(max(0.0, min(0.98, confidence)))
+                return {
+                    "m": round(float(left_m), 4),
+                    "x_m": round(float(x_right_m), 4),
+                    "y_m": round(float(band_forward_m), 3),
+                    "conf": confidence,
+                    "ts": time.time(),
+                }
+
+            for band_center_m in band_centers_m:
+                center_row = int(round(float(band_center_m) / cell_m))
+                band_rows = max(2, int(round(band_thickness_m / cell_m)))
+                r0 = max(0, center_row - band_rows // 2)
+                r1 = min(h, r0 + band_rows)
+                if r1 - r0 < 2:
+                    continue
+
+                band_mask = bev_mask[r0:r1, :]
+                if np.count_nonzero(band_mask) == 0:
+                    continue
+
+                band_scores = band_mask.mean(axis=0) / 255.0
+                left_px, right_px = self.find_nearest_mask_edges(
+                    band_scores,
+                    threshold=float(self.config.get("edge_mask_threshold", 0.18)),
+                    min_run_px=int(self.config.get("edge_min_run_px", 6)),
+                )
+                if left_px is None and right_px is None:
+                    continue
+
+                band_forward_m = ((r0 + r1) * 0.5) * cell_m
+                if band_forward_m < 0.2 or band_forward_m > max_forward_m:
+                    continue
+
+                band_width_px = 0
+                if left_px is not None and right_px is not None and right_px > left_px:
+                    band_width_px = int(right_px - left_px + 1)
+
+                if left_px is not None:
+                    left_obs = obs_from_bev(left_px, band_forward_m, band_width_px or 1, "left")
+                    if closest["left"] is None or left_obs["y_m"] < closest["left"]["y_m"]:
+                        closest["left"] = left_obs
+                if right_px is not None:
+                    right_obs = obs_from_bev(right_px, band_forward_m, band_width_px or 1, "right")
+                    if closest["right"] is None or right_obs["y_m"] < closest["right"]["y_m"]:
+                        closest["right"] = right_obs
+
+                if left_px is None and right_px is not None:
+                    band_info = {
+                        "forward_m": float(band_forward_m),
+                        "left_m": None,
+                        "left_conf": 0.0,
+                        "right_m": right_obs["m"],
+                        "right_conf": right_obs["conf"],
+                        "left_x_m": None,
+                        "right_x_m": right_obs["x_m"],
+                    }
+                elif right_px is None and left_px is not None:
+                    band_info = {
+                        "forward_m": float(band_forward_m),
+                        "left_m": left_obs["m"],
+                        "left_conf": left_obs["conf"],
+                        "right_m": None,
+                        "right_conf": 0.0,
+                        "left_x_m": left_obs["x_m"],
+                        "right_x_m": None,
+                    }
+                else:
+                    band_info = {
+                        "forward_m": float(band_forward_m),
+                        "left_m": left_obs["m"],
+                        "left_conf": left_obs["conf"],
+                        "right_m": right_obs["m"],
+                        "right_conf": right_obs["conf"],
+                        "left_x_m": left_obs["x_m"],
+                        "right_x_m": right_obs["x_m"],
+                    }
+
+                if best is None or abs(float(band_forward_m) - lookahead_m) < abs(best["forward_m"] - lookahead_m):
+                    best = band_info
+
+            now_ts = time.time()
+            for side in ("left", "right"):
+                if closest[side] is not None:
+                    self.last_edge_obs[side] = closest[side]
+
+            def known_edge(side):
+                cur = closest[side]
+                if cur is not None:
+                    return cur, 0.0, True
+                last = self.last_edge_obs.get(side)
+                if last is None:
+                    return None, None, False
+                age_ms = (now_ts - float(last.get("ts", now_ts))) * 1000.0
+                if age_ms > known_ttl_ms:
+                    return None, None, False
+                return last, age_ms, True
+
+            left_known, left_age_ms, left_known_ok = known_edge("left")
+            right_known, right_age_ms, right_known_ok = known_edge("right")
+
+            result.update({
+                "left_m": round(float(left_known["m"]), 4) if left_known_ok else None,
+                "left_conf": round(float(left_known["conf"]), 2) if left_known_ok else 0.0,
+                "left_x_m": round(float(left_known["x_m"]), 4) if left_known_ok else None,
+                "left_y_m": round(float(left_known["y_m"]), 3) if left_known_ok else None,
+                "right_m": round(float(right_known["m"]), 4) if right_known_ok else None,
+                "right_conf": round(float(right_known["conf"]), 2) if right_known_ok else 0.0,
+                "right_x_m": round(float(right_known["x_m"]), 4) if right_known_ok else None,
+                "right_y_m": round(float(right_known["y_m"]), 3) if right_known_ok else None,
+                "left_known": bool(left_known_ok),
+                "right_known": bool(right_known_ok),
+                "left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
+                "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
+            })
+
+            if best is not None:
+                left_m = best["left_m"]
+                left_conf = best["left_conf"]
+                right_m = best["right_m"]
+                right_conf = best["right_conf"]
+                forward_m = best["forward_m"]
+
+                present = {"left": left_m is not None, "right": right_m is not None}
+                conf = {"left": left_conf, "right": right_conf}
+
+                if self.last_edge_used is not None and (time.time() - self.last_edge_used_ts) * 1000.0 > float(self.config.get("edge_hysteresis_ttl_ms", 3000)):
+                    self.last_edge_used = None
+
+                prev = self.last_edge_used
+                other = "right" if prev == "left" else "left"
+                if prev is not None and present.get(prev) and conf[prev] >= float(self.config.get("edge_hysteresis_keep_conf", 0.6)):
+                    if present.get(other) and (conf[other] - conf[prev]) >= float(self.config.get("edge_hysteresis_switch_margin", 0.2)):
+                        use = other
+                    else:
+                        use = prev
+                elif left_m is not None and right_m is not None:
+                    use = "left" if left_conf >= right_conf else "right"
+                elif left_m is not None:
+                    use = "left"
+                elif right_m is not None:
+                    use = "right"
+                else:
+                    use = None
+
+                if use is not None:
+                    self.last_edge_used = use
+                    self.last_edge_used_ts = time.time()
+
+                    if use == "left":
+                        u_target = left_m - side_offset_m
+                        chosen_conf = left_conf
+                    else:
+                        u_target = right_m + side_offset_m
+                        chosen_conf = right_conf
+
+                    x_angle_deg = math.degrees(math.atan2(-u_target, forward_m)) if forward_m > 0 else 0.0
+                    result.update({
+                        "valid": True,
+                        "x_angle_deg": round(float(x_angle_deg), 2),
+                        "offset_m": round(float(u_target), 4),
+                        "used": use,
+                        "forward_m": round(float(forward_m), 3),
+                        "confidence": round(float(chosen_conf), 2),
+                    })
+                    return result
+
         lookahead_m   = float(self.config.get("edge_lookahead_m",   0.6096))  # 2 ft
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))  # 1.5 ft
         max_forward_m = float(self.config.get("edge_max_lookahead_m", 2.5))
