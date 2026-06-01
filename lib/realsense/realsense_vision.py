@@ -84,6 +84,141 @@ class RealsenseVision:
     def stop(self, *_args):
         self.running = False
 
+    def start(self):
+        width = int(self.config.get("width", 640))
+        height = int(self.config.get("height", 480))
+        fps = int(self.config.get("fps_normal", 15))
+
+        self.pipeline = rs.pipeline()
+        rs_config = rs.config()
+        rs_config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
+        rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+        profile = self.pipeline.start(rs_config)
+        self.pipeline_started = True
+        self.align = rs.align(rs.stream.color)
+
+        device = profile.get_device()
+        for sensor in device.sensors:
+            if sensor.supports(rs.option.emitter_enabled):
+                sensor.set_option(rs.option.emitter_enabled, 1)
+
+        emit({
+            "message_type": "status",
+            "status": "ready",
+            "timestamp": int(time.time() * 1000),
+            "fps_target": self.current_fps_target
+        })
+
+    def update_target_fps(self):
+        cpu_percent = psutil.cpu_percent(interval=None)
+        high_threshold = float(self.config.get("cpu_high_threshold", 70))
+        critical_threshold = float(self.config.get("cpu_critical_threshold", 85))
+
+        if cpu_percent >= critical_threshold:
+            self.current_fps_target = int(self.config.get("fps_critical_cpu", 7))
+        elif cpu_percent >= high_threshold:
+            self.current_fps_target = int(self.config.get("fps_high_cpu", 10))
+        else:
+            self.current_fps_target = int(self.config.get("fps_normal", 15))
+
+        return cpu_percent
+
+    def should_process_frame(self):
+        if self.current_fps_target <= 0:
+            return True
+
+        now = time.time()
+        min_interval = 1.0 / float(self.current_fps_target)
+        if now - self.last_processed_at < min_interval:
+            return False
+
+        self.last_processed_at = now
+        return True
+
+    def update_measured_fps(self):
+        now = time.time()
+        self.frame_counter += 1
+        self.last_fps_counter += 1
+        elapsed = now - self.last_fps_sample_at
+        if elapsed >= 1.0:
+            self.measured_fps = self.last_fps_counter / elapsed
+            self.last_fps_counter = 0
+            self.last_fps_sample_at = now
+
+    def run(self):
+        try:
+            self.start()
+            while self.running:
+                frames = self.pipeline.wait_for_frames(1000)
+                cpu_percent = self.update_target_fps()
+                if not self.should_process_frame():
+                    continue
+
+                detection = self.process_frames(frames, cpu_percent)
+                if detection is not None:
+                    emit(detection)
+                    self.last_emit_at = time.time()
+        finally:
+            if self.pipeline is not None and self.pipeline_started:
+                self.pipeline.stop()
+
+    def process_frames(self, frames, cpu_percent):
+        aligned_frames = self.align.process(frames)
+        depth_frame = aligned_frames.get_depth_frame()
+        color_frame = aligned_frames.get_color_frame()
+        if not depth_frame or not color_frame:
+            return None
+
+        depth_image = np.asanyarray(depth_frame.get_data())
+        color_image = np.asanyarray(color_frame.get_data())
+        intrinsics = color_frame.profile.as_video_stream_profile().intrinsics
+        self.last_fx = intrinsics.fx
+
+        result = self.detect_path(color_image, depth_image, intrinsics)
+        objects = self.detect_objects(depth_image, intrinsics)
+        self.update_measured_fps()
+
+        return {
+            "message_type": "path_detection",
+            "x_angle_deg": result.get("x_angle_deg", 0),
+            "ground_grid_removed_frac": result.get("ground_grid_removed_frac", 0),
+            "offset_meters": result["offset_meters"],
+            "path_width_meters": result["path_width_meters"],
+            "confidence": result["confidence"],
+            "left_boundary_visible": result["left_boundary_visible"],
+            "right_boundary_visible": result["right_boundary_visible"],
+            "centerline": result["centerline"],
+            "nearest_edge_m": result["nearest_edge_m"],
+            "nearest_edge_side": result["nearest_edge_side"],
+            "nearest_edge_clearance_m": result["nearest_edge_clearance_m"],
+            "nearest_edge_type": result["nearest_edge_type"],
+            "left_edge_clearance_m": result.get("left_edge_clearance_m"),
+            "right_edge_clearance_m": result.get("right_edge_clearance_m"),
+            "edge_left_m": result.get("edge_left_m"),
+            "edge_left_conf": result.get("edge_left_conf", 0),
+            "edge_left_x_m": result.get("edge_left_x_m"),
+            "edge_left_y_m": result.get("edge_left_y_m"),
+            "edge_left_known": result.get("edge_left_known", False),
+            "edge_left_known_age_ms": result.get("edge_left_known_age_ms"),
+            "edge_right_m": result.get("edge_right_m"),
+            "edge_right_conf": result.get("edge_right_conf", 0),
+            "edge_right_x_m": result.get("edge_right_x_m"),
+            "edge_right_y_m": result.get("edge_right_y_m"),
+            "edge_right_known": result.get("edge_right_known", False),
+            "edge_right_known_age_ms": result.get("edge_right_known_age_ms"),
+            "edge_used": result.get("edge_used", "none"),
+            "edge_target_offset_m": result.get("edge_target_offset_m"),
+            "edge_forward_m": result.get("edge_forward_m"),
+            "edge_guidance_valid": result.get("edge_guidance_valid", False),
+            "cpu_percent": round(cpu_percent, 1),
+            "fps_current": round(self.measured_fps, 1),
+            "fps_target": self.current_fps_target,
+            "status": result["status"],
+            "source": "realsense_vision",
+            "timestamp": int(time.time() * 1000),
+            "objects": objects
+        }
+
     def _detect_path_from_lines(self, color_image, depth_image, intrinsics):
         # Line-only edge detector: build a simple walkable strip mask, keep the
         # most central connected component, then extract the nearest left/right
@@ -304,7 +439,7 @@ class RealsenseVision:
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
 
-        combined_mask = fallback_mask
+        combined_mask = None
 
         # Indoor-friendly concrete strip fallback (e.g. light concrete over dark carpet).
         hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)

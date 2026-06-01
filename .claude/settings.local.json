@@ -71,7 +71,8 @@
       "Read(//tmp/**)",
       "Bash(python3 -c \"import json; json.load\\(open\\('/home/rover/notip/setup.json'\\)\\); print\\('setup.json valid'\\)\")",
       "Bash(python3 -c \"import json; json.load\\(open\\('/home/rover/notip/setup_example.json'\\)\\); print\\('setup_example.json valid'\\)\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/home/rover/notip/lib/realsense/realsense_vision.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib"
