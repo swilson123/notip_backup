@@ -1044,9 +1044,9 @@ class RealsenseVision:
         cp, sp = math.cos(pitch), math.sin(pitch)
         cr, sr = math.cos(roll),  math.sin(roll)
 
-        def side_edge(color_px, depth_px, signed_px):
+        def side_edge(color_px, depth_px, signed_px, mask_px):
             # Merge the detectors that fired on this side; confidence rises with agreement.
-            dets = [p for p in (color_px, depth_px, signed_px) if p is not None]
+            dets = [p for p in (color_px, depth_px, signed_px, mask_px) if p is not None]
             if not dets:
                 return None, 0.0
             px = float(np.mean(dets))
@@ -1073,11 +1073,15 @@ class RealsenseVision:
                               if green_mask_roi is not None else None)
 
             color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
+            mask_left, mask_right = self.find_nearest_mask_edges(
+                band_col_scores,
+                threshold=float(self.config.get("edge_mask_threshold", 0.18))
+            )
             depth_left, depth_right = self.find_depth_boundaries(band_depth)
             signed_left, signed_right = self._find_signed_depth_edges(band_depth, dropoff_jump_m)
 
             all_px = [p for p in (color_left, color_right, depth_left, depth_right,
-                                  signed_left, signed_right) if p is not None]
+                                  signed_left, signed_right, mask_left, mask_right) if p is not None]
             if not all_px:
                 continue
             ref_depth = self.sample_depth_meters(band_depth, float(np.mean(all_px)))
@@ -1091,8 +1095,8 @@ class RealsenseVision:
             if forward_m < 0.2 or forward_m > max_forward_m:
                 continue
 
-            left_px,  left_conf  = side_edge(color_left,  depth_left,  signed_left)
-            right_px, right_conf = side_edge(color_right, depth_right, signed_right)
+            left_px,  left_conf  = side_edge(color_left,  depth_left,  signed_left,  mask_left)
+            right_px, right_conf = side_edge(color_right, depth_right, signed_right, mask_right)
             if left_px is None and right_px is None:
                 continue
 
@@ -1231,10 +1235,6 @@ class RealsenseVision:
             "valid": True,
             "x_angle_deg": round(float(x_angle_deg), 2),
             "offset_m": round(float(u_target), 4),
-            "left_m":  round(float(left_m), 4)  if left_m  is not None else None,
-            "left_conf":  round(float(left_conf), 2),
-            "right_m": round(float(right_m), 4) if right_m is not None else None,
-            "right_conf": round(float(right_conf), 2),
             "used": use,
             "forward_m": round(float(forward_m), 3),
             "confidence": round(float(chosen_conf), 2),
@@ -1311,6 +1311,32 @@ class RealsenseVision:
         if indices.size == 0:
             return None, None
         return int(indices[0]), int(indices[-1])
+
+    def find_nearest_mask_edges(self, column_scores, threshold=0.18):
+        # Find nearest left/right boundary crossings in the walkable mask profile.
+        # This scans outward from the image center and returns the first
+        # walkable->non-walkable transition on each side, which corresponds to the
+        # nearest seen edges rather than the outermost extent.
+        if column_scores is None or len(column_scores) < 4:
+            return None, None
+
+        width = len(column_scores)
+        center = width // 2
+        walkable = np.asarray(column_scores) >= float(threshold)
+
+        left_edge = None
+        for col in range(center - 1, 0, -1):
+            if walkable[col] and not walkable[col - 1]:
+                left_edge = int(col)
+                break
+
+        right_edge = None
+        for col in range(center, width - 1):
+            if walkable[col] and not walkable[col + 1]:
+                right_edge = int(col)
+                break
+
+        return left_edge, right_edge
 
     def find_depth_boundaries(self, roi_depth):
         depth_band = roi_depth[int(roi_depth.shape[0] * 0.35):int(roi_depth.shape[0] * 0.75), :]
