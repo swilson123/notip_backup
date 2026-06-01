@@ -1327,31 +1327,65 @@ class RealsenseVision:
             return None, None
         return int(indices[0]), int(indices[-1])
 
-    def find_nearest_mask_edges(self, column_scores, threshold=0.18):
-        # Find nearest left/right boundary crossings in the walkable mask profile.
-        # This scans outward from the image center and returns the first
-        # walkable->non-walkable transition on each side, which corresponds to the
-        # nearest seen edges rather than the outermost extent.
+    def find_nearest_mask_edges(self, column_scores, threshold=0.18, min_run_px=6):
+        # Robust nearest-edge extraction from the walkable mask profile.
+        # Instead of depending on a single transition pattern, find contiguous
+        # walkable segments and choose the one nearest the image center.
         if column_scores is None or len(column_scores) < 4:
             return None, None
 
-        width = len(column_scores)
-        center = width // 2
-        walkable = np.asarray(column_scores) >= float(threshold)
+        scores = np.asarray(column_scores, dtype=np.float32)
+        if scores.size < 4:
+            return None, None
 
-        left_edge = None
-        for col in range(center - 1, 0, -1):
-            if walkable[col] and not walkable[col - 1]:
-                left_edge = int(col)
+        # Build segments at the configured threshold; if none survive, retry at a
+        # softer threshold to avoid edge dropouts from minor confidence dips.
+        thresholds = [float(threshold), max(0.08, float(threshold) * 0.6)]
+        center = int(scores.size // 2)
+        selected = None
+
+        for thr in thresholds:
+            walkable = scores >= thr
+            if not np.any(walkable):
+                continue
+
+            padded = np.concatenate(([False], walkable, [False])).astype(np.int8)
+            changes = np.diff(padded)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0] - 1
+            if starts.size == 0 or ends.size == 0:
+                continue
+
+            runs = []
+            for s, e in zip(starts, ends):
+                run_len = int(e - s + 1)
+                if run_len >= int(min_run_px):
+                    # Distance from center to segment (0 if center lies inside)
+                    if center < s:
+                        dist = s - center
+                    elif center > e:
+                        dist = center - e
+                    else:
+                        dist = 0
+                    runs.append((dist, -run_len, int(s), int(e)))
+
+            # If no run meets min length, use the largest run at this threshold.
+            if not runs:
+                run_lengths = ends - starts + 1
+                idx = int(np.argmax(run_lengths))
+                selected = (int(starts[idx]), int(ends[idx]))
                 break
 
-        right_edge = None
-        for col in range(center, width - 1):
-            if walkable[col] and not walkable[col + 1]:
-                right_edge = int(col)
-                break
+            runs.sort()
+            selected = (runs[0][2], runs[0][3])
+            break
 
-        return left_edge, right_edge
+        if selected is None:
+            return None, None
+        left_edge, right_edge = selected
+        if right_edge <= left_edge:
+            return None, None
+        return int(left_edge), int(right_edge)
 
     def find_depth_boundaries(self, roi_depth):
         depth_band = roi_depth[int(roi_depth.shape[0] * 0.35):int(roi_depth.shape[0] * 0.75), :]
