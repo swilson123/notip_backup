@@ -219,6 +219,63 @@ class RealsenseVision:
             "objects": objects
         }
 
+    def _build_simple_ground_mask(self, roi_color):
+        hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
+        sat_limit = int(self.config.get("simple_edge_saturation_limit", 100))
+        val_min = int(self.config.get("simple_edge_value_min", 55))
+        light_min = int(self.config.get("simple_edge_light_min", 55))
+        min_area = int(self.config.get("simple_edge_component_min_area", 250))
+
+        mean_val = int(np.mean(hsv[:, :, 2]))
+        val_floor = max(light_min, max(val_min, int(mean_val * 0.45)))
+
+        concrete_mask = cv2.inRange(hsv, (0, 0, val_floor), (179, sat_limit, 255))
+        green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
+        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+
+        non_walkable = cv2.bitwise_or(green_mask_roi, mulch_mask)
+        walkable = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
+        walkable = cv2.medianBlur(walkable, 5)
+        walkable = cv2.morphologyEx(walkable, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        walkable = cv2.morphologyEx(walkable, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+
+        if min_area > 0 and cv2.countNonZero(walkable) > 0:
+            n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(walkable, connectivity=8)
+            clean = np.zeros_like(walkable)
+            for lbl in range(1, n_labels):
+                if stats[lbl, cv2.CC_STAT_AREA] >= min_area:
+                    clean[labels == lbl] = 255
+            walkable = clean
+
+        return walkable, green_mask_roi
+
+    def _select_center_component(self, walkable_mask):
+        if cv2.countNonZero(walkable_mask) == 0:
+            return walkable_mask
+        n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(walkable_mask, connectivity=8)
+        if n_labels <= 1:
+            return walkable_mask
+
+        w = walkable_mask.shape[1]
+        cx = w / 2.0
+        best_lbl = min(range(1, n_labels), key=lambda lbl: abs(centroids[lbl][0] - cx))
+
+        result = np.zeros_like(walkable_mask)
+        result[labels == best_lbl] = 255
+        return result
+
+    def _sample_depth_at(self, roi_depth, x_px, y_px, radius=3):
+        h, w = roi_depth.shape
+        x0 = max(0, int(x_px) - radius)
+        x1 = min(w, int(x_px) + radius + 1)
+        y0 = max(0, int(y_px) - radius)
+        y1 = min(h, int(y_px) + radius + 1)
+        patch = roi_depth[y0:y1, x0:x1]
+        valid = patch[np.isfinite(patch) & (patch > 0)]
+        if valid.size == 0:
+            return None
+        return float(np.median(valid))
+
     def _detect_path_from_lines(self, color_image, depth_image, intrinsics):
         # Line-only edge detector: build a simple walkable strip mask, keep the
         # most central connected component, then extract the nearest left/right
