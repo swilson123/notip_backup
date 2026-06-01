@@ -204,6 +204,8 @@ class RealsenseVision:
             "nearest_edge_side": result["nearest_edge_side"],
             "nearest_edge_clearance_m": result["nearest_edge_clearance_m"],
             "nearest_edge_type": result["nearest_edge_type"],
+            "left_edge_clearance_m": result.get("left_edge_clearance_m"),
+            "right_edge_clearance_m": result.get("right_edge_clearance_m"),
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -471,6 +473,8 @@ class RealsenseVision:
                 "nearest_edge_side": None,
                 "nearest_edge_clearance_m": None,
                 "nearest_edge_type": None,
+                "left_edge_clearance_m": None,
+                "right_edge_clearance_m": None,
                 "status": "perspective_invalid"
             }
 
@@ -517,6 +521,8 @@ class RealsenseVision:
                 "nearest_edge_side": None,
                 "nearest_edge_clearance_m": None,
                 "nearest_edge_type": None,
+                "left_edge_clearance_m": None,
+                "right_edge_clearance_m": None,
                 "status": "path_lost"
             }
 
@@ -566,6 +572,8 @@ class RealsenseVision:
             "nearest_edge_side": edge_info["nearest_edge_side"],
             "nearest_edge_clearance_m": edge_info["nearest_edge_clearance_m"],
             "nearest_edge_type": edge_info["nearest_edge_type"],
+            "left_edge_clearance_m": edge_info.get("left_edge_clearance_m"),
+            "right_edge_clearance_m": edge_info.get("right_edge_clearance_m"),
             "ground_grid_removed_frac": self._last_ground_removed_frac,
             "status": "tracking" if confidence >= 0.6 else "low_confidence"
         }
@@ -820,6 +828,8 @@ class RealsenseVision:
             "nearest_edge_side": None,
             "nearest_edge_clearance_m": None,
             "nearest_edge_type": None,
+            "left_edge_clearance_m": None,
+            "right_edge_clearance_m": None,
         }
         rover_width_m = float(self.config.get("rover_width_m", 0.432))
         half_rover_w  = rover_width_m / 2.0
@@ -838,7 +848,9 @@ class RealsenseVision:
         cp, sp = math.cos(pitch), math.sin(pitch)
         cr, sr = math.cos(roll),  math.sin(roll)
 
-        worst = None  # (clearance_m, forward_m, side, edge_type)
+        worst = None        # (clearance_m, forward_m, side, edge_type)
+        worst_left = None   # (clearance_m, forward_m, edge_type)
+        worst_right = None  # (clearance_m, forward_m, edge_type)
 
         for i in range(N_BANDS):
             r0 = i * band_h
@@ -907,6 +919,12 @@ class RealsenseVision:
                 edge_type = "dropoff" if is_dropoff else "boundary"
                 if worst is None or clearance < worst[0]:
                     worst = (clearance, forward_m, side_label, edge_type)
+                if side_label == "left":
+                    if worst_left is None or clearance < worst_left[0]:
+                        worst_left = (clearance, forward_m, edge_type)
+                else:
+                    if worst_right is None or clearance < worst_right[0]:
+                        worst_right = (clearance, forward_m, edge_type)
 
         if worst is None:
             return no_edge
@@ -915,6 +933,8 @@ class RealsenseVision:
             "nearest_edge_side":        worst[2],
             "nearest_edge_clearance_m": round(float(worst[0]), 4),
             "nearest_edge_type":        worst[3],
+            "left_edge_clearance_m":    round(float(worst_left[0]), 3) if worst_left is not None else None,
+            "right_edge_clearance_m":   round(float(worst_right[0]), 3) if worst_right is not None else None,
         }
 
     def _find_signed_depth_edges(self, depth_band, dropoff_jump_m):
