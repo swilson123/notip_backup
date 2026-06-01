@@ -161,6 +161,8 @@
     "voice": {
         "enabled": true,
         "asr_enabled": true,
+        "announcements_enabled": true,
+        "dream_speech_enabled": true,
         "wake_word": "noah",
         "tts_rate": 160,
         "tts_volume": 180,
