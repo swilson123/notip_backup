@@ -43,6 +43,9 @@ void hall_1_isr() {
 
 //States...................................................................................
 bool auto_delivery = false;
+bool stow_arm_active = false;
+bool stow_arm_arm_commanded = false;
+bool stowed = false;
 String arm_state = "stopped";
 String telescope_state = "stopped";
 String belt_state = "stopped";
@@ -137,37 +140,65 @@ void message_received(String json) {
   int value_invert = 200 - value;
 
   if (message == "deliver_package") {
+    stow_arm_active = false;
+    stow_arm_arm_commanded = false;
+    stowed = false;
     deliver_package(value);
+  }
+  else if (message == "stow_arm") {
+    auto_delivery = false;
+    stow_arm();
   }
   else if (message == "belt") {
     if (value < 1100) {
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
+      stowed = false;
       extend_belt();
     } else if (value > 1800) {
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
+      stowed = false;
       retract_belt();
     } else {
       digitalWrite(belt_enable_pin, LOW);
       actuator.stop();
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
     }
   }
   else if (message == "arm") {
+    if (value != arm_retract_value) {
+      stowed = false;
+    }
     arm.write(value);
     auto_delivery = false;
+    stow_arm_active = false;
+    stow_arm_arm_commanded = false;
   }
   else if (message == "telescope") {
     if (value < 90) {
       extend_telescope();
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
+      stowed = false;
     } else if (value > 110) {
       retract_telescope();
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
+      stowed = false;
     } else {
       analogWrite(telescope_pin_rpwm, 0);
       analogWrite(telescope_pin_lpwm, 0);
       digitalWrite(telescope_enable_pin, LOW);
       auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
     }
   }
   else {
@@ -182,6 +213,30 @@ void deliver_package(int value) {
   if (!auto_delivery) {
     auto_delivery = true;
     extend_belt();
+  }
+}
+
+void stow_arm() {
+  stow_arm_active = true;
+  stow_arm_arm_commanded = false;
+
+  bool already_stowed = (digitalRead(belt_retract_limit_switch_pin) == HIGH) && (telescope_position <= 0) && (arm_state == "close");
+  if (!already_stowed) {
+    stowed = false;
+  }
+
+  // Start these in parallel when needed.
+  if (digitalRead(belt_retract_limit_switch_pin) == HIGH) {
+    close_belt();
+  } else {
+    retract_belt();
+  }
+
+  if (telescope_position <= 0) {
+    telescope_position = 0;
+    close_telescope();
+  } else {
+    retract_telescope();
   }
 }
 
@@ -203,6 +258,10 @@ void send_current_state() {
   Serial.print(belt_retract_switch_state);
   Serial.print("','auto_delivery':'");
   Serial.print(auto_delivery);
+  Serial.print("','stow_arm_active':'");
+  Serial.print(stow_arm_active);
+  Serial.print("','stowed':'");
+  Serial.print(stowed);
   Serial.println("'}");
 }
 
@@ -263,6 +322,11 @@ void heartbeat() {
     close_belt();
   }
 
+  //Any active motion means rover is no longer in a stowed hold state.
+  if (stowed && (belt_state == "extend" || belt_state == "retract" || arm_state == "extend" || arm_state == "retract" || telescope_state == "extend" || telescope_state == "retract")) {
+    stowed = false;
+  }
+
   //Hook Limit Switch................
   if (digitalRead(hook_limit_switch_pin) == HIGH) {
     if (hook_switch_state == false && (arm_state == "close" || arm_state == "retract")) {
@@ -296,6 +360,23 @@ void heartbeat() {
     }
   } else {
     belt_retract_switch_state = false;
+  }
+
+  //Stow Sequence: once belt+telescope are both home, retract arm to 0.
+  if (stow_arm_active && !stow_arm_arm_commanded) {
+    bool belt_retracted = (digitalRead(belt_retract_limit_switch_pin) == HIGH) || belt_state == "close";
+    bool telescope_retracted = (telescope_position <= 0) || telescope_state == "close";
+
+    if (belt_retracted && telescope_retracted) {
+      telescope_position = 0;
+      retract_arm();
+      stow_arm_arm_commanded = true;
+    }
+  }
+
+  if (stow_arm_active && stow_arm_arm_commanded && arm_state == "close") {
+    stowed = true;
+    stow_arm_active = false;
   }
 }
 
