@@ -189,5 +189,8 @@
         "auto_apply_params": true,
         "consult_cooldown_ms": 60000,
         "api_key": ""
+    },
+    "dreams": {
+        "enabled": true
     }
 }
