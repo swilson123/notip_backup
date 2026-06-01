@@ -1033,6 +1033,8 @@ class RealsenseVision:
         max_forward_m = float(self.config.get("edge_max_lookahead_m", 2.5))
         dropoff_jump_m = float(self.config.get("dropoff_min_depth_jump_m", 0.15))
         known_ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
+        ground_only = bool(self.config.get("edge_ground_only", True))
+        ground_source = str(self.config.get("edge_ground_source", "mask_only")).lower()
 
         N_BANDS = int(self.config.get("edge_guidance_bands", 8))
         h, w = walkable_mask.shape
@@ -1046,7 +1048,15 @@ class RealsenseVision:
 
         def side_edge(color_px, depth_px, signed_px, mask_px):
             # Merge the detectors that fired on this side; confidence rises with agreement.
-            dets = [p for p in (color_px, depth_px, signed_px, mask_px) if p is not None]
+            if ground_only:
+                # Ground-plane sidewalk guidance: use XY walkable mask edges only when
+                # edge_ground_source is "mask_only". This avoids vertical Z-edge cues.
+                if ground_source == "mask_only":
+                    dets = [p for p in (mask_px,) if p is not None]
+                else:
+                    dets = [p for p in (color_px, mask_px) if p is not None]
+            else:
+                dets = [p for p in (color_px, depth_px, signed_px, mask_px) if p is not None]
             if not dets:
                 return None, 0.0
             px = float(np.mean(dets))
@@ -1054,7 +1064,7 @@ class RealsenseVision:
                 conf = 0.9 if (max(dets) - min(dets)) <= 15 else 0.7
             else:
                 conf = 0.6
-            if signed_px is not None:
+            if (not ground_only) and signed_px is not None:
                 conf = min(1.0, conf + 0.05)  # a real drop-off is a strong physical cue
             return px, conf
 
@@ -1079,9 +1089,14 @@ class RealsenseVision:
             )
             depth_left, depth_right = self.find_depth_boundaries(band_depth)
             signed_left, signed_right = self._find_signed_depth_edges(band_depth, dropoff_jump_m)
+            if ground_only:
+                signed_left, signed_right = None, None
 
-            all_px = [p for p in (color_left, color_right, depth_left, depth_right,
-                                  signed_left, signed_right, mask_left, mask_right) if p is not None]
+            if ground_only:
+                all_px = [p for p in (color_left, color_right, mask_left, mask_right) if p is not None]
+            else:
+                all_px = [p for p in (color_left, color_right, depth_left, depth_right,
+                                      signed_left, signed_right, mask_left, mask_right) if p is not None]
             if not all_px:
                 continue
             ref_depth = self.sample_depth_meters(band_depth, float(np.mean(all_px)))
