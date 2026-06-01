@@ -460,25 +460,43 @@ class RealsenseVision:
         if combined_mask is not None and funnel_enabled:
             combined_mask = cv2.remap(combined_mask, inv_x, inv_y, cv2.INTER_NEAREST)
 
+        # Indoor-friendly concrete strip fallback (e.g. light concrete over dark carpet).
+        hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
+        sat_limit = int(self.config.get("concrete_mask_saturation_limit", 95))
+        min_value = max(30, int(np.mean(hsv[:, :, 2]) * 0.45))
+        concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, sat_limit, 255))
+        green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
+        # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
+        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+        non_walkable = cv2.bitwise_or(green_mask_roi, mulch_mask)
+        fallback_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
+        fallback_mask = cv2.medianBlur(fallback_mask, 5)
+        fallback_mask = cv2.morphologyEx(fallback_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        fallback_mask = cv2.morphologyEx(fallback_mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+
+        def anchor_frac(mask):
+            mh, mw = mask.shape[:2]
+            r0 = int(mh * 0.72)
+            c0 = int(mw * 0.38)
+            c1 = int(mw * 0.62)
+            patch = mask[r0:, c0:c1]
+            if patch.size == 0:
+                return 0.0
+            return float(cv2.countNonZero(patch)) / float(patch.size)
+
         if combined_mask is not None:
             roi_seg = combined_mask[row_start:row_end, :]
             walkable_mask = cv2.medianBlur(roi_seg, 5)
             walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-            green_mask_roi = None
-            green_col_scores = None
+            combined_anchor = anchor_frac(walkable_mask)
+            fallback_anchor = anchor_frac(fallback_mask)
+            anchor_min = float(self.config.get("fallback_anchor_min_frac", 0.06))
+            anchor_margin = float(self.config.get("fallback_anchor_margin_frac", 0.03))
+            if combined_anchor < anchor_min and fallback_anchor > (combined_anchor + anchor_margin):
+                walkable_mask = fallback_mask
+            green_col_scores = green_mask_roi.mean(axis=0) / 255.0
         else:
-            hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
-            saturation_limit = 80
-            min_value = max(45, int(np.mean(hsv[:, :, 2]) * 0.55))
-            concrete_mask = cv2.inRange(hsv, (0, 0, min_value), (179, saturation_limit, 255))
-            green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
-            # Mulch/bark/brown soil: hue 8-32, meaningful saturation, not too bright
-            mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
-            non_walkable = cv2.bitwise_or(green_mask_roi, mulch_mask)
-            walkable_mask = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
-            walkable_mask = cv2.medianBlur(walkable_mask, 5)
-            kernel = np.ones((5, 5), np.uint8)
-            walkable_mask = cv2.morphologyEx(walkable_mask, cv2.MORPH_CLOSE, kernel)
+            walkable_mask = fallback_mask
             green_col_scores = green_mask_roi.mean(axis=0) / 255.0
 
         # TRON-grid ground-plane filter: drop appearance pixels that aren't
