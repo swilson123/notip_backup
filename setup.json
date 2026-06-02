@@ -34,7 +34,12 @@
         "avoidance_timeout_ms": 30000,
         "sidewalk_gate_turn_deg": 90,
         "breadcrumb_sample_distance_m": 0.5,
-        "breadcrumb_sample_hz": 1.0
+        "breadcrumb_sample_hz": 1.0,
+        "roll_through_enabled": true,
+        "roll_through_turn_radius_m": 0.9,
+        "roll_through_min_entry_m": 0.4,
+        "roll_through_max_entry_m": 2.0,
+        "roll_through_min_turn_deg": 20
     },
     "realsense_vision": {
         "enabled": true,
@@ -218,6 +223,7 @@
         "claude_enabled": true,
         "auto_apply_params": true,
         "consult_cooldown_ms": 60000,
+        "trial_timeout_ms": 120000,
         "api_key": ""
     },
     "dreams": {
