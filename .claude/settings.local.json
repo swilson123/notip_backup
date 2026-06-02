@@ -74,10 +74,38 @@
       "Bash(git add *)",
       "Bash(python3 -c \"import ast; ast.parse\\(open\\('/home/rover/notip/lib/realsense/realsense_vision.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
       "Bash(node server.js)",
-      "Bash(kill -9 12842 15914 26812 27637 27701)"
+      "Bash(kill -9 12842 15914 26812 27637 27701)",
+      "Bash(python3 -c \"import sounddevice as sd; [print\\(i, d\\) for i, d in enumerate\\(sd.query_devices\\(\\)\\)]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(timeout 2 arecord -D plughw:CARD=Plus,DEV=0 -f S16_LE -r 16000 -c 1 -t raw -q -)",
+      "Bash(timeout 2 arecord -D plughw:CARD=Plus,DEV=0 -f S16_LE -r 16000 -c 1 -t raw -q - > /tmp/arecord_test.raw 2>/tmp/arecord_err.txt; echo \"exit: $?\"; wc -c /tmp/arecord_test.raw; cat /tmp/arecord_err.txt)",
+      "Bash(timeout 2 parec --format=s16le --rate=16000 --channels=1 --raw > /tmp/parec_test.raw 2>/tmp/parec_err.txt; echo \"exit: $?\"; wc -c /tmp/parec_test.raw; cat /tmp/parec_err.txt)",
+      "Bash(timeout 2 parec --format=s16le --rate=16000 --channels=1 --raw)",
+      "Bash(timeout 2 pw-record --format=s16 --rate=16000 --channels=1 -)",
+      "Bash(pw-record --help)",
+      "Bash(timeout 2 pw-record --format=s16 --rate=16000 --channels=1 /tmp/pwtest.wav)",
+      "Bash(arecord -L)",
+      "Bash(pactl get-default-source *)",
+      "Bash(timeout 2 arecord -D pulse -f S16_LE -r 16000 -c 1 -t raw -)",
+      "Bash(pactl suspend-source *)",
+      "Bash(timeout 3 arecord -D pulse -f S16_LE -r 16000 -c 1 -t raw -)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(journalctl --user -u pipewire --since \"1 minute ago\")",
+      "Bash(journalctl --user -u wireplumber --since \"1 minute ago\")",
+      "Bash(parec --format=s16le --rate=16000 --channels=1 --raw /tmp/parec_direct.raw)",
+      "Bash(journalctl --user -u pipewire -u pipewire-pulse --no-pager --since \"5 minutes ago\")",
+      "Bash(journalctl -u pipewire -u pipewire-pulse --no-pager --since \"5 minutes ago\")",
+      "Bash(PIPEWIRE_DEBUG=3 timeout 2 pw-record --format=s16 --rate=16000 --channels=1 /tmp/pw_debug.wav)",
+      "Bash(fuser /dev/snd/pcmC2D0c)",
+      "Read(//usr/bin/**)",
+      "Read(//proc/3355/**)",
+      "Bash(fuser -v /dev/snd/pcmC2D0c)",
+      "Bash(fuser /dev/snd/*)"
     ],
     "additionalDirectories": [
-      "/Users/swilson123/rover/notip/lib"
+      "/Users/swilson123/rover/notip/lib",
+      "/tmp"
     ]
   }
 }
