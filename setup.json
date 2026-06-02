@@ -146,7 +146,7 @@
     },
     "imu": {
         "compass_offset_deg":-42,
-        "auto_calibrate": false
+        "auto_calibrate": true
     },
     "memory": {
         "period_ms": 1000,
