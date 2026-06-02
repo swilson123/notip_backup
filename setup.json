@@ -32,7 +32,9 @@
         "rs_block_timeout_ms": 10000,
         "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000,
-        "sidewalk_gate_turn_deg": 90
+        "sidewalk_gate_turn_deg": 90,
+        "breadcrumb_sample_distance_m": 0.5,
+        "breadcrumb_sample_hz": 1.0
     },
     "realsense_vision": {
         "enabled": true,
@@ -122,6 +124,7 @@
         "sidewalk_steer_gain": 0.4,
         "sidewalk_steer_max_deg": 8,
         "edge_confidence_min": 0.5,
+        "edge_correction_max_forward_m": 1.0,
         "edge_straight_leg_max_yaw_deg": 15,
         "edge_max_offset_straight_m": 1.0,
         "sidewalk_latch_ms": 1500,

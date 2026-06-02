@@ -45,8 +45,7 @@ void hall_1_isr() {
 bool auto_delivery = false;
 bool stow_arm_active = false;
 bool stow_arm_arm_commanded = false;
-bool stowed = false;
-String arm_state = "stopped";
+bool stowed = false;bool telescope_stall = false;   // set when motor is driving but Hall pulses stop arrivingString arm_state = "stopped";
 String telescope_state = "stopped";
 String belt_state = "stopped";
 bool hook_switch_state = false;
@@ -65,7 +64,7 @@ int belt_retract_timeout = 25000;
 
 //Extend and Retract values.................................................................
 int arm_extend_value = 200;
-int arm_retract_value = 0;
+int arm_retract_value = 25;
 
 int telescope_extend_value = 200;
 int telescope_retract_value = 200;
@@ -262,6 +261,10 @@ void send_current_state() {
   Serial.print(stow_arm_active);
   Serial.print("','stowed':'");
   Serial.print(stowed);
+  Serial.print("','telescope_stall':'");
+  Serial.print(telescope_stall);
+  Serial.print("','telescope_hall_age_ms':'");
+  Serial.print(last_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_hall_pulse_ms) : -1);
   Serial.println("'}");
 }
 
@@ -294,21 +297,37 @@ void heartbeat() {
 
   //Telescope Extend — position-based stop (timeout is failsafe only)
   if (telescope_state == "extend") {
+    // Reinforce enable pin — a glitch low would stall the motor silently.
+    digitalWrite(telescope_enable_pin, HIGH);
+
     if (telescope_has_moved && telescope_position >= TELESCOPE_FULL_EXTEND_PULSES) {
       open_telescope();
     } else if (telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_extend_timeout) {
       open_telescope();  // failsafe: Hall signal may have been lost
     }
+
+    // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
+    if (telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+      telescope_stall = true;
+    }
   }
 
   //Telescope Retract — position-based stop; zero counter when home is reached
   if (telescope_state == "retract") {
-    if (telescope_has_moved && telescope_position <= 0 && telescope_retract_start_pos > 10) {
+    // Reinforce enable pin — a glitch low would stall the motor silently.
+    digitalWrite(telescope_enable_pin, HIGH);
+
+    if (telescope_has_moved && telescope_position <= 0) {
       telescope_position = 0;
       close_telescope();
     } else if (telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_retract_timeout) {
       telescope_position = 0;  // assume home after failsafe timeout
       close_telescope();
+    }
+
+    // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
+    if (telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+      telescope_stall = true;
     }
   }
 
@@ -411,6 +430,7 @@ void close_arm() {
 
 //Telescope Actuator...............................................................................
 void extend_telescope() {
+  telescope_stall = false;
   telescope_has_moved = false;
   digitalWrite(telescope_enable_pin, HIGH);
   analogWrite(telescope_pin_rpwm, telescope_extend_value);
@@ -420,6 +440,14 @@ void extend_telescope() {
 }
 
 void retract_telescope() {
+  // If already at home, don't start the motor — position-based stop would
+  // never fire (retract_start_pos <= 10 guard) and motor would run until timeout.
+  if (telescope_position <= 0) {
+    telescope_position = 0;
+    close_telescope();
+    return;
+  }
+  telescope_stall = false;
   telescope_retract_start_pos = telescope_position;
   telescope_has_moved = false;
   digitalWrite(telescope_enable_pin, HIGH);
@@ -437,6 +465,8 @@ void open_telescope() {
 }
 
 void close_telescope() {
+  // Clamp position to 0 — prevents negative drift that breaks future retract stops.
+  if (telescope_position < 0) telescope_position = 0;
   telescope_state = "close";
   analogWrite(telescope_pin_rpwm, 0);
   analogWrite(telescope_pin_lpwm, 0);
