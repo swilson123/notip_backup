@@ -150,7 +150,7 @@
         "sam_clahe_tile_size": 8
     },
     "imu": {
-        "compass_offset_deg":-42,
+        "compass_offset_deg":-277,
         "auto_calibrate": true
     },
     "memory": {

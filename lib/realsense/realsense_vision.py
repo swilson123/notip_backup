@@ -148,8 +148,11 @@ class RealsenseVision:
     def run(self):
         try:
             self.start()
+            startup_frames = 0
             while self.running:
-                frames = self.pipeline.wait_for_frames(1000)
+                timeout_ms = 8000 if startup_frames < 5 else 1000
+                frames = self.pipeline.wait_for_frames(timeout_ms)
+                startup_frames += 1
                 cpu_percent = self.update_target_fps()
                 if not self.should_process_frame():
                     continue
