@@ -101,7 +101,21 @@
       "Read(//usr/bin/**)",
       "Read(//proc/3355/**)",
       "Bash(fuser -v /dev/snd/pcmC2D0c)",
-      "Bash(fuser /dev/snd/*)"
+      "Bash(fuser /dev/snd/*)",
+      "Bash(python3 -c \"import pyrealsense2 as rs; ctx = rs.context\\(\\); devices = ctx.query_devices\\(\\); print\\(f'Devices found: {len\\(devices\\)}'\\); [print\\(d.get_info\\(rs.camera_info.name\\)\\) for d in devices]\")",
+      "Bash(journalctl -b --no-pager -n 50)",
+      "Bash(lsusb -v)",
+      "Bash(lsusb -t)",
+      "Bash(dmesg --no-pager)",
+      "Bash(pip3 show *)",
+      "Bash(pip show *)",
+      "Read(//usr/**)",
+      "Read(//home/**)",
+      "Bash(python3.11 -c \"import pyrealsense2 as rs; ctx = rs.context\\(\\); devices = ctx.query_devices\\(\\); print\\(f'Devices: {len\\(devices\\)}'\\)\")",
+      "Bash(readlink -f /sys/bus/usb/devices/usb4 && echo \"---\" && readlink -f /sys/bus/usb/devices/usb4/.. && echo \"---\" && cat /sys/bus/usb/devices/usb4/busnum /sys/bus/usb/devices/usb4/devpath /sys/bus/usb/devices/usb4/of_node 2>/dev/null)",
+      "Read(//sys/devices/platform/axi/1000120000.pcie/1f00300000.usb/xhci-hcd.1/usb4/**)",
+      "Read(//sys/bus/usb/devices/**)",
+      "Read(//sys/bus/usb/devices/usb4-port1/**)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",
