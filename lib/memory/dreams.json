@@ -1,439 +1,484 @@
 {
   "dreams": [
     {
-      "id": "d_1780428370648_4585",
-      "dreamed_at": "2026-06-02T19:26:10.648Z",
+      "id": "d_1780505228030_5117",
+      "dreamed_at": "2026-06-03T16:47:08.030Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
         "recent_event": null,
-        "heart_mood": "warm"
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
     },
     {
-      "id": "d_1780428280645_517",
-      "dreamed_at": "2026-06-02T19:24:40.645Z",
+      "id": "d_1780505138027_6893",
+      "dreamed_at": "2026-06-03T16:45:38.027Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
         "recent_event": null,
-        "heart_mood": "warm"
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
     },
     {
-      "id": "d_1780428190639_8930",
-      "dreamed_at": "2026-06-02T19:23:10.639Z",
+      "id": "d_1780505048027_4624",
+      "dreamed_at": "2026-06-03T16:44:08.027Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
         "recent_event": null,
-        "heart_mood": "warm"
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
     },
     {
-      "id": "d_1780428100638_8658",
-      "dreamed_at": "2026-06-02T19:21:40.638Z",
+      "id": "d_1780504958022_1252",
+      "dreamed_at": "2026-06-03T16:42:38.022Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
         "recent_event": null,
-        "heart_mood": "warm"
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
     },
     {
-      "id": "d_1780427151679_897",
-      "dreamed_at": "2026-06-02T19:05:51.679Z",
+      "id": "d_1780504801712_1878",
+      "dreamed_at": "2026-06-03T16:40:01.713Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780427061672_5684",
-      "dreamed_at": "2026-06-02T19:04:21.672Z",
+      "id": "d_1780504711706_8237",
+      "dreamed_at": "2026-06-03T16:38:31.706Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780426971671_83",
-      "dreamed_at": "2026-06-02T19:02:51.671Z",
+      "id": "d_1780504621705_9561",
+      "dreamed_at": "2026-06-03T16:37:01.705Z",
       "source": "local",
       "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780426881674_4408",
-      "dreamed_at": "2026-06-02T19:01:21.674Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780426426703_4980",
-      "dreamed_at": "2026-06-02T18:53:46.703Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780426336702_631",
-      "dreamed_at": "2026-06-02T18:52:16.702Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780426212002_8571",
-      "dreamed_at": "2026-06-02T18:50:12.002Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780424639815_8103",
-      "dreamed_at": "2026-06-02T18:23:59.815Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780424169751_9023",
-      "dreamed_at": "2026-06-02T18:16:09.751Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780424079751_1702",
-      "dreamed_at": "2026-06-02T18:14:39.751Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780423989747_896",
-      "dreamed_at": "2026-06-02T18:13:09.747Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780423847892_7140",
-      "dreamed_at": "2026-06-02T18:10:47.892Z",
+      "id": "d_1780504531700_6186",
+      "dreamed_at": "2026-06-03T16:35:31.700Z",
       "source": "local",
       "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780423690209_3176",
-      "dreamed_at": "2026-06-02T18:08:10.209Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780423600200_4595",
-      "dreamed_at": "2026-06-02T18:06:40.200Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780423510164_4294",
-      "dreamed_at": "2026-06-02T18:05:10.164Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780423420160_1033",
-      "dreamed_at": "2026-06-02T18:03:40.160Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780423330144_2765",
-      "dreamed_at": "2026-06-02T18:02:10.144Z",
+      "id": "d_1780504441675_1271",
+      "dreamed_at": "2026-06-03T16:34:01.675Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780423240142_4502",
-      "dreamed_at": "2026-06-02T18:00:40.142Z",
+      "id": "d_1780504351672_2952",
+      "dreamed_at": "2026-06-03T16:32:31.672Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780423150133_9615",
-      "dreamed_at": "2026-06-02T17:59:10.133Z",
+      "id": "d_1780504261672_8795",
+      "dreamed_at": "2026-06-03T16:31:01.672Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780423060133_2705",
-      "dreamed_at": "2026-06-02T17:57:40.133Z",
+      "id": "d_1780504171658_4695",
+      "dreamed_at": "2026-06-03T16:29:31.658Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780422970132_2291",
-      "dreamed_at": "2026-06-02T17:56:10.132Z",
+      "id": "d_1780504081649_3940",
+      "dreamed_at": "2026-06-03T16:28:01.649Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780422880131_2696",
-      "dreamed_at": "2026-06-02T17:54:40.131Z",
+      "id": "d_1780503991648_8354",
+      "dreamed_at": "2026-06-03T16:26:31.648Z",
       "source": "local",
       "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780422790131_7264",
-      "dreamed_at": "2026-06-02T17:53:10.131Z",
+      "id": "d_1780503901648_4517",
+      "dreamed_at": "2026-06-03T16:25:01.648Z",
       "source": "local",
       "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780422700127_8068",
-      "dreamed_at": "2026-06-02T17:51:40.127Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
       "influence": {
         "situation": "path_blocked",
-        "priority": 0.6
+        "priority": 0.72
       }
     },
     {
-      "id": "d_1780422610127_2692",
-      "dreamed_at": "2026-06-02T17:50:10.127Z",
+      "id": "d_1780503811634_9912",
+      "dreamed_at": "2026-06-03T16:23:31.634Z",
       "source": "local",
       "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
     },
     {
-      "id": "d_1780422520119_4068",
-      "dreamed_at": "2026-06-02T17:48:40.119Z",
+      "id": "d_1780503721628_4295",
+      "dreamed_at": "2026-06-03T16:22:01.628Z",
       "source": "local",
       "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
       },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503631628_9175",
+      "dreamed_at": "2026-06-03T16:20:31.628Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503541626_5605",
+      "dreamed_at": "2026-06-03T16:19:01.626Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503451624_5568",
+      "dreamed_at": "2026-06-03T16:17:31.624Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503361624_541",
+      "dreamed_at": "2026-06-03T16:16:01.624Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503271615_8594",
+      "dreamed_at": "2026-06-03T16:14:31.615Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503181604_9581",
+      "dreamed_at": "2026-06-03T16:13:01.604Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503091600_6438",
+      "dreamed_at": "2026-06-03T16:11:31.600Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780503001594_6262",
+      "dreamed_at": "2026-06-03T16:10:01.594Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780502911589_9097",
+      "dreamed_at": "2026-06-03T16:08:31.589Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780502821579_5991",
+      "dreamed_at": "2026-06-03T16:07:01.579Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780502731555_4058",
+      "dreamed_at": "2026-06-03T16:05:31.555Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780502641553_9514",
+      "dreamed_at": "2026-06-03T16:04:01.553Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
+    },
+    {
+      "id": "d_1780502551546_396",
+      "dreamed_at": "2026-06-03T16:02:31.546Z",
+      "source": "local",
+      "seed": {
+        "trigger": "obstacle",
+        "recent_event": "timed_out",
+        "heart_mood": "confident"
+      },
+      "vision": "I stood at the edge of the obstacle long after it had gone. I had not noticed it leave. In the dream the path was always clear — I was the one who had not yet looked again.",
+      "perspective": "After a timeout the path may already be open. Look before assuming the block remains.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.72
+      }
     }
   ],
   "latest": {
-    "id": "d_1780428370648_4585",
-    "dreamed_at": "2026-06-02T19:26:10.648Z",
+    "id": "d_1780505228030_5117",
+    "dreamed_at": "2026-06-03T16:47:08.030Z",
     "source": "local",
     "seed": {
       "trigger": "stillness",
       "recent_event": null,
-      "heart_mood": "warm"
+      "heart_mood": "confident"
     },
-    "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+    "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
     "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
     "influence": null
   }
