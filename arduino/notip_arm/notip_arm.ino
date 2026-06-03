@@ -45,7 +45,10 @@ void hall_1_isr() {
 bool auto_delivery = false;
 bool stow_arm_active = false;
 bool stow_arm_arm_commanded = false;
-bool stowed = false;bool telescope_stall = false;   // set when motor is driving but Hall pulses stop arrivingString arm_state = "stopped";
+bool stowed = false;
+bool telescope_stall = false;   // set when motor is driving but Hall pulses stop arriving
+bool telescope_ignore_hall = true; // command-driven mode: ignore Hall-based stop decisions
+String arm_state = "stopped";
 String telescope_state = "stopped";
 String belt_state = "stopped";
 bool hook_switch_state = false;
@@ -149,13 +152,13 @@ void message_received(String json) {
     stow_arm();
   }
   else if (message == "belt") {
-    if (value < 1100) {
+    if (value > 1800) {
       auto_delivery = false;
       stow_arm_active = false;
       stow_arm_arm_commanded = false;
       stowed = false;
       extend_belt();
-    } else if (value > 1800) {
+    } else if (value < 1100) {
       auto_delivery = false;
       stow_arm_active = false;
       stow_arm_arm_commanded = false;
@@ -219,7 +222,8 @@ void stow_arm() {
   stow_arm_active = true;
   stow_arm_arm_commanded = false;
 
-  bool already_stowed = (digitalRead(belt_retract_limit_switch_pin) == HIGH) && (telescope_position <= 0) && (arm_state == "close");
+  bool telescope_home = telescope_ignore_hall ? (telescope_state == "close") : (telescope_position <= 0);
+  bool already_stowed = (digitalRead(belt_retract_limit_switch_pin) == HIGH) && telescope_home && (arm_state == "close");
   if (!already_stowed) {
     stowed = false;
   }
@@ -231,11 +235,15 @@ void stow_arm() {
     retract_belt();
   }
 
-  if (telescope_position <= 0) {
-    telescope_position = 0;
-    close_telescope();
-  } else {
+  if (telescope_ignore_hall) {
     retract_telescope();
+  } else {
+    if (telescope_position <= 0) {
+      telescope_position = 0;
+      close_telescope();
+    } else {
+      retract_telescope();
+    }
   }
 }
 
@@ -300,14 +308,14 @@ void heartbeat() {
     // Reinforce enable pin — a glitch low would stall the motor silently.
     digitalWrite(telescope_enable_pin, HIGH);
 
-    if (telescope_has_moved && telescope_position >= TELESCOPE_FULL_EXTEND_PULSES) {
+    if (!telescope_ignore_hall && telescope_has_moved && telescope_position >= TELESCOPE_FULL_EXTEND_PULSES) {
       open_telescope();
     } else if (telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_extend_timeout) {
       open_telescope();  // failsafe: Hall signal may have been lost
     }
 
     // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
-    if (telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+    if (!telescope_ignore_hall && telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
       telescope_stall = true;
     }
   }
@@ -317,7 +325,7 @@ void heartbeat() {
     // Reinforce enable pin — a glitch low would stall the motor silently.
     digitalWrite(telescope_enable_pin, HIGH);
 
-    if (telescope_has_moved && telescope_position <= 0) {
+    if (!telescope_ignore_hall && telescope_has_moved && telescope_position <= 0) {
       telescope_position = 0;
       close_telescope();
     } else if (telescope_time_stamp != 0 && current_time_stamp > telescope_time_stamp + telescope_retract_timeout) {
@@ -326,7 +334,7 @@ void heartbeat() {
     }
 
     // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
-    if (telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+    if (!telescope_ignore_hall && telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
       telescope_stall = true;
     }
   }
@@ -384,7 +392,7 @@ void heartbeat() {
   //Stow Sequence: once belt+telescope are both home, retract arm to 0.
   if (stow_arm_active && !stow_arm_arm_commanded) {
     bool belt_retracted = (digitalRead(belt_retract_limit_switch_pin) == HIGH) || belt_state == "close";
-    bool telescope_retracted = (telescope_position <= 0) || telescope_state == "close";
+    bool telescope_retracted = telescope_ignore_hall ? (telescope_state == "close") : ((telescope_position <= 0) || telescope_state == "close");
 
     if (belt_retracted && telescope_retracted) {
       telescope_position = 0;
@@ -442,7 +450,7 @@ void extend_telescope() {
 void retract_telescope() {
   // If already at home, don't start the motor — position-based stop would
   // never fire (retract_start_pos <= 10 guard) and motor would run until timeout.
-  if (telescope_position <= 0) {
+  if (!telescope_ignore_hall && telescope_position <= 0) {
     telescope_position = 0;
     close_telescope();
     return;
