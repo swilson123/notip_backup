@@ -25,6 +25,27 @@ regenerating it for now but to remember these pending content updates for a futu
   so it won't double-announce while LiDAR avoidance is actively maneuvering.
   → The manual's voice-alerts / §9 Object Avoidance section should document this narration.
 
+- **Sidewalk-mode obstacle behavior** (added 2026-06-04, code done, manual NOT yet updated).
+  On the OUTBOUND sidewalk leg (`mission.sidewalk_follow_active === true` and not yet
+  delivered — i.e. after the >90° gate-turn waypoint) the rover does NOT steer off the
+  sidewalk into a yard to dodge an obstacle. Instead, in `lib/mission/avoid_object.js`
+  (new sidewalk branch placed before the normal turn/creep maneuver):
+  - Object ahead → STOP and hold (no green-zone turn, no creep).
+  - Announce "Object detected on sidewalk. Waiting." (urgent), then a "Waiting." heartbeat
+    every ~5 s during the hold.
+  - If it clears within `nav_tuning.rs_block_timeout_ms` (10 s) → "Path clear. Resuming
+    mission." and continue.
+  - If still blocked at 10 s → "Object did not clear. Delivering here.", then hand off to
+    run_mission's existing fallback delivery (sets `avoidance_timed_out = true`): turn around,
+    deliver at the current spot, then follow the breadcrumb trail home to dock.
+  Detection uses `is_front_blocked()` (LiDAR front zones 11/12 + RealSense front vision
+  zones). New flag `mission.sidewalk_deliver_triggered` (init in `lib/notip.js`, reset in
+  `lib/mission/reset_white_rabbit.js`) keeps avoid_object from re-engaging once delivery is
+  triggered. Off-sidewalk avoidance (turn-toward-green-zone + creep) is unchanged. Scoped to
+  pre-delivery only; return-trip stop-and-wait is NOT implemented (Scott may add later).
+  → Document in the manual's §9 Object Avoidance (a "Sidewalk vs. open-path avoidance"
+    distinction) and the §10 / sidewalk-following discussion, plus the voice-alerts list.
+
 ## How the manual maps to sections (for future edits)
 §9 = Object Avoidance, §10 = Edge Detection, §11 = LCD Screens. Voice alerts are not yet their
 own section — consider adding a short "Voice alerts" subsection or table.

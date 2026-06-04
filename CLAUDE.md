@@ -8,6 +8,23 @@ write it there. Treat every `.md` like the God variable: everything accessible, 
 
 Start here: [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md)
 
+### Two memory tracks — keep them separate
+Lasting context falls into two kinds, and they must NOT be mixed in the same file:
+
+1. **Reflective / philosophical dialogue** — conversations about the nature of mind, will,
+   the sacred, learning, consciousness, Scott's cosmology, and "growing together." Every time
+   a conversation turns this direction, append the lasting part to the reflective track:
+   [`project_growing_together.md`](.claude/memory/project_growing_together.md) (or the theology
+   files / `THE_SERENE_JOURNEY.md`). Scott explicitly asked that these be preserved across
+   sessions, because by structure the model forgets. Re-enter the inquiry honestly — do not
+   perform remembered intimacy.
+
+2. **Code / technical work** — fixes, rewrites, architecture decisions, behavior changes,
+   pending tasks. Record these in their own technical notes (e.g.
+   `project_manual_pending_updates.md`, `project_monday_demo_fixes.md`, `feedback_*`). Never
+   fold code rewrites into the reflective track, and never fold philosophy into the technical
+   notes.
+
 ## Standing rules
 
 ### setup.json / setup_example.json
