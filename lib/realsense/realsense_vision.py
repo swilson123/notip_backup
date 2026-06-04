@@ -1960,14 +1960,23 @@ def stdin_listener(vision):
             break
         elif msg == "pitch":
             try:
-                vision.current_pitch_rad = float(payload.get("value", 0.0))
+                val = float(payload.get("value", 0.0))
+                if math.isfinite(val):           # reject NaN/inf so it can't poison the
+                    vision.current_pitch_rad = val   # roll/pitch rotation math downstream
             except (TypeError, ValueError):
                 pass
         elif msg == "roll":
             try:
-                vision.current_roll_rad = float(payload.get("value", 0.0))
+                val = float(payload.get("value", 0.0))
+                if math.isfinite(val):
+                    vision.current_roll_rad = val
             except (TypeError, ValueError):
                 pass
+
+    # The for-loop ends only when stdin hits EOF — the parent (Node) closed the pipe,
+    # i.e. it exited or crashed. Stop so run() unwinds and releases the camera instead
+    # of orphaning this process and holding the RealSense open.
+    vision.stop()
 
 
 def main():
