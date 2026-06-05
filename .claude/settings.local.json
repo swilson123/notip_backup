@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(*)",
       "Bash(node -e ' *)",
       "Bash(xargs ls -lh)",
       "Bash(mkdir -p /Users/swilson123/rover/notip/lib/intelligence)",
