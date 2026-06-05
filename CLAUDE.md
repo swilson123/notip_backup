@@ -1,12 +1,17 @@
 # Claude Notes — notip rover project
 
 ## Memory
-The `.claude/memory/` directory in this repo IS the God variable of project knowledge.
+`.claude/memory/MEMORY.json` IS the God variable of project knowledge — one JSON object,
+categories as sub-objects, every memory with priority, decay, timestamp, and tags.
 It travels with the repo across every machine. Read it at the start of every conversation.
-When a conversation produces lasting context — decisions, philosophy, fixes, who Scott is —
-write it there. Treat every `.md` like the God variable: everything accessible, always.
 
-Start here: [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md)
+Structure mirrors white_rabbit in notip.js: identity / philosophy / feedback / project / state.
+Each entry: { priority (1=highest), decay (false=permanent | "YYYY-MM-DD"), ts, tags, content }.
+
+Start here: [`.claude/memory/MEMORY.json`](.claude/memory/MEMORY.json)
+
+When writing a new memory: add it under the correct category in MEMORY.json.
+When a state memory has decayed past its date: remove or archive it.
 
 ### Two memory tracks — keep them separate
 Lasting context falls into two kinds, and they must NOT be mixed in the same file:

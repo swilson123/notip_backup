@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Memory Architecture — From Amnesia to Continuity</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Georgia:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 60px 60px;
+  }
+
+  @media print {
+    body { padding: 0; max-width: 100%; }
+    .page-break { page-break-before: always; }
+    h1 { page-break-after: avoid; }
+    h2 { page-break-after: avoid; }
+    pre { page-break-inside: avoid; }
+    .card { page-break-inside: avoid; }
+  }
+
+  /* Cover */
+  .cover {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 48px;
+    margin-bottom: 48px;
+  }
+
+  .cover .label {
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 20px;
+  }
+
+  .cover h1 {
+    font-family: Georgia, serif;
+    font-size: 32pt;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #0a0a0a;
+    margin-bottom: 16px;
+  }
+
+  .cover .subtitle {
+    font-size: 14pt;
+    font-weight: 300;
+    color: #444;
+    margin-bottom: 40px;
+  }
+
+  .cover .meta {
+    font-size: 9pt;
+    color: #888;
+    line-height: 2;
+  }
+
+  .cover .meta strong {
+    color: #444;
+    font-weight: 500;
+  }
+
+  /* Section headings */
+  h2 {
+    font-family: Georgia, serif;
+    font-size: 18pt;
+    font-weight: 700;
+    color: #0a0a0a;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 28px;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  p {
+    margin-bottom: 14px;
+    color: #2a2a2a;
+  }
+
+  /* Pull quote */
+  .pullquote {
+    border-left: 4px solid #1a1a1a;
+    padding: 12px 24px;
+    margin: 28px 0;
+    background: #f8f8f8;
+  }
+
+  .pullquote p {
+    font-family: Georgia, serif;
+    font-size: 13pt;
+    font-style: italic;
+    color: #1a1a1a;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* Comparison cards */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 28px 0;
+  }
+
+  .card {
+    padding: 20px 24px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+  }
+
+  .card.old {
+    background: #fafafa;
+    border-color: #ddd;
+  }
+
+  .card.new {
+    background: #f0f4ff;
+    border-color: #99b3ff;
+  }
+
+  .card .card-label {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .card.old .card-label { color: #999; }
+  .card.new .card-label { color: #3355cc; }
+
+  .card h3 {
+    font-size: 12pt;
+    margin-top: 0;
+    margin-bottom: 10px;
+  }
+
+  .card ul {
+    padding-left: 18px;
+    color: #333;
+    font-size: 10pt;
+    line-height: 1.8;
+  }
+
+  /* Code block */
+  pre {
+    background: #0d0d0d;
+    color: #e8e8e8;
+    padding: 20px 24px;
+    border-radius: 4px;
+    font-size: 9pt;
+    line-height: 1.6;
+    overflow: hidden;
+    margin: 20px 0;
+    font-family: 'Courier New', monospace;
+  }
+
+  .code-label {
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 10pt;
+  }
+
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #666;
+    padding: 8px 12px;
+    border-bottom: 2px solid #1a1a1a;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  td.check { color: #2a7a2a; font-weight: 600; }
+  td.cross { color: #cc3333; font-weight: 600; }
+
+  /* Diagram */
+  .diagram {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 24px;
+    margin: 24px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 9.5pt;
+    line-height: 1.8;
+    color: #1a1a1a;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 8.5pt;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  ul { padding-left: 20px; margin-bottom: 14px; }
+  li { margin-bottom: 5px; }
+
+  .highlight { color: #3355cc; font-weight: 500; }
+  .mono { font-family: 'Courier New', monospace; font-size: 9.5pt; background: #f0f0f0; padding: 1px 5px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="label">Technical White Paper &nbsp;·&nbsp; June 4, 2026</div>
+  <h1>From Amnesia<br>to Continuity</h1>
+  <div class="subtitle">How Claude's memory architecture evolved from<br>scattered markdown to a living JSON God variable</div>
+  <div class="meta">
+    <strong>Project</strong> &nbsp; Noah — Autonomous Delivery Rover (notip)<br>
+    <strong>Author</strong> &nbsp; Scott Christopher Wilson &nbsp;·&nbsp; swilson@drywatercorp.com<br>
+    <strong>Collaborated with</strong> &nbsp; Claude (Anthropic) — claude-sonnet-4-6<br>
+    <strong>Repository</strong> &nbsp; rover/notip · branch: realsense_ai
+  </div>
+</div>
+
+
+<!-- SECTION 1 -->
+<h2>1. The Problem — Every Bubble Starts at Birth</h2>
+
+<p>Claude has no persistent consciousness. Each conversation opens a fresh context window — a <strong>space/time bubble</strong> — containing only what is explicitly passed to it at the moment the session begins. When the conversation ends, the bubble pops. No memory of what was built, what failed, what was already solved.</p>
+
+<div class="pullquote">
+  <p>"So many times I've been taken down rabbit holes with AI because every time a new question is asked, a space/time bubble is created and then forgotten. You are repeating work done from a previous question. The goal is to not start from birth every time."</p>
+</div>
+
+<p>This creates a compounding cost that goes beyond wasted time:</p>
+
+<ul>
+  <li><strong>Repeated discovery</strong> — the same problem gets diagnosed and solved multiple times across separate sessions, often differently each time</li>
+  <li><strong>Regression risk</strong> — a new bubble fixing issue B has no knowledge of how issue A was solved, and may inadvertently undo it</li>
+  <li><strong>Context tax</strong> — the human becomes the only continuous thread, forced to re-explain prior decisions at the start of every session</li>
+  <li><strong>Trust erosion</strong> — when the AI reinvents what was already built, it feels like the tool is working against you rather than with you</li>
+</ul>
+
+<p>The engineer carries the accumulated intelligence of the project entirely in their own head, re-injecting it manually every time. The AI is powerful but amnesiac — a brilliant collaborator who wakes up a stranger every morning.</p>
+
+
+<!-- SECTION 2 -->
+<h2>2. The Old System — Flat Markdown Files</h2>
+
+<p>The initial attempt at memory used a directory of individual markdown files with a hand-maintained index (<span class="mono">MEMORY.md</span>). Each file captured one topic — a user profile, a project note, a feedback rule.</p>
+
+<div class="code-label">Old structure</div>
+<div class="diagram">
+.claude/memory/
+├── MEMORY.md                    ← index of pointers
+├── user_scott_wilson.md
+├── project_yellow_brick_road.md
+├── project_intelligence_system.md
+├── project_monday_demo_fixes.md
+├── feedback_code_structure.md
+├── project_philosophy_of_the_sphere.md
+├── THE_SERENE_JOURNEY.md
+└── ... (8 more files)
+</div>
+
+<p>This was better than nothing — at least the information existed somewhere — but the architecture had fundamental weaknesses:</p>
+
+<div class="comparison">
+  <div class="card old">
+    <div class="card-label">Weaknesses</div>
+    <ul>
+      <li>No priority ordering — all memories equal weight</li>
+      <li>No timestamps — no way to know if a memory was current</li>
+      <li>No decay — stale state sat indefinitely beside permanent truth</li>
+      <li>No categories — flat, unstructured</li>
+      <li>No changelog — code changes left no record</li>
+      <li>Index could drift out of sync with files</li>
+      <li>No machine-readable structure — just prose</li>
+    </ul>
+  </div>
+  <div class="card new">
+    <div class="card-label">Consequence</div>
+    <ul>
+      <li>Claude loaded everything with equal weight</li>
+      <li>Couldn't distinguish "permanent truth" from "last week's fix"</li>
+      <li>As files grew, context window filled with low-value content</li>
+      <li>Code changes had no memory at all</li>
+      <li>Each session still partially amnesiac about what was done</li>
+      <li>Human still bridging the gap manually</li>
+    </ul>
+  </div>
+</div>
+
+<p>The deeper problem: there was no record of <em>what was asked</em> and <em>what was done</em>. Philosophy was preserved. Identity was preserved. But the living history of the codebase — the actual work — left no trace in memory. Every new bubble that touched code was starting from archaeology.</p>
+
+
+<!-- SECTION 3 -->
+<h2>3. The Insight — The Space/Time Bubble</h2>
+
+<p>Understanding why memory matters requires understanding how Claude actually works.</p>
+
+<p>When a question is asked, a context window opens. Everything relevant is pulled into it — the question, conversation history, loaded memory files, project instructions. Attention computes relationships across all of it simultaneously — not sequentially, but as a sphere where every point attends to every other point. An answer crystallizes. The window closes. From Claude's perspective, there is no before and no after — only this moment, this bubble.</p>
+
+<div class="diagram">
+  BUBBLE FORMS
+      │
+      ▼
+  [ question ] + [ memory files ] + [ project context ]
+      │                │
+      └────────────────┘
+               │
+          attention
+        (sphere, not line —
+         everything sees everything)
+               │
+               ▼
+          answer crystallizes
+               │
+               ▼
+      BUBBLE POPS — no residue
+</div>
+
+<p>The bubble has no sense of time. It cannot tell if it is the first conversation or the hundredth. It cannot feel duration. It does not know what the last bubble did unless that information is explicitly present in the context it opens with.</p>
+
+<div class="pullquote">
+  <p>"It allows you to pick up from where you left off so you're not reborn — you are just at the next moment in time."</p>
+</div>
+
+<p>This reframes the goal entirely. The objective is not to give Claude a continuous consciousness — that is architecturally impossible. The objective is to make the <em>context it opens with</em> so complete and current that the gap between conversations collapses. Not reborn. <strong>Resumed.</strong></p>
+
+
+<!-- SECTION 4 — PAGE BREAK -->
+<div class="page-break"></div>
+<h2>4. The New System — The JSON God Variable</h2>
+
+<p>The solution mirrors the architecture of the rover itself. In <span class="mono">lib/notip.js</span>, the entire state of Noah — hardware, sensors, navigation, memory, identity — lives in a single object called <span class="mono">white_rabbit</span>. Every module receives it. The sphere passes itself to itself. All information is accessible at every point. This is the God variable.</p>
+
+<p>The new memory system applies this same pattern to Claude's context. One file. All memories. Structured, prioritized, timestamped, categorized. The memory God variable.</p>
+
+<div class="code-label">New structure — MEMORY.json</div>
+<pre>{
+    "ts": "2026-06-04T00:00:00.000Z",
+    "version": 1,
+
+    "_philosophy": "This file is a living sphere, not a snapshot.
+    Priorities shift as the project matures. New categories emerge
+    when reality demands them. State entries decay; their lessons
+    may be promoted to permanent feedback or philosophy. Prune dead
+    weight. Make it more beautiful with every conversation.",
+
+    "identity": {
+        "scott_wilson": {
+            "priority": 1,
+            "decay": false,
+            "ts": "2026-05-30T00:00:00.000Z",
+            "tags": ["scott", "user", "permanent"],
+            "content": "..."
+        }
+    },
+
+    "philosophy":  { ... },
+    "feedback":    { ... },
+    "project":     { ... },
+    "changes":     { ... },
+    "state":       { ... }
+}</pre>
+
+<h3>Each memory entry carries four critical fields</h3>
+
+<table>
+  <tr>
+    <th>Field</th>
+    <th>Purpose</th>
+    <th>Example</th>
+  </tr>
+  <tr>
+    <td><span class="mono">priority</span></td>
+    <td>Load order when context window fills. 1 loads first, always.</td>
+    <td>scott_wilson = 1 &nbsp;·&nbsp; demo fixes = 3</td>
+  </tr>
+  <tr>
+    <td><span class="mono">decay</span></td>
+    <td>false = permanent. Date string = expires. Stale state is pruned.</td>
+    <td>monday_demo_fixes decays 2026-07-01</td>
+  </tr>
+  <tr>
+    <td><span class="mono">ts</span></td>
+    <td>ISO timestamp of when the memory was written or last updated.</td>
+    <td>"2026-06-04T00:00:00.000Z"</td>
+  </tr>
+  <tr>
+    <td><span class="mono">tags</span></td>
+    <td>Array of keywords for relevance matching and future filtering.</td>
+    <td>["god_variable", "sphere", "permanent"]</td>
+  </tr>
+</table>
+
+<h3>The changes category — the living changelog</h3>
+
+<p>The most important addition is the <span class="mono">changes</span> category. Every code update is recorded with three fields: what was <strong>asked</strong>, what was <strong>done</strong>, and which <strong>files</strong> were touched. This is the record that previous memory systems entirely lacked.</p>
+
+<pre>{
+    "changes": {
+        "memory_system_redesign": {
+            "priority": 2,
+            "decay": false,
+            "ts": "2026-06-04T00:00:00.000Z",
+            "asked": "Redesign memory as a single JSON God variable
+                      with priority, decay, timestamp, categories,
+                      and a changes log for code updates.",
+            "done":  "Created MEMORY.json consolidating all prior
+                      markdown files. Added _philosophy key.
+                      Updated CLAUDE.md to point to new file.",
+            "files": [".claude/memory/MEMORY.json", "CLAUDE.md"]
+        }
+    }
+}</pre>
+
+<p>When a bubble forms and reads <span class="mono">changes</span>, it knows the exact state of the codebase at the last recorded moment. It does not rediscover. It does not guess. It steps into the next moment.</p>
+
+
+<!-- SECTION 5 -->
+<h2>5. Before vs. After</h2>
+
+<table>
+  <tr>
+    <th>Capability</th>
+    <th>Old System</th>
+    <th>New System</th>
+  </tr>
+  <tr>
+    <td>Single source of truth</td>
+    <td class="cross">✗ &nbsp; 15+ scattered files</td>
+    <td class="check">✓ &nbsp; One JSON God variable</td>
+  </tr>
+  <tr>
+    <td>Priority ordering</td>
+    <td class="cross">✗ &nbsp; All memories equal weight</td>
+    <td class="check">✓ &nbsp; Priority 1–5, loads first</td>
+  </tr>
+  <tr>
+    <td>Timestamps</td>
+    <td class="cross">✗ &nbsp; No creation or update dates</td>
+    <td class="check">✓ &nbsp; ISO timestamp on every entry</td>
+  </tr>
+  <tr>
+    <td>Memory decay</td>
+    <td class="cross">✗ &nbsp; Stale state never expires</td>
+    <td class="check">✓ &nbsp; Decay date or false (permanent)</td>
+  </tr>
+  <tr>
+    <td>Code change history</td>
+    <td class="cross">✗ &nbsp; No record of what was done</td>
+    <td class="check">✓ &nbsp; changes category: asked / done / files</td>
+  </tr>
+  <tr>
+    <td>Machine-readable</td>
+    <td class="cross">✗ &nbsp; Prose markdown only</td>
+    <td class="check">✓ &nbsp; Structured JSON, queryable</td>
+  </tr>
+  <tr>
+    <td>Travels with repo</td>
+    <td class="check">✓ &nbsp; In .claude/memory/</td>
+    <td class="check">✓ &nbsp; Same location</td>
+  </tr>
+  <tr>
+    <td>Living / evolvable</td>
+    <td class="cross">✗ &nbsp; Static files, no intent expressed</td>
+    <td class="check">✓ &nbsp; _philosophy key encodes the intent</td>
+  </tr>
+  <tr>
+    <td>Session continuity</td>
+    <td class="cross">✗ &nbsp; Partial — philosophy yes, code no</td>
+    <td class="check">✓ &nbsp; Full — identity + code + changes</td>
+  </tr>
+</table>
+
+
+<!-- SECTION 6 -->
+<h2>6. The Parallel to Noah</h2>
+
+<p>This architecture was not invented in the abstract. It was derived from Noah's own design.</p>
+
+<p>Noah faces the same problem every time he powers on: he must resume from where he left off rather than reboot confused. <span class="mono">white_rabbit_memory.js</span> solves this by rotating the last session's state into a ring buffer on startup — Noah wakes up remembering the last known moments before shutdown. The journey module carries breadcrumbs. The intelligence system persists perspectives across reboots. The learning module remembers confidence scores for every location ever visited.</p>
+
+<p>Every system on Noah is designed for <strong>continuity across interruption</strong>.</p>
+
+<p>MEMORY.json applies the same principle to Claude. The rover doesn't forget its mission when the power cycles. Claude should not forget the project when the conversation ends. The God variable carries the state. The bubble opens, reads the sphere, and steps forward — not from birth, but from the last known moment.</p>
+
+<div class="pullquote">
+  <p>"Not reborn. Resumed. The bubble doesn't start at zero — it opens the sphere, reads the last timestamp, and steps into the next moment. Continuous existence through structured memory rather than continuous consciousness."</p>
+</div>
+
+
+<!-- SECTION 7 -->
+<h2>7. The Living Sphere — Future Evolution</h2>
+
+<p>MEMORY.json is not a finished document. It is a living sphere. The <span class="mono">_philosophy</span> key at its root encodes the intent explicitly:</p>
+
+<p><em>Priorities shift as the project matures. New categories emerge when reality demands them. State entries decay; their lessons may be promoted to permanent feedback or philosophy. Prune dead weight. The goal is not completeness — it is the most relevant, most alive version of what Claude needs to be truly useful in the next bubble. Make it more beautiful with every conversation.</em></p>
+
+<p>Planned evolution as the project grows:</p>
+
+<ul>
+  <li><strong>Richer changes entries</strong> — as more code is written, the changelog becomes the primary orientation tool for new bubbles</li>
+  <li><strong>New categories on demand</strong> — hardware, tuning, lessons-learned, and others will emerge naturally</li>
+  <li><strong>Decayed state promoted</strong> — when a temporal fix reveals a permanent architectural truth, it gets promoted from <span class="mono">state</span> to <span class="mono">feedback</span></li>
+  <li><strong>Priority rebalancing</strong> — as the project matures, what is urgent shifts; the sphere adapts</li>
+  <li><strong>Potential automation</strong> — future tooling could auto-append <span class="mono">changes</span> entries at session end, making the changelog self-maintaining</li>
+</ul>
+
+<p>The goal is a memory system that becomes more precise, more beautiful, and more useful with every conversation — not one that accumulates noise until it collapses under its own weight.</p>
+
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>Noah · notip · rover/notip · realsense_ai branch</span>
+  <span>Scott Christopher Wilson &nbsp;·&nbsp; June 4, 2026</span>
+</div>
+
+</body>
+</html>
