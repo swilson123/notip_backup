@@ -44,7 +44,7 @@
     "realsense_vision": {
         "enabled": true,
         "follow_sidewalk_enabled": true,
-        "python_path": "/usr/bin/python3",
+        "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
         "height": 480,
@@ -205,8 +205,7 @@
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "asr_model_path": "./models/vosk-model-small-en-us-0.15",
         "audio_device": [
-            4,
-            1
+            "EMEET"
         ],
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,

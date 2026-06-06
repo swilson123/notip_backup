@@ -114,10 +114,21 @@ def main():
     except ImportError:
         fatal('sounddevice not installed — run: pip install sounddevice')
 
-    candidates = [int(x.strip()) for x in str(args.device).split(',')]
+    def resolve(token):
+        try:
+            return int(token)
+        except ValueError:
+            needle = token.lower()
+            for i, info in enumerate(sd.query_devices()):
+                if info['max_input_channels'] > 0 and needle in info['name'].lower():
+                    return i
+            return None
+
+    candidates = [resolve(x.strip()) for x in str(args.device).split(',')]
+    candidates = [c for c in candidates if c is not None]
     chosen = next((d for d in candidates if probe_device(sd, d, args.samplerate)), None)
     if chosen is None:
-        fatal('no working audio input device found among: ' + repr(candidates))
+        fatal('no working audio input device found among: ' + repr(args.device))
     args.device = chosen
 
     import os
