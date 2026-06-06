@@ -108,6 +108,9 @@ void setup() {
 
   Serial.begin(115200);
   arm.attach(arm_pin);
+  arm.write(arm_retract_value);   // move to stowed position on boot so the arm doesn't raise
+  arm_state = "close";
+  stowed = true;
 
 }
 
