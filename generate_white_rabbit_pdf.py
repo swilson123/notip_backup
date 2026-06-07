@@ -157,7 +157,7 @@ def build_cover(path):
     cv.setFont('Helvetica', 8)
     cv.drawCentredString(W/2, H * 0.065,
         'A conversation between Scott Christopher Wilson and Claude'
-        '  ·  May 30–31, 2026')
+        '  ·  May 30 – June 7, 2026')
 
     cv.showPage()
     cv.save()
@@ -275,6 +275,7 @@ def strip_emoji(text):
 def inline(text):
     text = strip_emoji(text)
     text = text.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+    text = re.sub(r'\*\*\*(.+?)\*\*\*', r'<b><i>\1</i></b>', text)
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'\*(.+?)\*',     r'<i>\1</i>', text)
     text = re.sub(r'`(.+?)`',
