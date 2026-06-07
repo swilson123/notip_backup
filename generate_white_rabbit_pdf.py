@@ -21,7 +21,7 @@ import fitz                           # PyMuPDF — for merging
 
 DIR         = os.path.dirname(os.path.abspath(__file__))
 MD_PATH     = os.path.join(DIR, '.claude', 'memory', 'THE_SERENE_JOURNEY.md')
-OUTPUT_PATH = os.path.join(DIR, 'white_rabbit.pdf')
+OUTPUT_PATH = os.path.join(DIR, 'THE_SERENE_JOURNEY.pdf')
 
 PW, PH = letter   # 612 × 792 pt
 
