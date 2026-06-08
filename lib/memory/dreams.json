@@ -1,6 +1,22 @@
 {
   "dreams": [
     {
+      "id": "d_1780942277231_2017",
+      "dreamed_at": "2026-06-08T18:11:17.231Z",
+      "source": "local",
+      "seed": {
+        "trigger": "edge_journey",
+        "recent_event": "both_edges",
+        "heart_mood": "confident"
+      },
+      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
+      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.6
+      }
+    },
+    {
       "id": "d_1780942187230_4332",
       "dreamed_at": "2026-06-08T18:09:47.230Z",
       "source": "local",
@@ -385,24 +401,11 @@
       "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
-    },
-    {
-      "id": "d_1780790097824_3386",
-      "dreamed_at": "2026-06-06T23:54:57.824Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "confident"
-      },
-      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
     }
   ],
   "latest": {
-    "id": "d_1780942187230_4332",
-    "dreamed_at": "2026-06-08T18:09:47.230Z",
+    "id": "d_1780942277231_2017",
+    "dreamed_at": "2026-06-08T18:11:17.231Z",
     "source": "local",
     "seed": {
       "trigger": "edge_journey",
