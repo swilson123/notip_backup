@@ -9,7 +9,7 @@
     "motor_steering": "servo_steering",
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
-    "arduino_comName": "/dev/ttyACM0",
+    "arduino_comName": "/dev/ttyAMA3",
     "realsense_comName": "/dev/ttyAMA2",
     "nav_tuning": {
         "two_wheel_steering_gain": 0.6,
