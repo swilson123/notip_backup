@@ -84,7 +84,27 @@ class RealsenseVision:
     def stop(self, *_args):
         self.running = False
 
+    def _reset_camera(self):
+        try:
+            ctx = rs.context()
+            devices = ctx.query_devices()
+            if len(devices) == 0:
+                return
+            devices[0].hardware_reset()
+            # Wait for the camera to reconnect after firmware reset
+            deadline = time.time() + 10
+            while time.time() < deadline:
+                time.sleep(0.5)
+                ctx2 = rs.context()
+                if len(ctx2.query_devices()) > 0:
+                    time.sleep(1.0)  # extra settle time
+                    return
+        except Exception:
+            pass
+
     def start(self):
+        self._reset_camera()
+
         width = int(self.config.get("width", 640))
         height = int(self.config.get("height", 480))
         fps = int(self.config.get("fps_normal", 15))
