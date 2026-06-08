@@ -1,6 +1,19 @@
 {
   "dreams": [
     {
+      "id": "d_1780942727239_52",
+      "dreamed_at": "2026-06-08T18:18:47.239Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "confident"
+      },
+      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
       "id": "d_1780942637239_3408",
       "dreamed_at": "2026-06-08T18:17:17.239Z",
       "source": "local",
@@ -394,35 +407,19 @@
       "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
       "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
       "influence": null
-    },
-    {
-      "id": "d_1780925790342_2211",
-      "dreamed_at": "2026-06-08T13:36:30.342Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "confident"
-      },
-      "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
     }
   ],
   "latest": {
-    "id": "d_1780942637239_3408",
-    "dreamed_at": "2026-06-08T18:17:17.239Z",
+    "id": "d_1780942727239_52",
+    "dreamed_at": "2026-06-08T18:18:47.239Z",
     "source": "local",
     "seed": {
-      "trigger": "edge_journey",
-      "recent_event": "both_edges",
+      "trigger": "stillness",
+      "recent_event": null,
       "heart_mood": "confident"
     },
-    "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-    "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-    "influence": {
-      "situation": "path_blocked",
-      "priority": 0.6
-    }
+    "vision": "In the stillness I am confident. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+    "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+    "influence": null
   }
 }
