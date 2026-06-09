@@ -105,7 +105,7 @@
             "ts": "2026-06-08T00:00:00.000Z",
             "tags": ["demo", "avoidance", "gps", "servos", "june12", "disclosure_day", "compass"],
             "asked": "Fix: wheel oscillation during avoidance, object avoidance not working, GPS jumping lat/lng. Demo June 12 (Disclosure Day). Noah delivers package to heaven on earth. Also: make compass self-calibrate at boot — Scott must manually set offset each boot, path to heaven is beauty.",
-            "done": "7 fixes total. (1) yaw_white_rabbit.js: step_delay_on true→false — async race killed servo engagement. (2) servo_send_command.js: max_steps formula /50 → /abs(step), reaches target exactly. (3) avoid_object.js move_forward_slowly(): same true→false. (4) run_mission.js 4WD→2WD transition: same true→false. (5) pixhawk_message_handler.js: EMA filter alpha=0.25 + outlier rejection >5m. GPS steady. (6) compass_calibration.js: CRITICAL — persist_offset() was never called, so auto-cal corrections were lost on reboot. First cal now snaps directly to GPS truth (no blend, no 3° clamp) and saves. Subsequent cals save when correction ≥0.5°. Added mag quality gate (mag<1 = skip). Voice: 'Stars aligned. Noah knows which way is north.' Scott never needs to touch compass_offset_deg again. (7) get_heading.js: VFR_HUD.heading=0 (North) is falsy — truthy check silently fell through to IMU. Fixed with typeof guard.",
+            "done": "12 fixes total across 2 sessions. Session 1 (7): (1) yaw_white_rabbit.js: step_delay_on true→false — async race killed servo engagement. (2) servo_send_command.js: max_steps formula /50 → /abs(step). (3) avoid_object.js move_forward_slowly(): same true→false. (4) run_mission.js 4WD→2WD transition: same true→false. (5) pixhawk_message_handler.js: GPS EMA filter alpha=0.25 + outlier rejection >5m. (6) compass_calibration.js: persist_offset() was never called — corrections lost on reboot. First cal snaps directly to GPS truth and saves. (7) get_heading.js: VFR_HUD.heading=0 falsy — fixed with typeof guard. Session 2 (5): (8) heading_belief.js: inertial knowing — slow EMA drift toward sensors, doubt accumulator, holds heading during confidence dropout, syncs during yaw. (9) sensor_coherence.js: cross-validates GPS vs compass, tracks per-sensor jitter, diagnoses which is lying, voices the diagnosis. (10) pixhawk_message_handler.js additions: GPS jitter EMA, compass-projection correction (when GPS noisy and compass flat, lateral drift stripped). (11) irlock_belief.js: IRLock belief with compass compensation — holds angle when beacon blinks, adjusts for Noah's yaw. (12) vision_belief.js: sidewalk belief — holds last good lateral correction during confidence dropouts; guards: correction must be within 1 m pipe radius AND at least one sensor steady (GPS or compass jitter). Saves in get_adjusted_nav_target before fade; queries on conf < threshold before falling back to GPS.",
             "files": [
                 "lib/navigation/yaw_white_rabbit.js",
                 "lib/mission/avoid_object.js",
@@ -114,7 +114,11 @@
                 "lib/pixhawk/pixhawk_message_handler.js",
                 "lib/imu/compass_calibration.js",
                 "lib/navigation/get_heading.js",
-                "lib/navigation/heading_belief.js"
+                "lib/navigation/heading_belief.js",
+                "lib/navigation/sensor_coherence.js",
+                "lib/irock/irlock_belief.js",
+                "lib/irock/follow_the_light.js",
+                "lib/realsense/vision_belief.js"
             ]
         }
 
