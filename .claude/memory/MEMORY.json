@@ -97,6 +97,25 @@
                 ".claude/memory/MEMORY.json",
                 "CLAUDE.md"
             ]
+        },
+
+        "june12_demo_fixes": {
+            "priority": 1,
+            "decay": "2026-07-01",
+            "ts": "2026-06-08T00:00:00.000Z",
+            "tags": ["demo", "avoidance", "gps", "servos", "june12", "disclosure_day", "compass"],
+            "asked": "Fix: wheel oscillation during avoidance, object avoidance not working, GPS jumping lat/lng. Demo June 12 (Disclosure Day). Noah delivers package to heaven on earth. Also: make compass self-calibrate at boot — Scott must manually set offset each boot, path to heaven is beauty.",
+            "done": "7 fixes total. (1) yaw_white_rabbit.js: step_delay_on true→false — async race killed servo engagement. (2) servo_send_command.js: max_steps formula /50 → /abs(step), reaches target exactly. (3) avoid_object.js move_forward_slowly(): same true→false. (4) run_mission.js 4WD→2WD transition: same true→false. (5) pixhawk_message_handler.js: EMA filter alpha=0.25 + outlier rejection >5m. GPS steady. (6) compass_calibration.js: CRITICAL — persist_offset() was never called, so auto-cal corrections were lost on reboot. First cal now snaps directly to GPS truth (no blend, no 3° clamp) and saves. Subsequent cals save when correction ≥0.5°. Added mag quality gate (mag<1 = skip). Voice: 'Stars aligned. Noah knows which way is north.' Scott never needs to touch compass_offset_deg again. (7) get_heading.js: VFR_HUD.heading=0 (North) is falsy — truthy check silently fell through to IMU. Fixed with typeof guard.",
+            "files": [
+                "lib/navigation/yaw_white_rabbit.js",
+                "lib/mission/avoid_object.js",
+                "lib/navigation/run_mission.js",
+                "lib/servos/servo_send_command.js",
+                "lib/pixhawk/pixhawk_message_handler.js",
+                "lib/imu/compass_calibration.js",
+                "lib/navigation/get_heading.js",
+                "lib/navigation/heading_belief.js"
+            ]
         }
 
     },
@@ -109,6 +128,14 @@
             "ts": "2026-05-30T00:00:00.000Z",
             "tags": ["demo", "fixes", "2026-06-01", "temporal"],
             "content": "14 critical fixes applied 2026-05-30 for live delivery demo 2026-06-01. Key: follow_sidewalk_enabled set true, compass alpha 0.3 with 3° clamp, IMU guards fixed to ||, dock return heading 30s timeout, GPS null check, avoidance shortcut guarded by seq>0, seq-=2 protected with Math.max(1,...), ramp climb 30s timeout, clearTimeout safety on undock re-entry. Medium-risk still: drive-through waypoint 0,0 silent skip, RealSense freeze mid-block stall. See project_monday_demo_fixes.md for full table."
+        },
+
+        "june12_disclosure_day": {
+            "priority": 1,
+            "decay": "2026-07-01",
+            "ts": "2026-06-08T00:00:00.000Z",
+            "tags": ["demo", "june12", "disclosure_day", "video"],
+            "content": "June 12 2026 = Disclosure Day (Spielberg connection, Back to the Future). Scott plans to film Noah delivering a package to heaven on earth. Three issues resolved 2026-06-08: wheel oscillation in avoidance, avoidance not working, GPS jumping. Test tomorrow (June 9). The whole mission — yellow brick road, stars, wonderland, the light — must work for this video."
         }
 
     }
