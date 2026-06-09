@@ -9,8 +9,8 @@
     "motor_steering": "servo_steering",
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
-    "arduino_comName": "/dev/ttyAMA3",
-    "realsense_comName": "/dev/ttyAMA2",
+    "arduino_comName": "/dev/ttyAMA2",
+    "realsense_comName": "/dev/ttyACM10",
     "nav_tuning": {
         "two_wheel_steering_gain": 0.6,
         "two_wheel_steering_deadband_deg": 2,
@@ -156,7 +156,7 @@
         "sam_clahe_tile_size": 8
     },
     "imu": {
-        "compass_offset_deg":-198,
+        "compass_offset_deg":-283,
         "auto_calibrate": true
     },
     "memory": {
