@@ -40,6 +40,7 @@
         "roll_through_min_entry_m": 0.4,
         "roll_through_max_entry_m": 2.0,
         "roll_through_min_turn_deg": 20,
+        "rc_yaw_deadband_pwm": 150,
         "waypoint_arrival_radius_m": 2.0,
         "breadcrumb_arrival_radius_m": 1.0,
         "power_guardian_min_distance_m": 5,
