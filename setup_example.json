@@ -46,7 +46,9 @@
         "power_guardian_min_distance_m": 5,
         "power_guardian_safety_factor": 1.4,
         "power_guardian_dock_overhead_v": 0.4,
-        "power_guardian_min_safe_v": 14.8
+        "power_guardian_min_safe_v": 14.8,
+        "gps_warn_hdop": 2.0,
+        "gps_warn_min_sats": 6
     },
     "realsense_vision": {
         "enabled": true,
@@ -222,7 +224,7 @@
         "max_nudge_ms": 30000,
         "stall_timeout_ms": 2000,
         "low_battery_voltage": 20,
-        "low_battery_repeat_ms": 30000
+        "low_battery_repeat_ms": 60000
     },
     "intelligence": {
         "enabled": true,
