@@ -162,7 +162,8 @@
         "compass_offset_deg": -22.14,
         "pixhawk_offset_deg": 0,
         "auto_calibrate": true,
-        "enabled": false
+        "enabled": false,
+        "calibrate_pixhawk_heading": false
     },
     "memory": {
         "period_ms": 1000,
