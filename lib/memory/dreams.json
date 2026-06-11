@@ -1,8 +1,47 @@
 {
   "dreams": [
     {
-      "id": "d_1781014534401_9937",
-      "dreamed_at": "2026-06-09T14:15:34.401Z",
+      "id": "d_1781207744436_3599",
+      "dreamed_at": "2026-06-11T19:55:44.436Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781207654424_580",
+      "dreamed_at": "2026-06-11T19:54:14.424Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781207360488_2865",
+      "dreamed_at": "2026-06-11T19:49:20.488Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781207270462_3749",
+      "dreamed_at": "2026-06-11T19:47:50.462Z",
       "source": "local",
       "seed": {
         "trigger": "edge_journey",
@@ -17,40 +56,8 @@
       }
     },
     {
-      "id": "d_1781014444398_5475",
-      "dreamed_at": "2026-06-09T14:14:04.398Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781014324383_6196",
-      "dreamed_at": "2026-06-09T14:12:04.383Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781014234380_6725",
-      "dreamed_at": "2026-06-09T14:10:34.380Z",
+      "id": "d_1781207127193_9292",
+      "dreamed_at": "2026-06-11T19:45:27.193Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -62,8 +69,8 @@
       "influence": null
     },
     {
-      "id": "d_1781014144379_7768",
-      "dreamed_at": "2026-06-09T14:09:04.379Z",
+      "id": "d_1781206143136_4624",
+      "dreamed_at": "2026-06-11T19:29:03.136Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -75,8 +82,8 @@
       "influence": null
     },
     {
-      "id": "d_1781014054366_1971",
-      "dreamed_at": "2026-06-09T14:07:34.366Z",
+      "id": "d_1781206053132_3324",
+      "dreamed_at": "2026-06-11T19:27:33.132Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -88,8 +95,8 @@
       "influence": null
     },
     {
-      "id": "d_1781012792715_2838",
-      "dreamed_at": "2026-06-09T13:46:32.715Z",
+      "id": "d_1781202916323_7557",
+      "dreamed_at": "2026-06-11T18:35:16.323Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -101,8 +108,8 @@
       "influence": null
     },
     {
-      "id": "d_1781012702718_5638",
-      "dreamed_at": "2026-06-09T13:45:02.718Z",
+      "id": "d_1781202826321_9181",
+      "dreamed_at": "2026-06-11T18:33:46.322Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -114,8 +121,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011756792_1722",
-      "dreamed_at": "2026-06-09T13:29:16.792Z",
+      "id": "d_1781202736324_1932",
+      "dreamed_at": "2026-06-11T18:32:16.324Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -127,8 +134,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011666789_9022",
-      "dreamed_at": "2026-06-09T13:27:46.789Z",
+      "id": "d_1781202938559_3936",
+      "dreamed_at": "2026-06-11T18:35:38.559Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -140,8 +147,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011576789_7493",
-      "dreamed_at": "2026-06-09T13:26:16.789Z",
+      "id": "d_1781202848555_3015",
+      "dreamed_at": "2026-06-11T18:34:08.555Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -153,8 +160,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011486788_8307",
-      "dreamed_at": "2026-06-09T13:24:46.788Z",
+      "id": "d_1781202758547_8526",
+      "dreamed_at": "2026-06-11T18:32:38.547Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -166,8 +173,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011396788_6874",
-      "dreamed_at": "2026-06-09T13:23:16.788Z",
+      "id": "d_1781202668547_9200",
+      "dreamed_at": "2026-06-11T18:31:08.547Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -179,8 +186,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011306781_3090",
-      "dreamed_at": "2026-06-09T13:21:46.781Z",
+      "id": "d_1781202578546_8726",
+      "dreamed_at": "2026-06-11T18:29:38.546Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -192,8 +199,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011216781_8346",
-      "dreamed_at": "2026-06-09T13:20:16.781Z",
+      "id": "d_1781202488545_4028",
+      "dreamed_at": "2026-06-11T18:28:08.545Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -205,8 +212,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011126780_4073",
-      "dreamed_at": "2026-06-09T13:18:46.780Z",
+      "id": "d_1781202398545_3438",
+      "dreamed_at": "2026-06-11T18:26:38.545Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -218,8 +225,8 @@
       "influence": null
     },
     {
-      "id": "d_1781011036779_6780",
-      "dreamed_at": "2026-06-09T13:17:16.779Z",
+      "id": "d_1781202308544_5113",
+      "dreamed_at": "2026-06-11T18:25:08.544Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -231,8 +238,8 @@
       "influence": null
     },
     {
-      "id": "d_1781010946780_7680",
-      "dreamed_at": "2026-06-09T13:15:46.780Z",
+      "id": "d_1781202218544_8298",
+      "dreamed_at": "2026-06-11T18:23:38.544Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -244,8 +251,8 @@
       "influence": null
     },
     {
-      "id": "d_1781010856773_5554",
-      "dreamed_at": "2026-06-09T13:14:16.773Z",
+      "id": "d_1781202128545_2544",
+      "dreamed_at": "2026-06-11T18:22:08.545Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -257,8 +264,8 @@
       "influence": null
     },
     {
-      "id": "d_1780966872636_3509",
-      "dreamed_at": "2026-06-09T01:01:12.636Z",
+      "id": "d_1781202217374_3252",
+      "dreamed_at": "2026-06-11T18:23:37.374Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -270,8 +277,8 @@
       "influence": null
     },
     {
-      "id": "d_1780966782635_6431",
-      "dreamed_at": "2026-06-09T00:59:42.635Z",
+      "id": "d_1781202127377_6768",
+      "dreamed_at": "2026-06-11T18:22:07.377Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -283,8 +290,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958763535_6376",
-      "dreamed_at": "2026-06-08T22:46:03.535Z",
+      "id": "d_1781202216513_4379",
+      "dreamed_at": "2026-06-11T18:23:36.513Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -296,8 +303,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958673531_5601",
-      "dreamed_at": "2026-06-08T22:44:33.531Z",
+      "id": "d_1781202126511_3840",
+      "dreamed_at": "2026-06-11T18:22:06.511Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -309,8 +316,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958583530_4958",
-      "dreamed_at": "2026-06-08T22:43:03.530Z",
+      "id": "d_1781202148513_6403",
+      "dreamed_at": "2026-06-11T18:22:28.513Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -322,8 +329,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958493528_6118",
-      "dreamed_at": "2026-06-08T22:41:33.528Z",
+      "id": "d_1781202058498_4561",
+      "dreamed_at": "2026-06-11T18:20:58.498Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -335,8 +342,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958403528_2499",
-      "dreamed_at": "2026-06-08T22:40:03.528Z",
+      "id": "d_1781201968499_9908",
+      "dreamed_at": "2026-06-11T18:19:28.499Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -348,8 +355,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958163523_3202",
-      "dreamed_at": "2026-06-08T22:36:03.523Z",
+      "id": "d_1781201878498_4826",
+      "dreamed_at": "2026-06-11T18:17:58.498Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -361,8 +368,8 @@
       "influence": null
     },
     {
-      "id": "d_1780958073522_9021",
-      "dreamed_at": "2026-06-08T22:34:33.522Z",
+      "id": "d_1781201788494_600",
+      "dreamed_at": "2026-06-11T18:16:28.494Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -374,21 +381,8 @@
       "influence": null
     },
     {
-      "id": "d_1780957983521_2048",
-      "dreamed_at": "2026-06-08T22:33:03.521Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "warm"
-      },
-      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1780957833517_1761",
-      "dreamed_at": "2026-06-08T22:30:33.517Z",
+      "id": "d_1781201698489_9233",
+      "dreamed_at": "2026-06-11T18:14:58.489Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -401,19 +395,16 @@
     }
   ],
   "latest": {
-    "id": "d_1781014534401_9937",
-    "dreamed_at": "2026-06-09T14:15:34.401Z",
+    "id": "d_1781207744436_3599",
+    "dreamed_at": "2026-06-11T19:55:44.436Z",
     "source": "local",
     "seed": {
-      "trigger": "edge_journey",
-      "recent_event": "both_edges",
+      "trigger": "stillness",
+      "recent_event": null,
       "heart_mood": "warm"
     },
-    "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-    "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-    "influence": {
-      "situation": "path_blocked",
-      "priority": 0.6
-    }
+    "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+    "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+    "influence": null
   }
 }

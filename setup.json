@@ -109,7 +109,7 @@
         "edge_hysteresis_keep_conf": 0.6,
         "edge_hysteresis_switch_margin": 0.2,
         "edge_hysteresis_ttl_ms": 3000,
-        "edge_roi_top_frac": 0.40,
+        "edge_roi_top_frac": 0.4,
         "edge_roi_bottom_frac": 0.95,
         "edge_line_bands": 6,
         "edge_line_lookahead_frac": 0.82,
@@ -159,8 +159,9 @@
         "sam_clahe_tile_size": 8
     },
     "imu": {
-        "compass_offset_deg":-283,
-        "auto_calibrate": true
+        "compass_offset_deg": 0,
+        "auto_calibrate": true,
+        "enabled": false
     },
     "memory": {
         "period_ms": 1000,
