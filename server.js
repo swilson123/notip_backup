@@ -16,6 +16,23 @@ process.on('exit', function (code) {
 const notip_init = require('./lib/notip.js');
 
 
+// Enforce a single instance: kill any OTHER `node server.js` already running
+// (e.g. a previous launch that didn't exit) before we start, so two instances
+// never fight over the camera / LiDAR / GPIO / serial ports. Notes:
+//   - The [n]ode bracket trick stops this helper's own shell from matching the
+//     pattern (its cmdline contains "[n]ode...", never literal "node...").
+//   - grep -vx <pid> excludes our own process.
+//   - SIGTERM (default kill) lets the old instance run its graceful shutdown.
+//   - Wrapped in try/catch: when nothing else is running, grep exits non-zero
+//     and execSync throws — harmless.
+try {
+	require('child_process').execSync(
+		"pgrep -f '[n]ode.*server\\.js' | grep -vx " + process.pid + " | xargs -r kill 2>/dev/null",
+		{ stdio: 'ignore' }
+	);
+} catch (e) { /* no other instance, or pgrep/xargs unavailable */ }
+
+
 //Fetch setup params......................
 var fs = require('fs');
 var data = fs.readFileSync('./setup.json');
