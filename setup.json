@@ -160,6 +160,7 @@
     },
     "imu": {
         "compass_offset_deg": 0,
+        "pixhawk_offset_deg": 0,
         "auto_calibrate": true,
         "enabled": false
     },
