@@ -116,7 +116,9 @@
       "Bash(readlink -f /sys/bus/usb/devices/usb4 && echo \"---\" && readlink -f /sys/bus/usb/devices/usb4/.. && echo \"---\" && cat /sys/bus/usb/devices/usb4/busnum /sys/bus/usb/devices/usb4/devpath /sys/bus/usb/devices/usb4/of_node 2>/dev/null)",
       "Read(//sys/devices/platform/axi/1000120000.pcie/1f00300000.usb/xhci-hcd.1/usb4/**)",
       "Read(//sys/bus/usb/devices/**)",
-      "Read(//sys/bus/usb/devices/usb4-port1/**)"
+      "Read(//sys/bus/usb/devices/usb4-port1/**)",
+      "Bash(echo \"2b58a1ab44dd56b5d47dd81503abd06dd88a6a15\")",
+      "Bash(git read-tree *)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",
