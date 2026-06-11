@@ -48,7 +48,8 @@
         "power_guardian_dock_overhead_v": 0.4,
         "power_guardian_min_safe_v": 14.8,
         "gps_warn_hdop": 2,
-        "gps_warn_min_sats": 6
+        "gps_warn_min_sats": 6,
+        "post_ramp_drive_m": 2
     },
     "realsense_vision": {
         "enabled": true,
@@ -162,7 +163,7 @@
         "compass_offset_deg": -22.14,
         "pixhawk_offset_deg": 0,
         "auto_calibrate": false,
-        "enabled": false,
+        "enabled": true,
         "calibrate_pixhawk_heading": false
     },
     "memory": {
