@@ -1,6 +1,179 @@
 {
   "history": [
     {
+      "session_id": "1781226695959",
+      "generated_at": "2026-06-12T01:11:35.959Z",
+      "situation": "path_blocked",
+      "context_snapshot": {
+        "situation": "path_blocked",
+        "lat": 39.33760030278286,
+        "lng": -84.28768428257476,
+        "heading_deg": 168,
+        "yaw_to_waypoint_deg": 110.95009217900895,
+        "mission_seq": 2,
+        "mission_count": 6,
+        "package_delivered": null,
+        "vision_confidence": 0,
+        "vision_offset_m": 0,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.52,
+        "heart_intent": "outbound"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1781226695960_6557",
+          "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+          "parameters": {
+            "nav_tuning.rs_block_timeout_ms": 15000
+          },
+          "priority": 0.8,
+          "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.8
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1781226695960_2900",
+          "description": "Lower vision confidence threshold so a partial path reading clears the block",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.65,
+          "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.65
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1781226695960_7810",
+          "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
+          "parameters": {
+            "realsense_vision.object_emergency_stop_m": 1.3
+          },
+          "priority": 0.55,
+          "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.55
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1781226695960_9651",
+          "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.5,
+          "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.5
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
+      "session_id": "1780955816111",
+      "generated_at": "2026-06-08T21:56:56.111Z",
+      "situation": "avoidance_started",
+      "context_snapshot": {
+        "situation": "avoidance_started",
+        "lat": 39.3375923,
+        "lng": -84.287704,
+        "heading_deg": 308.875,
+        "yaw_to_waypoint_deg": 68.1338288938552,
+        "mission_seq": 1,
+        "mission_count": 4,
+        "package_delivered": null,
+        "vision_confidence": 0,
+        "vision_offset_m": 0,
+        "vision_enabled": true,
+        "avoidance_active": true,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.6899999999999995,
+        "heart_intent": "undocking"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780955816112_6990",
+          "description": "Extend the avoidance timeout to allow more time to find a clear arc",
+          "parameters": {
+            "nav_tuning.avoidance_timeout_ms": 40000
+          },
+          "priority": 0.78,
+          "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.78
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780955816112_8138",
+          "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
+          "parameters": {
+            "realsense_vision.confidence_threshold": 0.5
+          },
+          "priority": 0.62,
+          "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.62
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1780955816112_5838",
+          "description": "Lower speed floor so Noah can creep around tight obstacle margins",
+          "parameters": {
+            "realsense_vision.speed_scale_min": 0.30000000000000004
+          },
+          "priority": 0.55,
+          "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.55
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
       "session_id": "1780511912321",
       "generated_at": "2026-06-03T18:38:32.321Z",
       "situation": "avoidance_started",
@@ -2290,26 +2463,26 @@
     }
   ],
   "latest": {
-    "session_id": "1780511912321",
-    "generated_at": "2026-06-03T18:38:32.321Z",
-    "situation": "avoidance_started",
+    "session_id": "1781226695959",
+    "generated_at": "2026-06-12T01:11:35.959Z",
+    "situation": "path_blocked",
     "context_snapshot": {
-      "situation": "avoidance_started",
-      "lat": 0,
-      "lng": 0,
-      "heading_deg": 107.9375,
-      "yaw_to_waypoint_deg": null,
-      "mission_seq": 0,
-      "mission_count": 0,
-      "package_delivered": false,
+      "situation": "path_blocked",
+      "lat": 39.33760030278286,
+      "lng": -84.28768428257476,
+      "heading_deg": 168,
+      "yaw_to_waypoint_deg": 110.95009217900895,
+      "mission_seq": 2,
+      "mission_count": 6,
+      "package_delivered": null,
       "vision_confidence": 0,
       "vision_offset_m": 0,
       "vision_enabled": true,
       "avoidance_active": true,
       "blocked_ms": null,
       "speed_cmd": 0,
-      "learning_speed_mul": 0.9999999999999998,
-      "heart_intent": "standby"
+      "learning_speed_mul": 0.52,
+      "heart_intent": "outbound"
     },
     "source": "local",
     "perspectives": [
@@ -2319,16 +2492,16 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780511912327_1707",
-        "description": "Extend the avoidance timeout to allow more time to find a clear arc",
+        "id": "p_1781226695960_6557",
+        "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
         "parameters": {
-          "nav_tuning.avoidance_timeout_ms": 40000
+          "nav_tuning.rs_block_timeout_ms": 15000
         },
-        "priority": 0.78,
-        "priority_reason": "Wide obstacles need longer arcs — cutting off too soon forces fallback delivery unnecessarily",
+        "priority": 0.8,
+        "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery",
         "historical_trials": 0,
         "historical_success_rate": null,
-        "priority_blended": 0.78
+        "priority_blended": 0.8
       },
       {
         "tried": false,
@@ -2336,16 +2509,16 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780511912327_4742",
-        "description": "Lower vision confidence threshold so guidance stays active during avoidance camera angle shifts",
+        "id": "p_1781226695960_2900",
+        "description": "Lower vision confidence threshold so a partial path reading clears the block",
         "parameters": {
           "realsense_vision.confidence_threshold": 0.5
         },
-        "priority": 0.62,
-        "priority_reason": "The camera angle changes during avoidance turns — a lower threshold keeps path guidance alive",
+        "priority": 0.65,
+        "priority_reason": "Reducing the bar risks accepting a noisier path signal but may unblock navigation",
         "historical_trials": 0,
         "historical_success_rate": null,
-        "priority_blended": 0.62
+        "priority_blended": 0.65
       },
       {
         "tried": false,
@@ -2353,16 +2526,33 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1780511912327_3444",
-        "description": "Lower speed floor so Noah can creep around tight obstacle margins",
+        "id": "p_1781226695960_7810",
+        "description": "Increase emergency-stop distance so Noah stops earlier and waits with more clearance",
         "parameters": {
-          "realsense_vision.speed_scale_min": 0.30000000000000004
+          "realsense_vision.object_emergency_stop_m": 1.3
         },
         "priority": 0.55,
-        "priority_reason": "Slower speed during avoidance reduces the minimum clearance gap needed to pass",
+        "priority_reason": "More clearance gives the vision system a wider field to see around the obstacle",
         "historical_trials": 0,
         "historical_success_rate": null,
         "priority_blended": 0.55
+      },
+      {
+        "tried": false,
+        "tried_at": null,
+        "outcome": null,
+        "outcome_at": null,
+        "outcome_notes": null,
+        "id": "p_1781226695960_9651",
+        "description": "Lower the speed floor so Noah creeps rather than stalls near the obstacle",
+        "parameters": {
+          "realsense_vision.speed_scale_min": 0.30000000000000004
+        },
+        "priority": 0.5,
+        "priority_reason": "A slower approach reduces the reaction distance needed for a partially visible path",
+        "historical_trials": 0,
+        "historical_success_rate": null,
+        "priority_blended": 0.5
       }
     ],
     "parameter_edits_applied": []
