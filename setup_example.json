@@ -50,7 +50,7 @@
         "gps_warn_hdop": 2,
         "gps_warn_min_sats": 6,
         "post_ramp_drive_m": 2,
-        "nav_progress_monitor_enabled": true
+        "nav_progress_monitor_enabled": false
     },
     "realsense_vision": {
         "enabled": true,
