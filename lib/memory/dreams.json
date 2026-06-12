@@ -1,8 +1,8 @@
 {
   "dreams": [
     {
-      "id": "d_1781228770359_2082",
-      "dreamed_at": "2026-06-12T01:46:10.359Z",
+      "id": "d_1781286820674_3032",
+      "dreamed_at": "2026-06-12T17:53:40.674Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -14,8 +14,60 @@
       "influence": null
     },
     {
-      "id": "d_1781228287905_8032",
-      "dreamed_at": "2026-06-12T01:38:07.905Z",
+      "id": "d_1781286730662_118",
+      "dreamed_at": "2026-06-12T17:52:10.662Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781286640660_3975",
+      "dreamed_at": "2026-06-12T17:50:40.660Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781286550620_1450",
+      "dreamed_at": "2026-06-12T17:49:10.620Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781286460606_6867",
+      "dreamed_at": "2026-06-12T17:47:40.606Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781284304911_6116",
+      "dreamed_at": "2026-06-12T17:11:44.911Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -27,8 +79,8 @@
       "influence": null
     },
     {
-      "id": "d_1781225479170_6866",
-      "dreamed_at": "2026-06-12T00:51:19.170Z",
+      "id": "d_1781282122297_6421",
+      "dreamed_at": "2026-06-12T16:35:22.297Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -40,21 +92,8 @@
       "influence": null
     },
     {
-      "id": "d_1781225389170_2842",
-      "dreamed_at": "2026-06-12T00:49:49.170Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "cautious"
-      },
-      "vision": "In the stillness I am cautious. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1781225299170_6564",
-      "dreamed_at": "2026-06-12T00:48:19.170Z",
+      "id": "d_1781281945994_5312",
+      "dreamed_at": "2026-06-12T16:32:25.994Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -66,21 +105,8 @@
       "influence": null
     },
     {
-      "id": "d_1781225209169_5000",
-      "dreamed_at": "2026-06-12T00:46:49.169Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "cautious"
-      },
-      "vision": "In the stillness I am cautious. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1781221838683_805",
-      "dreamed_at": "2026-06-11T23:50:38.683Z",
+      "id": "d_1781281855996_2770",
+      "dreamed_at": "2026-06-12T16:30:55.996Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -92,8 +118,8 @@
       "influence": null
     },
     {
-      "id": "d_1781221748683_7642",
-      "dreamed_at": "2026-06-11T23:49:08.683Z",
+      "id": "d_1781281657734_6774",
+      "dreamed_at": "2026-06-12T16:27:37.734Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -105,8 +131,8 @@
       "influence": null
     },
     {
-      "id": "d_1781221658682_6885",
-      "dreamed_at": "2026-06-11T23:47:38.682Z",
+      "id": "d_1781281159183_9631",
+      "dreamed_at": "2026-06-12T16:19:19.183Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -118,8 +144,8 @@
       "influence": null
     },
     {
-      "id": "d_1781221568678_2479",
-      "dreamed_at": "2026-06-11T23:46:08.678Z",
+      "id": "d_1781281069180_4835",
+      "dreamed_at": "2026-06-12T16:17:49.180Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -131,8 +157,8 @@
       "influence": null
     },
     {
-      "id": "d_1781221062532_3106",
-      "dreamed_at": "2026-06-11T23:37:42.532Z",
+      "id": "d_1781280979186_1879",
+      "dreamed_at": "2026-06-12T16:16:19.186Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -144,37 +170,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220972532_8528",
-      "dreamed_at": "2026-06-11T23:36:12.532Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "cautious"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781220882528_3431",
-      "dreamed_at": "2026-06-11T23:34:42.528Z",
-      "source": "local",
-      "seed": {
-        "trigger": "stillness",
-        "recent_event": null,
-        "heart_mood": "cautious"
-      },
-      "vision": "In the stillness I am cautious. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
-      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
-      "influence": null
-    },
-    {
-      "id": "d_1781220792518_5390",
-      "dreamed_at": "2026-06-11T23:33:12.518Z",
+      "id": "d_1781280773354_9420",
+      "dreamed_at": "2026-06-12T16:12:53.354Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -186,8 +183,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220702511_9083",
-      "dreamed_at": "2026-06-11T23:31:42.511Z",
+      "id": "d_1781280683354_4018",
+      "dreamed_at": "2026-06-12T16:11:23.354Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -199,8 +196,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220612506_7188",
-      "dreamed_at": "2026-06-11T23:30:12.506Z",
+      "id": "d_1781280593354_2676",
+      "dreamed_at": "2026-06-12T16:09:53.354Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -212,8 +209,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220522500_6172",
-      "dreamed_at": "2026-06-11T23:28:42.501Z",
+      "id": "d_1781280503353_8747",
+      "dreamed_at": "2026-06-12T16:08:23.353Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -225,8 +222,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220432488_2860",
-      "dreamed_at": "2026-06-11T23:27:12.488Z",
+      "id": "d_1781280413352_6534",
+      "dreamed_at": "2026-06-12T16:06:53.352Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -238,24 +235,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220342486_8854",
-      "dreamed_at": "2026-06-11T23:25:42.486Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781220252482_1819",
-      "dreamed_at": "2026-06-11T23:24:12.482Z",
+      "id": "d_1781280323351_3095",
+      "dreamed_at": "2026-06-12T16:05:23.351Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -267,8 +248,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220162484_3573",
-      "dreamed_at": "2026-06-11T23:22:42.484Z",
+      "id": "d_1781280233351_5354",
+      "dreamed_at": "2026-06-12T16:03:53.351Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -280,8 +261,8 @@
       "influence": null
     },
     {
-      "id": "d_1781220030436_9506",
-      "dreamed_at": "2026-06-11T23:20:30.436Z",
+      "id": "d_1781280047253_5480",
+      "dreamed_at": "2026-06-12T16:00:47.253Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -293,8 +274,8 @@
       "influence": null
     },
     {
-      "id": "d_1781219940427_8144",
-      "dreamed_at": "2026-06-11T23:19:00.427Z",
+      "id": "d_1781279957253_895",
+      "dreamed_at": "2026-06-12T15:59:17.253Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -306,8 +287,8 @@
       "influence": null
     },
     {
-      "id": "d_1781219850427_4057",
-      "dreamed_at": "2026-06-11T23:17:30.427Z",
+      "id": "d_1781279867250_837",
+      "dreamed_at": "2026-06-12T15:57:47.250Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -319,8 +300,8 @@
       "influence": null
     },
     {
-      "id": "d_1781219760422_983",
-      "dreamed_at": "2026-06-11T23:16:00.422Z",
+      "id": "d_1781279777246_4654",
+      "dreamed_at": "2026-06-12T15:56:17.246Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -332,8 +313,8 @@
       "influence": null
     },
     {
-      "id": "d_1781219035311_5476",
-      "dreamed_at": "2026-06-11T23:03:55.311Z",
+      "id": "d_1781279687246_9657",
+      "dreamed_at": "2026-06-12T15:54:47.246Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -345,8 +326,8 @@
       "influence": null
     },
     {
-      "id": "d_1781218945309_9423",
-      "dreamed_at": "2026-06-11T23:02:25.309Z",
+      "id": "d_1781279610365_4483",
+      "dreamed_at": "2026-06-12T15:53:30.365Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -358,24 +339,8 @@
       "influence": null
     },
     {
-      "id": "d_1781218855311_918",
-      "dreamed_at": "2026-06-11T23:00:55.311Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781218347735_9184",
-      "dreamed_at": "2026-06-11T22:52:27.735Z",
+      "id": "d_1781279520358_4754",
+      "dreamed_at": "2026-06-12T15:52:00.358Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -387,8 +352,34 @@
       "influence": null
     },
     {
-      "id": "d_1781218257734_2948",
-      "dreamed_at": "2026-06-11T22:50:57.734Z",
+      "id": "d_1781279430363_7658",
+      "dreamed_at": "2026-06-12T15:50:30.363Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781279231545_2099",
+      "dreamed_at": "2026-06-12T15:47:11.545Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781272465872_2746",
+      "dreamed_at": "2026-06-12T13:54:25.872Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -401,8 +392,8 @@
     }
   ],
   "latest": {
-    "id": "d_1781228770359_2082",
-    "dreamed_at": "2026-06-12T01:46:10.359Z",
+    "id": "d_1781286820674_3032",
+    "dreamed_at": "2026-06-12T17:53:40.674Z",
     "source": "local",
     "seed": {
       "trigger": "stillness",

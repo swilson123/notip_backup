@@ -10,6 +10,7 @@
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
+    "realsense_comName": "/dev/ttyAMA2",
     "nav_tuning": {
         "two_wheel_steering_gain": 0.6,
         "two_wheel_steering_deadband_deg": 2,
@@ -41,7 +42,7 @@
         "roll_through_min_turn_deg": 20
     },
     "realsense_vision": {
-        "enabled": true,
+        "enabled": false,
         "follow_sidewalk_enabled": true,
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
@@ -150,8 +151,8 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_offset_deg":101,
-        "auto_calibrate": true
+        "compass_offset_deg":10,
+        "auto_calibrate": false
     },
     "memory": {
         "period_ms": 1000,
