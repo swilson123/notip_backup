@@ -151,7 +151,7 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_offset_deg":-198,
+        "compass_offset_deg":101,
         "auto_calibrate": true
     },
     "memory": {
