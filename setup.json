@@ -43,7 +43,7 @@
         "roll_through_min_turn_deg": 20
     },
     "realsense_vision": {
-        "enabled": false,
+        "enabled": true,
         "follow_sidewalk_enabled": true,
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",

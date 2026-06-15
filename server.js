@@ -14,7 +14,7 @@ const { execSync, spawn } = require('child_process');
 //   - trailing `true` keeps execSync from throwing when nothing matched.
 try {
 	execSync(
-		"pgrep -f '[n]ode.*server\\.js' | grep -vx " + process.pid + " | xargs -r kill 2>/dev/null; " +
+		"pgrep -f '[n]ode.*[/ ]server\\.js' | grep -vx " + process.pid + " | xargs -r kill 2>/dev/null; " +
 		"pkill -f ultra_simple 2>/dev/null; pkill -f realsense_vision.py 2>/dev/null; true",
 		{ stdio: 'ignore' }
 	);
