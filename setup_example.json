@@ -31,6 +31,7 @@
         "rs_block_timeout_ms": 10000,
         "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000,
+        "delivery_timeout_ms": 45000,
         "sidewalk_gate_turn_deg": 90,
         "breadcrumb_sample_distance_m": 0.5,
         "breadcrumb_sample_hz": 1.0,
