@@ -43,6 +43,9 @@ void hall_1_isr() {
 
 //States...................................................................................
 bool auto_delivery = false;
+bool package_dropped = false;   // hook released during delivery (package gone). Report-only:
+                                // tells the companion computer to start the return trip.
+                                // Does NOT alter the auto-delivery retract/stow sequence.
 bool stow_arm_active = false;
 bool stow_arm_arm_commanded = false;
 bool stowed = false;
@@ -216,6 +219,7 @@ void message_received(String json) {
 //Start Package Delivery...........................................................................
 void deliver_package(int value) {
   if (!auto_delivery) {
+    package_dropped = false;   // fresh delivery — clear the previous drop flag
     auto_delivery = true;
     extend_belt();
   }
@@ -268,6 +272,8 @@ void send_current_state() {
   Serial.print(belt_retract_switch_state);
   Serial.print("','auto_delivery':'");
   Serial.print(auto_delivery);
+  Serial.print("','package_dropped':'");
+  Serial.print(package_dropped);
   Serial.print("','stow_arm_active':'");
   Serial.print(stow_arm_active);
   Serial.print("','stowed':'");
@@ -359,6 +365,12 @@ void heartbeat() {
 
   //Hook Limit Switch................
   if (digitalRead(hook_limit_switch_pin) == HIGH) {
+    // A released hook during an active delivery means the package has dropped.
+    // Latch it so the companion computer can start the return trip immediately;
+    // the auto-delivery retract/stow sequence is left running untouched.
+    if (auto_delivery) {
+      package_dropped = true;
+    }
     if (hook_switch_state == false && (arm_state == "close" || arm_state == "retract")) {
       delay(250);
       close_arm();
