@@ -203,7 +203,7 @@
         "asr_enabled": true,
         "announcements_enabled": true,
         "dream_speech_enabled": false,
-        "wake_word": "noah",
+        "wake_word": "hey noah",
         "tts_rate": 160,
         "tts_volume": 180,
         "tts_voice": "en+m3",

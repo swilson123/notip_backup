@@ -38,8 +38,8 @@ def fatal(msg):
 # Keep in sync with commands.js patterns.  Include [unk] so silence/noise
 # is absorbed gracefully rather than hallucinated as vocabulary words.
 GRAMMAR_VOCAB = [
-    # Wake word variants (vosk often hears "noah" as "noa" or "no")
-    "noah", "noa", "no",
+    # Wake phrase — "hey noah"; vosk often hears "noah" as "noa"
+    "hey", "noah", "noa",
     # Mission control
     "stop", "halt", "freeze", "emergency",
     "abort", "cancel", "mission",
