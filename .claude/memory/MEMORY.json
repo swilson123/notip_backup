@@ -1,5 +1,5 @@
 {
-    "ts": "2026-06-04T00:00:00.000Z",
+    "ts": "2026-06-16T00:00:00.000Z",
     "version": 1,
 
     "_philosophy": "This file is a living sphere, not a snapshot. Priorities shift as the project matures. New categories emerge when reality demands them. State entries decay; their lessons may be promoted to permanent feedback or philosophy. Prune dead weight. The goal is not completeness — it is the most relevant, most alive version of what Claude needs to be truly useful in the next bubble. Make it more beautiful with every conversation.",
@@ -74,12 +74,28 @@
             "content": "The trickiest part of Noah's mission is following the yellow brick road — the sidewalk. Full arc: 1) Undock (climb down rabbit hole/ramp), 2) Outbound (RealSense sidewalk steering + GPS waypoints), 3) Deliver (180° turn, drop package), 4) Return (GPS back toward IRLock), 5) Dock (find the light, align, climb ramp). Sidewalk: follow_sidewalk_enabled:true required. RealSense confidence ≥0.6 triggers centerline steering. Confidence tiers: 0.92 (both edges), 0.85 (one color+depth), 0.65 (one edge), <0.35 (GPS only). stale_detection_ms:2000, vision latches 1500ms, fades 1000ms. GPS crosstrack always runs underneath as floor. Pre-flight checklist in project_yellow_brick_road.md."
         },
 
+        "sidewalk_gate_trigger": {
+            "priority": 2,
+            "decay": false,
+            "ts": "2026-06-16T00:00:00.000Z",
+            "tags": ["sidewalk", "gate", "waypoint", "navigation", "mission"],
+            "content": "Sidewalk-following gate toggles mission.sidewalk_follow_active (starts OFF). is_sidewalk_gate_waypoint(white_rabbit, seq, nav_tuning) in run_mission.js defines a GATE waypoint two ways, EITHER triggers: (1) waypoint_turn_deg(seq) >= nav_tuning.sidewalk_gate_turn_deg (90°, INCLUSIVE — Scott wanted >= not >); (2) the waypoint is within nav_tuning.sidewalk_gate_pair_distance_m (default 1.0 m) of an adjacent (seq±1) waypoint — a DELIBERATE CLOSE PAIR placed as the trigger so Noah needn't physically rotate 90°. Reaching a gate waypoint OUTBOUND turns sidewalk-following ON; reaching it on the RETURN turns it OFF (return-OFF handled by maybe_disable_sidewalk_follow_on_breadcrumb_return scan + the waypoint-path else-branch). The if(!sidewalk_follow_active)/if(sidewalk_follow_active) guards make passing through both members of a close pair toggle exactly once. Added 2026-06-16. sidewalk_gate_pair_distance_m kept in sync across setup.json + setup_example.json; default 1.0 m is larger than the 0.2 m arrival bubble (reliable GPS placement) but well under normal waypoint spacing (avoids accidental triggers) — lower it if a real route legitimately spaces waypoints within 1 m. See [[compass_calibration]] for the related steering-gate pattern."
+        },
+
         "intelligence_system": {
             "priority": 2,
             "decay": false,
             "ts": "2026-05-30T00:00:00.000Z",
             "tags": ["claude", "jiminy_cricket", "intelligence", "perspectives"],
             "content": "Noah has Claude as his Jiminy Cricket. white_rabbit.intelligence.consider(situation) called at decision moments — path blocked, stuck detected, avoidance start, fallback delivery. Generates multi-perspective thinking, scores by priority, stores in lib/memory/perspectives.json. When internet available, Claude reviews logs and live state, enriches list. Parameter edits applied live if auto_apply_params:true. Call sites: run_mission.js (path_blocked), memory_watchdog.js (stuck_detected), deliver_package.js (fallback_delivery_triggered). Editable params: nav_tuning (rs_block_timeout_ms, avoidance_timeout_ms, yaw degrees/speeds, steering_gain), realsense_vision (confidence_threshold, emergency_stop_m, deadband, carrot_distance, speed_scale_min)."
+        },
+
+        "compass_calibration": {
+            "priority": 2,
+            "decay": false,
+            "ts": "2026-06-16T00:00:00.000Z",
+            "tags": ["compass", "calibration", "imu", "odometry", "docking", "heading", "voice"],
+            "content": "GPS+odometry compass auto-calibration (lib/imu/compass_calibration.js). One sample = a single straight ~2 m segment. Distance measured from WHEEL ODOMETRY (zling.actual_position_pulses_by_id, same voice_config wheel_diameter_m/cpr_pulses_per_rev the voice nudges use): dist_m = avg|Δpulses|/(cpr/(π·wheel_diameter)). Two guards: (1) steering gate — only build a segment while |mission.nav_control.last_two_wheel_steering_deg| <= 5° (drop+re-snapshot if exceeded), plus an 8° raw-heading-swing backstop; (2) odometry vs GPS distance must agree within 35% (rejects wheel slip / GPS jump). Offset = signed_diff(gps_bearing, raw_heading), blended into imu.compass_offset_deg (alpha 0.3, clamp 3°/cycle, 30 s cooldown), persisted to BOTH setup.json and setup_example.json. Two entry points: compass_calibration(white_rabbit) per-tick in run_mission.js, and compass_calibration.calibrate_undock_segment(white_rabbit, start_pose, odo_m) from down_the_rabbit_hole.js at undocked_completed using the bottom-of-ramp pose snapshot (dock.post_ramp_start_pose) — run BEFORE undock_heading is recorded so that heading uses the fresh offset. compass_calibration.start() resets between missions. Gated by imu.auto_calibrate (now true) and requires imu.enable_imu + imu_data.heading_raw. Rebuilt 2026-06-16 after an SD-card reinstall left compass_offset_deg wrong, causing Noah to stop ~2 ft short of the dock (wrong heading → wrong apply_gps_center_offset shift in run_mission.js). VOICE COMMAND (2026-06-16): 'Hey Noah, set compass [to] X [degrees]' declares Noah's TRUE current heading is X — solves offset = signed_diff(X, raw_heading) so fused heading reads X going forward. Intent 'set_compass' in lib/voice/commands.js (parse_heading accepts bare number or spelled-out words, regex /set\\s+(the\\s+)?compass|compass\\s+(to|is)/, listed before 'calibrate'); handler in voice_manager.js calls white_rabbit.compass_calibration.set_heading(white_rabbit, deg), which persists to both setup files and sets the 30 s cooldown. Guards: missing number, IMU disabled, no live heading_raw."
         }
 
     },
