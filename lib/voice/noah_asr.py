@@ -56,6 +56,8 @@ GRAMMAR_VOCAB = [
     "scan", "calibrate", "recalibrate", "survey", "look", "around",
     "help", "me", "need", "i",
     "mission", "waypoint",
+    # Compass — "set compass [to] 360 degrees"
+    "set", "compass", "to",
     # Speed / volume
     "speed", "faster", "slower", "down", "increase", "decrease",
     "louder", "quieter", "quiet", "volume",
