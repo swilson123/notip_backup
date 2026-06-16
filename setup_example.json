@@ -37,9 +37,9 @@
         "breadcrumb_sample_hz": 1.0,
         "roll_through_enabled": true,
         "roll_through_turn_radius_m": 0.9,
-        "roll_through_min_entry_m": 0.4,
+        "roll_through_min_entry_m": 1.0,
         "roll_through_max_entry_m": 2.0,
-        "roll_through_min_turn_deg": 20
+        "roll_through_min_turn_deg": 5
     },
     "realsense_vision": {
         "enabled": true,
