@@ -34,6 +34,7 @@
         "avoidance_timeout_ms": 30000,
         "delivery_timeout_ms": 45000,
         "sidewalk_gate_turn_deg": 90,
+        "sidewalk_gate_pair_distance_m": 1.0,
         "breadcrumb_sample_distance_m": 0.5,
         "breadcrumb_sample_hz": 1,
         "roll_through_enabled": true,

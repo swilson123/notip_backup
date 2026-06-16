@@ -74,6 +74,14 @@
             "content": "The trickiest part of Noah's mission is following the yellow brick road — the sidewalk. Full arc: 1) Undock (climb down rabbit hole/ramp), 2) Outbound (RealSense sidewalk steering + GPS waypoints), 3) Deliver (180° turn, drop package), 4) Return (GPS back toward IRLock), 5) Dock (find the light, align, climb ramp). Sidewalk: follow_sidewalk_enabled:true required. RealSense confidence ≥0.6 triggers centerline steering. Confidence tiers: 0.92 (both edges), 0.85 (one color+depth), 0.65 (one edge), <0.35 (GPS only). stale_detection_ms:2000, vision latches 1500ms, fades 1000ms. GPS crosstrack always runs underneath as floor. Pre-flight checklist in project_yellow_brick_road.md."
         },
 
+        "sidewalk_gate_trigger": {
+            "priority": 2,
+            "decay": false,
+            "ts": "2026-06-16T00:00:00.000Z",
+            "tags": ["sidewalk", "gate", "waypoint", "navigation", "mission"],
+            "content": "Sidewalk-following gate toggles mission.sidewalk_follow_active (starts OFF). is_sidewalk_gate_waypoint(white_rabbit, seq, nav_tuning) in run_mission.js defines a GATE waypoint two ways, EITHER triggers: (1) waypoint_turn_deg(seq) >= nav_tuning.sidewalk_gate_turn_deg (90°, INCLUSIVE — Scott wanted >= not >); (2) the waypoint is within nav_tuning.sidewalk_gate_pair_distance_m (default 1.0 m) of an adjacent (seq±1) waypoint — a DELIBERATE CLOSE PAIR placed as the trigger so Noah needn't physically rotate 90°. Reaching a gate waypoint OUTBOUND turns sidewalk-following ON; reaching it on the RETURN turns it OFF (return-OFF handled by maybe_disable_sidewalk_follow_on_breadcrumb_return scan + the waypoint-path else-branch). The if(!sidewalk_follow_active)/if(sidewalk_follow_active) guards make passing through both members of a close pair toggle exactly once. Added 2026-06-16. sidewalk_gate_pair_distance_m kept in sync across setup.json + setup_example.json; default 1.0 m is larger than the 0.2 m arrival bubble (reliable GPS placement) but well under normal waypoint spacing (avoids accidental triggers) — lower it if a real route legitimately spaces waypoints within 1 m. See [[compass_calibration]] for the related steering-gate pattern."
+        },
+
         "intelligence_system": {
             "priority": 2,
             "decay": false,
