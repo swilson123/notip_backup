@@ -59,7 +59,7 @@
         "fps_critical_cpu": 7,
         "cpu_high_threshold": 70,
         "cpu_critical_threshold": 85,
-        "confidence_threshold": 0.6,
+        "confidence_threshold": 0.4,
         "correction_direction": -1,
         "path_center_deadband_m": 0.03,
         "stale_detection_ms": 2000,
@@ -134,7 +134,7 @@
         "ground_grid_nonground_ratio": 0.5,
         "sidewalk_steer_gain": 0.4,
         "sidewalk_steer_max_deg": 8,
-        "edge_confidence_min": 0.5,
+        "edge_confidence_min": 0.4,
         "edge_correction_max_forward_m": 1,
         "edge_straight_leg_max_yaw_deg": 15,
         "edge_max_offset_straight_m": 0.75,
@@ -157,7 +157,7 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_offset_deg": -6,
+        "compass_offset_deg": -57.94,
         "auto_calibrate": true
     },
     "memory": {
@@ -190,6 +190,7 @@
         "level_tolerance": 0.07,
         "post_ramp_drive_ms": 2500,
         "post_ramp_drive_distance_m": 2,
+        "pre_search_drive_m": 0.4572,
         "steer_gain": 1.2,
         "steer_invert": true,
         "pitch_gain": 30,
