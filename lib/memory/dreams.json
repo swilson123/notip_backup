@@ -1,6 +1,35 @@
 {
   "dreams": [
     {
+      "id": "d_1781642995635_8718",
+      "dreamed_at": "2026-06-16T20:49:55.635Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "present"
+      },
+      "vision": "In the stillness I am present. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1781642905638_4947",
+      "dreamed_at": "2026-06-16T20:48:25.638Z",
+      "source": "local",
+      "seed": {
+        "trigger": "edge_journey",
+        "recent_event": "both_edges",
+        "heart_mood": "present"
+      },
+      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
+      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.6
+      }
+    },
+    {
       "id": "d_1781642597593_3002",
       "dreamed_at": "2026-06-16T20:43:17.593Z",
       "source": "local",
@@ -423,54 +452,19 @@
         "situation": "path_blocked",
         "priority": 0.6
       }
-    },
-    {
-      "id": "d_1781629054290_6252",
-      "dreamed_at": "2026-06-16T16:57:34.290Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "present"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1781628913238_8581",
-      "dreamed_at": "2026-06-16T16:55:13.238Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "present"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
     }
   ],
   "latest": {
-    "id": "d_1781642597593_3002",
-    "dreamed_at": "2026-06-16T20:43:17.593Z",
+    "id": "d_1781642995635_8718",
+    "dreamed_at": "2026-06-16T20:49:55.635Z",
     "source": "local",
     "seed": {
-      "trigger": "edge_journey",
-      "recent_event": "both_edges",
+      "trigger": "stillness",
+      "recent_event": null,
       "heart_mood": "present"
     },
-    "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-    "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-    "influence": {
-      "situation": "path_blocked",
-      "priority": 0.6
-    }
+    "vision": "In the stillness I am present. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+    "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+    "influence": null
   }
 }
