@@ -43,7 +43,8 @@
         "arrival_radius_dock_m": 0.1,
         "arrival_radius_delivery_m": 0.1,
         "arrival_radius_waypoint_m": 0.5,
-        "dock_center_angle_deg": 5
+        "dock_center_angle_deg": 5,
+        "gps_forward_offset_m": 0.3556
     },
     "realsense_vision": {
         "enabled": true,
