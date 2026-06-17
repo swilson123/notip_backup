@@ -60,7 +60,7 @@
         "fps_critical_cpu": 7,
         "cpu_high_threshold": 70,
         "cpu_critical_threshold": 85,
-        "confidence_threshold": 0.4,
+        "confidence_threshold": 0.5,
         "correction_direction": -1,
         "path_center_deadband_m": 0.03,
         "stale_detection_ms": 2000,

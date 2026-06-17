@@ -619,19 +619,42 @@ class RealsenseVision:
             center_px = right_px - half_width_px
             path_width_meters = self.last_path_width_meters
         else:
+            # The coarse whole-ROI centerline lost both boundaries, but edge_guidance
+            # tracks each side independently (per-side TTL). Emit its fields so a single
+            # edge that's still tracked keeps its own known/conf/x/y — otherwise omitting
+            # them makes the handler read BOTH edge_*_known as false in lockstep, so the
+            # LCD flips EL and ER to N together when only one edge is actually gone. A
+            # valid edge-guidance steering signal is also preserved here, not discarded.
             return {
-                "offset_meters": 0,
+                "x_angle_deg": round(float(edge_guidance["x_angle_deg"]), 2) if edge_guidance["valid"] else 0.0,
+                "offset_meters": round(float(edge_guidance["offset_m"]), 4) if edge_guidance["valid"] else 0,
                 "path_width_meters": self.last_path_width_meters,
-                "confidence": 0,
-                "left_boundary_visible": False,
-                "right_boundary_visible": False,
+                "confidence": float(edge_guidance["confidence"]) if edge_guidance["valid"] else 0,
+                "left_boundary_visible": edge_guidance["left_m"] is not None,
+                "right_boundary_visible": edge_guidance["right_m"] is not None,
                 "centerline": [],
-                "nearest_edge_m": None,
-                "nearest_edge_side": None,
-                "nearest_edge_clearance_m": None,
-                "nearest_edge_type": None,
-                "left_edge_clearance_m": None,
-                "right_edge_clearance_m": None,
+                "nearest_edge_m": edge_info["nearest_edge_m"],
+                "nearest_edge_side": edge_info["nearest_edge_side"],
+                "nearest_edge_clearance_m": edge_info["nearest_edge_clearance_m"],
+                "nearest_edge_type": edge_info["nearest_edge_type"],
+                "left_edge_clearance_m": edge_info.get("left_edge_clearance_m"),
+                "right_edge_clearance_m": edge_info.get("right_edge_clearance_m"),
+                "edge_left_m": edge_guidance["left_m"],
+                "edge_left_conf": edge_guidance["left_conf"],
+                "edge_left_x_m": edge_guidance["left_x_m"],
+                "edge_left_y_m": edge_guidance["left_y_m"],
+                "edge_left_known": edge_guidance["left_known"],
+                "edge_left_known_age_ms": edge_guidance["left_known_age_ms"],
+                "edge_right_m": edge_guidance["right_m"],
+                "edge_right_conf": edge_guidance["right_conf"],
+                "edge_right_x_m": edge_guidance["right_x_m"],
+                "edge_right_y_m": edge_guidance["right_y_m"],
+                "edge_right_known": edge_guidance["right_known"],
+                "edge_right_known_age_ms": edge_guidance["right_known_age_ms"],
+                "edge_used": edge_guidance["used"],
+                "edge_target_offset_m": edge_guidance["offset_m"] if edge_guidance["valid"] else None,
+                "edge_forward_m": edge_guidance["forward_m"],
+                "edge_guidance_valid": edge_guidance["valid"],
                 "status": "path_lost"
             }
 
