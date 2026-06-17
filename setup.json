@@ -42,9 +42,9 @@
         "roll_through_min_entry_m": 1,
         "roll_through_max_entry_m": 2,
         "roll_through_min_turn_deg": 5,
-        "arrival_radius_dock_m": 0.1,
-        "arrival_radius_delivery_m": 0.1,
-        "arrival_radius_waypoint_m": 0.2,
+        "arrival_radius_dock_m": 0.5,
+        "arrival_radius_delivery_m": 0.5,
+        "arrival_radius_waypoint_m": 0.5,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556
     },
@@ -158,7 +158,7 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_offset_deg": -57.94,
+        "compass_offset_deg": 0,
         "auto_calibrate": true
     },
     "memory": {
@@ -191,7 +191,7 @@
         "level_tolerance": 0.07,
         "post_ramp_drive_ms": 2500,
         "post_ramp_drive_distance_m": 2,
-        "pre_search_drive_m": 0.4572,
+        "pre_search_drive_m": 1.0,
         "steer_gain": 1.2,
         "steer_invert": true,
         "pitch_gain": 30,
@@ -220,7 +220,7 @@
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,
         "nudge_mps": 0.15,
-        "wheel_diameter_m": 0.2413,
+        "wheel_diameter_m": 0.254,
         "cpr_pulses_per_rev": 16385,
         "max_nudge_ms": 30000,
         "stall_timeout_ms": 2000,
