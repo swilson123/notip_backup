@@ -169,7 +169,7 @@
       "content": "14 critical fixes applied 2026-05-30 for live delivery demo 2026-06-01. Key: follow_sidewalk_enabled set true, compass alpha 0.3 with 3\u00b0 clamp, IMU guards fixed to ||, dock return heading 30s timeout, GPS null check, avoidance shortcut guarded by seq>0, seq-=2 protected with Math.max(1,...), ramp climb 30s timeout, clearTimeout safety on undock re-entry. Medium-risk still: drive-through waypoint 0,0 silent skip, RealSense freeze mid-block stall. See project_monday_demo_fixes.md for full table."
     },
     "edge_detection_debug": {
-      "content": "ACTIVE/UNRESOLVED as of 2026-06-17. Sidewalk edge detection on LCD3: when ONE physical edge leaves camera view, BOTH EL and ER read not-seen (they are coupled). Scott wants each edge tracked independently. LCD display reworked (EL/ER with C00 = no edge, X/Y dashes when not seen) \u2014 that part works. ROOT CAUSE HUNT: the LIVE detector is _detect_path_from_lines (realsense_vision.py ~line 302), reached because detect_path() honors edge_lines_only which defaults TRUE and is absent from setup.json. _compute_edge_guidance is DEAD by default \u2014 do NOT waste time there; trace detect_path + edge_lines_only FIRST. Coupling came from find_nearest_mask_edges returning both ends of one walkable run together. Fix applied: new find_independent_edges() swapped into all 3 call sites incl the live one (~line 408), plus edge_border_margin_px tunable. STILL BROKEN per Scott. Continue on the Pi (Noah) where numpy/camera run. NEXT: read per-frame log in realsense_message_handler.js ~line 268 (L=/R= known/unknown + RAW dump) while occluding one edge; if the central walkable run fails entirely, switch to genuinely independent per-side center-out scans. FULL DETAIL: project_edge_detection_debug.md",
+      "content": "FIX APPLIED 2026-06-17 on Noah (Pi). Sidewalk edge coupling: when one physical edge left camera view, BOTH EL and ER disappeared. Root cause traced: find_independent_edges() STILL used run-detection (padded diff/starts/ends) to find a central walkable run \u2014 if the run was sparse or shifted to one corner, run detection returned None for BOTH sides. Fix: replaced find_independent_edges() with genuinely center-out per-side scan (realsense_vision.py ~line 1789). New approach: anchor to nearest walkable column from image center, scan LEFT independently, scan RIGHT independently. Neither side's scan affects the other. A side returns None only when (a) no walkable pixels at all, or (b) walkable region reaches image border on that side. NEEDS LIVE TEST: run camera and occlude one edge; verify LCD shows remaining edge still live, disappeared edge goes blank. Verify via realsense_message_handler.js log L=/R= lines (edge_left_known/edge_right_known should differ). Other details: edge_lines_only defaults True \u2192 _detect_path_from_lines is the live detector; _compute_edge_guidance is dead by default. find_nearest_mask_edges() still exists at ~line 1729 but has no callers \u2014 dead code, safe to delete later.",
       "decay": "2026-08-01",
       "priority": 1,
       "tags": [
@@ -177,7 +177,7 @@
         "realsense",
         "lcd",
         "sidewalk",
-        "unresolved",
+        "fix-applied",
         "pi-debug",
         "2026-06-17"
       ],

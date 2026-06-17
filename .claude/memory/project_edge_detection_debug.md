@@ -53,28 +53,36 @@ side alone. So `nearest_left`/`nearest_right` (and thus `edge_left_known`/
   `_compute_edge_guidance` (~line 621) dropped all `edge_*` fields → handler read
   both `!!undefined` = false. (Dead path by default, but fixed.)
 
-**Scott reports it STILL doesn't work after these.** So either (a) the run-detection
-itself fails entirely when one edge leaves (nulling both legitimately), or (b)
-there's another coupling/state issue, or (c) the scenario is mask degradation not
-"run reaches border".
+**Scott reports it STILL doesn't work after these.** Root cause identified: the
+first `find_independent_edges` STILL used run-detection (padded diff / starts / ends)
+to pick the central walkable run. When a band is sparse or the run is shifted to one
+corner, `selected` stays None → BOTH sides return None together. This is option (a).
 
-## NEXT STEPS ON THE PI (where numpy + pyrealsense2 + camera exist)
-1. **Confirm the live path:** check `edge_lines_only` actual value; confirm
-   `_detect_path_from_lines` is running (add a one-line stderr print of method name + 
-   `nearest_left`/`nearest_right` is/None per frame).
-2. **Read the existing per-frame log** in `lib/realsense/realsense_message_handler.js`
-   (~line 268): prints `L=<m>@conf known/unknown age=..ms  R=...` plus a `RAW:` JSON
-   dump. Have Scott occlude/remove ONE edge and capture several frames. This shows
-   definitively whether the Python emits independent knowns.
-3. **Run the vision script standalone** and dump `band_scores` for the lookahead band
-   when one edge is gone. Verify whether `find_independent_edges` returns
-   (left, None) as intended, or (None, None) because the central walkable run failed.
-   - If the run fails entirely → need genuinely independent per-side scans:
-     from image center, scan LEFT until walkable stops (= left edge; None if it
-     reaches col 0); scan RIGHT independently (= right edge; None if reaches last col).
-     This does NOT depend on a single shared run surviving.
-4. Watch `self.last_edge_obs` cache + `edge_known_ttl_ms` (5000): a gone edge lingers
-   "known" for 5 s. Test by waiting >5 s after an edge leaves.
+## Fix applied 2026-06-17 (on Noah / Pi session)
+
+`find_independent_edges` rewritten as a genuinely center-out per-side scan
+(`realsense_vision.py` ~line 1789). No more shared run detection. Each direction
+is scanned independently from the anchor:
+
+```
+anchor = nearest walkable col to image center
+LEFT : scan leftward from anchor → stop at non-walkable → None if reached col 0
+RIGHT: scan rightward from anchor → stop at non-walkable → None if reached last col
+```
+
+Two-threshold fallback retained. Guard: `walkable_cols.size < min_run_px` replaces the
+old run-length check (more permissive — scattered pixels still provide a valid anchor).
+
+## NEXT: live test to verify fix
+Occlude one physical edge and watch the LCD3 EL/ER display:
+- Remaining edge should stay live (non-zero conf, X/Y values)
+- Disappeared edge should show `C00 X---- Y----`
+Also verify in the realsense_message_handler.js log: `L=<m>@conf known` and
+`R=--@0.00 unknown` (or vice-versa) — they should differ when one edge is gone.
+
+## Watch for: `self.last_edge_obs` TTL cache
+A gone edge lingers "known" for `edge_known_ttl_ms` (5000 ms default). If occluding
+an edge and the display keeps showing it "known", wait >5 s or lower the TTL.
 
 ## Key files
 - `lib/realsense/realsense_vision.py` — detection (the live `_detect_path_from_lines`)

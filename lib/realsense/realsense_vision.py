@@ -1787,15 +1787,22 @@ class RealsenseVision:
         return int(left_edge), int(right_edge)
 
     def find_independent_edges(self, column_scores, threshold=0.18, min_run_px=6, border_px=2):
-        # Per-side edge extraction where each boundary stands on its own.
+        # Genuinely independent per-side edge extraction.
         #
-        # find_nearest_mask_edges returns the two ENDS of one walkable run, so it
-        # can only ever hand back (left, right) together or (None, None) together —
-        # losing one edge nulls the other. This finds the central walkable run the
-        # same way, then reports each boundary ONLY if it's a real walkable ->
-        # non-walkable transition INSIDE the frame. If the walkable region runs off
-        # an image border, that side has no visible edge and returns None for that
-        # side ALONE, leaving the opposite edge intact.
+        # Previous approach: find the central walkable run, then check its endpoints
+        # against the image border. If the run detection fails (band too sparse, or
+        # the run is entirely in one corner), BOTH sides return None together — the
+        # original coupling bug.
+        #
+        # This version anchors to the nearest walkable column from the image center,
+        # then scans outward in each direction independently. Neither side's result
+        # depends on the other: losing the left edge (off-screen or mask dropout)
+        # can never null the right edge, and vice-versa.
+        #
+        # A side returns None when:
+        #   - No walkable column is found at all in this band.
+        #   - The walkable region extends all the way to the image border on that
+        #     side (the edge is out of camera view).
         if column_scores is None:
             return None, None
         scores = np.asarray(column_scores, dtype=np.float32)
@@ -1804,47 +1811,40 @@ class RealsenseVision:
             return None, None
 
         center = int(n // 2)
-        selected = None
-        for thr in (float(threshold), max(0.08, float(threshold) * 0.6)):
+        for thr in (float(threshold), max(0.06, float(threshold) * 0.6)):
             walkable = scores >= thr
-            if not np.any(walkable):
+            walkable_cols = np.where(walkable)[0]
+            if walkable_cols.size < int(min_run_px):
                 continue
 
-            padded = np.concatenate(([False], walkable, [False])).astype(np.int8)
-            changes = np.diff(padded)
-            starts = np.where(changes == 1)[0]
-            ends = np.where(changes == -1)[0] - 1
-            if starts.size == 0 or ends.size == 0:
-                continue
+            # Anchor: nearest walkable column to the image center.
+            # Picks the walkable region the rover is most likely on (bore-sight).
+            nearest = int(walkable_cols[int(np.argmin(np.abs(walkable_cols - center)))])
 
-            best_i, best_dist = None, None
-            for i in range(starts.size):
-                s, e = int(starts[i]), int(ends[i])
-                if (e - s + 1) < int(min_run_px):
-                    continue
-                if center < s:
-                    dist = s - center
-                elif center > e:
-                    dist = center - e
-                else:
-                    dist = 0
-                if best_dist is None or dist < best_dist:
-                    best_dist, best_i = dist, i
+            # LEFT edge: scan leftward from anchor until a non-walkable column.
+            # If we reach col 0 still walkable → edge is off-screen → None.
+            left_px = None
+            for c in range(nearest, -1, -1):
+                if not walkable[c]:
+                    candidate = c + 1
+                    left_px = candidate if candidate > int(border_px) else None
+                    break
+            # (for-loop exhausted without break = col 0 is walkable = edge off-screen)
 
-            if best_i is None:
-                # No run meets min length; fall back to the largest run.
-                best_i = int(np.argmax(ends - starts + 1))
-            selected = (int(starts[best_i]), int(ends[best_i]))
-            break
+            # RIGHT edge: scan rightward from anchor until a non-walkable column.
+            # If we reach col n-1 still walkable → edge is off-screen → None.
+            right_px = None
+            for c in range(nearest, n):
+                if not walkable[c]:
+                    candidate = c - 1
+                    right_px = candidate if candidate < (n - 1 - int(border_px)) else None
+                    break
+            # (for-loop exhausted without break = last col is walkable = edge off-screen)
 
-        if selected is None:
-            return None, None
-        left_edge, right_edge = selected
-        # A boundary is "real" only when it isn't jammed against the image border;
-        # a run that reaches the border means that edge is out of view -> None.
-        left_px = left_edge if left_edge > int(border_px) else None
-        right_px = right_edge if right_edge < (n - 1 - int(border_px)) else None
-        return left_px, right_px
+            if left_px is not None or right_px is not None:
+                return left_px, right_px
+
+        return None, None
 
     def find_depth_boundaries(self, roi_depth):
         depth_band = roi_depth[int(roi_depth.shape[0] * 0.35):int(roi_depth.shape[0] * 0.75), :]
