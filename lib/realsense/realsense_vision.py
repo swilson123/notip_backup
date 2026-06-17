@@ -400,10 +400,16 @@ class RealsenseVision:
 
             band_mask = walkable_mask[r0:r1, :]
             band_scores = band_mask.mean(axis=0) / 255.0
-            left_px, right_px = self.find_nearest_mask_edges(
+            # Independent per-side edges: a boundary touching the image border is out
+            # of view and returns None for THAT side alone, so losing one edge never
+            # nulls the other. find_nearest_mask_edges returned both ends of one run
+            # together — the coupling behind "both edges disappear at once". This is
+            # the live detector (detect_path -> edge_lines_only defaults True).
+            left_px, right_px = self.find_independent_edges(
                 band_scores,
                 threshold=float(self.config.get("edge_mask_threshold", 0.14)),
                 min_run_px=int(self.config.get("edge_min_run_px", 6)),
+                border_px=int(self.config.get("edge_border_margin_px", 2)),
             )
             if left_px is None and right_px is None:
                 continue
@@ -1470,9 +1476,15 @@ class RealsenseVision:
                               if green_mask_roi is not None else None)
 
             color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
-            mask_left, mask_right = self.find_nearest_mask_edges(
+            # Independent per-side mask edges so losing one edge never nulls the other.
+            # (find_nearest_mask_edges returns the two ends of one run together — the
+            # source of the "both edges disappear at once" coupling.) In the live config
+            # (edge_ground_source="mask_only") side_edge uses ONLY these mask edges.
+            mask_left, mask_right = self.find_independent_edges(
                 band_col_scores,
-                threshold=float(self.config.get("edge_mask_threshold", 0.18))
+                threshold=float(self.config.get("edge_mask_threshold", 0.18)),
+                min_run_px=int(self.config.get("edge_min_run_px", 6)),
+                border_px=int(self.config.get("edge_border_margin_px", 2)),
             )
             depth_left, depth_right = self.find_depth_boundaries(band_depth)
             signed_left, signed_right = self._find_signed_depth_edges(band_depth, dropoff_jump_m)
