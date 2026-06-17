@@ -646,13 +646,13 @@ class RealsenseVision:
         lookahead_frac = float(cfg.get("edge_line_lookahead_frac", 0.82))
         depth_jump_m = float(cfg.get("dropoff_min_depth_jump_m", 0.15))
 
-        # --- 1. Candidate edge pixels: color (Canny) | color-class boundary | depth drop-off
-        try:
-            gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
-            gray = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
-            edge_img = cv2.Canny(gray, canny_low, canny_high)
-        except Exception:
-            return self._assemble_edge_result(None, None)
+        # --- 1. Candidate edge pixels: color-class boundary | depth drop-off
+        # Deliberately NO raw Canny here: Canny fires on walls, furniture, shadows, and
+        # any other sharp gradient in the ROI — those non-ground features dominate the
+        # Hough fit and prevent the detector from tracking ground-level edges (tape, curbs,
+        # grass lines). mask_grad and depth_mask are semantically constrained to ground-level
+        # transitions, so the fit tracks what we actually care about.
+        edge_img = np.zeros((h, w), dtype=np.uint8)
 
         try:
             walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
