@@ -701,10 +701,13 @@ class RealsenseVision:
             if len(s["ys"]) < 2 or s["len"] <= 0:
                 return None
             try:
-                a, b = np.polyfit(np.asarray(s["ys"]), np.asarray(s["xs"]), 1, w=np.asarray(s["wts"]))
+                ys_arr = np.asarray(s["ys"])
+                xs_arr = np.asarray(s["xs"])
+                a, b = np.polyfit(ys_arr, xs_arr, 1, w=np.asarray(s["wts"]))
+                residual_std = float(np.std(xs_arr - (a * ys_arr + b)))
             except Exception:
                 return None
-            return (float(a), float(b), float(s["len"]))
+            return (float(a), float(b), float(s["len"]), residual_std)
 
         left_fit = fit_side(sides["left"])
         right_fit = fit_side(sides["right"])
@@ -721,7 +724,7 @@ class RealsenseVision:
         def line_to_obs(fit):
             if fit is None:
                 return None
-            a, b, support = fit
+            a, b, support, residual_std = fit
             x_px = a * float(y_look) + b
             if x_px < 0 or x_px > (w - 1):
                 return None                        # edge line runs off the frame -> not seen
@@ -736,7 +739,11 @@ class RealsenseVision:
             forward_m = sp * rolled_Y + cp * depth_m
             if forward_m < 0.1 or forward_m > 8.0:
                 return None
-            confidence = 0.45 + min(0.5, float(support) / 260.0)
+            # support_conf: one full-height edge line (support ≈ h) → ~0.5; saturates at 2×h
+            support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
+            # fit_quality: tight line (residual_std < 5 px) → ~1.0; scattered (> 40 px) → 0.0
+            fit_quality = max(0.0, 1.0 - residual_std / 40.0)
+            confidence = 0.45 + 0.5 * support_conf * fit_quality
             confidence = float(max(0.0, min(0.99, confidence)))
             return {
                 "seen": True,
