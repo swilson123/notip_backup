@@ -43,6 +43,18 @@ detector. Set `edge_hough_detector:false` to A/B back to the old blob detector
    raise them if false lines appear.
 5. If a side flickers between known/unknown: edge_known_ttl_ms (5000) bridges gaps.
 
+### 2026-06-17 live-test tweaks (on Noah)
+- LCD3 now refreshes at 10Hz. The i2c loop base tick is 100ms (connect_to_lcd.js);
+  write_to_lcd refreshes LCD3 every tick, mouth every 5 ticks (~500ms, slowed tick
+  passed to draw_mouth), status every 10 ticks (~1Hz). One serialized loop; a heavy
+  tick self-throttles.
+- "Low confidence driving down the middle": added a both-edges-seen corroboration
+  boost in `_detect_edges_hough` (config `edge_both_seen_conf_boost`, default 0.25):
+  when both edges are seen at a plausible width (0.4–2.5 m) each edge's confidence is
+  raised to >=0.6+boost. Per-edge base confidence uses a fit_quality term
+  (residual_std) added in an earlier Noah edit — if still low when centered, lower
+  edge_line_hough_threshold / edge_line_min_len_px or raise edge_both_seen_conf_boost.
+
 ### Known limitations / next ideas if Hough underperforms
 - Aggregating all left/right segments can pull in clutter (fences, building lines).
   Mitigations: tighten min_abs_slope, restrict ROI width, or RANSAC the per-side fit.

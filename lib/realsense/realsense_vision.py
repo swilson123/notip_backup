@@ -758,6 +758,16 @@ class RealsenseVision:
 
         nearest_left = line_to_obs(left_fit)
         nearest_right = line_to_obs(right_fit)
+        # Both edges seen at a plausible sidewalk width is the strongest, most stable
+        # detection — that's the centered-on-the-sidewalk case. Corroborate their
+        # confidence so driving down the middle isn't flagged low just because each
+        # single edge line is short, far, or a bit scattered.
+        if nearest_left is not None and nearest_right is not None:
+            width_seen = abs(nearest_left["m"] - nearest_right["m"])
+            if 0.4 <= width_seen <= 2.5:
+                boost = float(cfg.get("edge_both_seen_conf_boost", 0.25))
+                for obs in (nearest_left, nearest_right):
+                    obs["confidence"] = round(min(0.98, max(obs["confidence"], 0.6) + boost), 2)
         return self._assemble_edge_result(nearest_left, nearest_right)
 
     def detect_path(self, color_image, depth_image, intrinsics):
