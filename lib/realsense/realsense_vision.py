@@ -318,6 +318,19 @@ class RealsenseVision:
         walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
 
         if not self._validate_perspective_narrowing(walkable_mask, green_mask_roi, roi_depth):
+            # Guidance is invalid, but still serve per-side cached edge positions
+            # independently — a perspective-check failure must not silently zero
+            # both edges when only one is off-screen or momentarily undetectable.
+            _now = time.time()
+            _ttl = float(self.config.get("edge_known_ttl_ms", 5000))
+            def _stale(side):
+                prev = self.last_edge_obs.get(side)
+                if prev is None:
+                    return None, None, False
+                age = (_now - float(prev.get("ts", _now))) * 1000.0
+                return (prev, age, True) if age <= _ttl else (None, None, False)
+            _lk, _la, _lok = _stale("left")
+            _rk, _ra, _rok = _stale("right")
             return {
                 "offset_meters": 0,
                 "path_width_meters": self.last_path_width_meters,
@@ -331,25 +344,25 @@ class RealsenseVision:
                 "nearest_edge_type": None,
                 "left_edge_clearance_m": None,
                 "right_edge_clearance_m": None,
-                "edge_left_m": None,
-                "edge_left_conf": 0,
-                "edge_left_x_m": None,
-                "edge_left_y_m": None,
-                "edge_left_known": False,
-                "edge_left_known_age_ms": None,
-                "edge_right_m": None,
-                "edge_right_conf": 0,
-                "edge_right_x_m": None,
-                "edge_right_y_m": None,
-                "edge_right_known": False,
-                "edge_right_known_age_ms": None,
+                "edge_left_m": round(float(_lk["m"]), 4) if _lok else None,
+                "edge_left_conf": round(float(_lk["confidence"]), 2) if _lok else 0.0,
+                "edge_left_x_m": round(float(_lk["x_distance_m"]), 4) if _lok else None,
+                "edge_left_y_m": round(float(_lk["y_distance_m"]), 3) if _lok else None,
+                "edge_left_known": bool(_lok),
+                "edge_left_known_age_ms": round(float(_la), 1) if _la is not None else None,
+                "edge_right_m": round(float(_rk["m"]), 4) if _rok else None,
+                "edge_right_conf": round(float(_rk["confidence"]), 2) if _rok else 0.0,
+                "edge_right_x_m": round(float(_rk["x_distance_m"]), 4) if _rok else None,
+                "edge_right_y_m": round(float(_rk["y_distance_m"]), 3) if _rok else None,
+                "edge_right_known": bool(_rok),
+                "edge_right_known_age_ms": round(float(_ra), 1) if _ra is not None else None,
                 "edge_used": "none",
                 "edge_target_offset_m": None,
                 "edge_forward_m": None,
                 "edge_guidance_valid": False,
                 "ground_grid_removed_frac": self._last_ground_removed_frac,
-                "nearest_seen_left_edge": {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
-                "nearest_seen_right_edge": {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+                "nearest_seen_left_edge": _lk if _lok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+                "nearest_seen_right_edge": _rk if _rok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
                 "status": "perspective_invalid",
             }
 
@@ -861,6 +874,8 @@ class RealsenseVision:
         h, _ = walkable_mask.shape
         band_h = max(1, h // N_BANDS)
 
+        img_w = walkable_mask.shape[1]
+        border = int(self.config.get("edge_border_margin_px", 2))
         measurements = []  # (depth_m, pixel_width)
         for i in range(N_BANDS):
             r0 = i * band_h
@@ -879,6 +894,11 @@ class RealsenseVision:
             left_px = self.merge_boundary(color_left, depth_left)
             right_px = self.merge_boundary(color_right, depth_right)
             if left_px is None or right_px is None or right_px <= left_px:
+                continue
+            # Skip bands where either boundary is pinned to the image border —
+            # that means the edge is off-screen and the width measurement is
+            # unreliable (includes invisible space beyond the frame).
+            if left_px <= border or right_px >= img_w - 1 - border:
                 continue
 
             center_px = (left_px + right_px) / 2.0
