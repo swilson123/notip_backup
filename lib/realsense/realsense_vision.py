@@ -527,7 +527,235 @@ class RealsenseVision:
             "status": "tracking" if valid else "low_confidence",
         }
 
+    def _assemble_edge_result(self, nearest_left, nearest_right):
+        # Shared output contract for the edge detectors: per-side TTL cache, known()
+        # state, edge selection, target offset, steering angle. Identical dict shape to
+        # _detect_path_from_lines so the LCD / message handler / steering are unchanged.
+        now_ts = time.time()
+        ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
+        if nearest_left is not None:
+            self.last_edge_obs["left"] = nearest_left
+        if nearest_right is not None:
+            self.last_edge_obs["right"] = nearest_right
+
+        def known(side, cur):
+            if cur is not None:
+                return cur, 0.0, True
+            prev = self.last_edge_obs.get(side)
+            if prev is None:
+                return None, None, False
+            age_ms = (now_ts - float(prev.get("ts", now_ts))) * 1000.0
+            if age_ms > ttl_ms:
+                return None, None, False
+            return prev, age_ms, True
+
+        left_k, left_age_ms, left_ok = known("left", nearest_left)
+        right_k, right_age_ms, right_ok = known("right", nearest_right)
+
+        side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
+        use = "none"
+        if nearest_left is not None and nearest_right is not None:
+            use = "left" if nearest_left["confidence"] >= nearest_right["confidence"] else "right"
+        elif nearest_left is not None:
+            use = "left"
+        elif nearest_right is not None:
+            use = "right"
+
+        valid = use in ("left", "right")
+        target_offset = 0.0
+        chosen_conf = 0.0
+        edge_forward_m = None
+        if valid:
+            chosen = nearest_left if use == "left" else nearest_right
+            if use == "left":
+                target_offset = chosen["m"] - side_offset_m
+            else:
+                target_offset = chosen["m"] + side_offset_m
+            edge_forward_m = chosen["y_distance_m"]
+            chosen_conf = chosen["confidence"]
+
+        x_angle_deg = math.degrees(math.atan2(-target_offset, max(0.1, edge_forward_m))) if valid else 0.0
+        width_m = self.last_path_width_meters
+        if nearest_left is not None and nearest_right is not None:
+            current_width = abs(nearest_left["m"] - nearest_right["m"])
+            if 0.4 <= current_width <= 2.0:
+                width_m = current_width
+                self.last_path_width_meters = current_width
+
+        return {
+            "x_angle_deg": round(float(x_angle_deg), 2),
+            "offset_meters": round(float(target_offset), 4) if valid else 0.0,
+            "path_width_meters": round(float(width_m), 4),
+            "confidence": round(float(chosen_conf), 2) if valid else 0.0,
+            "left_boundary_visible": nearest_left is not None,
+            "right_boundary_visible": nearest_right is not None,
+            "centerline": [],
+            "nearest_edge_m": edge_forward_m,
+            "nearest_edge_side": use if valid else None,
+            "nearest_edge_clearance_m": None,
+            "nearest_edge_type": "boundary" if valid else None,
+            "left_edge_clearance_m": None,
+            "right_edge_clearance_m": None,
+            "edge_left_m": round(float(left_k["m"]), 4) if left_ok else None,
+            "edge_left_conf": round(float(left_k["confidence"]), 2) if left_ok else 0.0,
+            "edge_left_x_m": round(float(left_k["x_distance_m"]), 4) if left_ok else None,
+            "edge_left_y_m": round(float(left_k["y_distance_m"]), 3) if left_ok else None,
+            "edge_left_known": bool(left_ok),
+            "edge_left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
+            "edge_right_m": round(float(right_k["m"]), 4) if right_ok else None,
+            "edge_right_conf": round(float(right_k["confidence"]), 2) if right_ok else 0.0,
+            "edge_right_x_m": round(float(right_k["x_distance_m"]), 4) if right_ok else None,
+            "edge_right_y_m": round(float(right_k["y_distance_m"]), 3) if right_ok else None,
+            "edge_right_known": bool(right_ok),
+            "edge_right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
+            "edge_used": use,
+            "edge_target_offset_m": round(float(target_offset), 4) if valid else None,
+            "edge_forward_m": round(float(edge_forward_m), 3) if edge_forward_m is not None else None,
+            "edge_guidance_valid": bool(valid),
+            "ground_grid_removed_frac": self._last_ground_removed_frac,
+            "nearest_seen_left_edge": left_k if left_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+            "nearest_seen_right_edge": right_k if right_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
+            "status": "tracking" if valid else "low_confidence",
+        }
+
+    def _detect_edges_hough(self, color_image, depth_image, intrinsics):
+        # Independent left/right edge detection, lane-departure style. Canny + color-class
+        # boundary + depth drop-off -> HoughLinesP -> fit ONE line per side, each on its
+        # own. Losing one edge can never affect the other (no shared blob / run). Emits the
+        # same edge_* contract as _detect_path_from_lines via _assemble_edge_result.
+        cfg = self.config
+        height, width = depth_image.shape[:2]
+        row_start = int(height * float(cfg.get("edge_roi_top_frac", 0.40)))
+        row_end = int(height * float(cfg.get("edge_roi_bottom_frac", 0.95)))
+        row_start = int(np.clip(row_start, 0, height - 2))
+        row_end = int(np.clip(max(row_start + 2, row_end), row_start + 2, height))
+
+        roi_color = color_image[row_start:row_end, :]
+        roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
+        roi_depth[roi_depth <= 0] = np.nan
+        h, w = roi_color.shape[:2]
+        center_x = w * 0.5
+
+        blur_k = int(cfg.get("edge_line_blur_k", 5)) | 1   # force odd kernel
+        canny_low = int(cfg.get("edge_line_canny_low", 45))
+        canny_high = int(cfg.get("edge_line_canny_high", 130))
+        hough_thr = int(cfg.get("edge_line_hough_threshold", 30))
+        min_len = int(cfg.get("edge_line_min_len_px", 30))
+        max_gap = int(cfg.get("edge_line_max_gap_px", 20))
+        min_slope = float(cfg.get("edge_line_min_abs_slope", 0.25))
+        lookahead_frac = float(cfg.get("edge_line_lookahead_frac", 0.82))
+        depth_jump_m = float(cfg.get("dropoff_min_depth_jump_m", 0.15))
+
+        # --- 1. Candidate edge pixels: color (Canny) | color-class boundary | depth drop-off
+        try:
+            gray = cv2.cvtColor(roi_color, cv2.COLOR_BGR2GRAY)
+            gray = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+            edge_img = cv2.Canny(gray, canny_low, canny_high)
+        except Exception:
+            return self._assemble_edge_result(None, None)
+
+        try:
+            walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
+            mask_grad = cv2.morphologyEx(walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
+            edge_img = cv2.bitwise_or(edge_img, mask_grad)
+        except Exception:
+            pass
+
+        # depth drop-off (curb / grass step): a big horizontal depth jump is an edge pixel
+        valid_d = ~np.isnan(roi_depth)
+        d_filled = np.where(valid_d, roi_depth, 0.0).astype(np.float32)
+        dd = np.abs(np.diff(d_filled, axis=1))
+        depth_mask = np.zeros((h, w), dtype=np.uint8)
+        depth_mask[:, 1:][dd > depth_jump_m] = 255
+        depth_mask[~valid_d] = 0
+        edge_img = cv2.bitwise_or(edge_img, depth_mask)
+
+        # --- 2. Hough line segments
+        segments = cv2.HoughLinesP(edge_img, 1, math.pi / 180.0, hough_thr,
+                                   minLineLength=min_len, maxLineGap=max_gap)
+        if segments is None or len(segments) == 0:
+            return self._assemble_edge_result(None, None)
+
+        # --- 3. Fit ONE line per side, independently (x = a*y + b, weighted by length)
+        sides = {"left": {"ys": [], "xs": [], "wts": [], "len": 0.0},
+                 "right": {"ys": [], "xs": [], "wts": [], "len": 0.0}}
+        for seg in segments:
+            x1, y1, x2, y2 = (float(v) for v in seg[0])
+            dx = x2 - x1
+            dy = y2 - y1
+            seg_len = math.hypot(dx, dy)
+            steep = abs(dy) / max(abs(dx), 1e-6)   # vertical -> large, horizontal -> ~0
+            if steep < min_slope:
+                continue                           # drop near-horizontal clutter (horizon, cracks)
+            # The nearest (largest-y) endpoint decides the side: a left edge sits left of
+            # image center at the bottom of the ROI, a right edge to the right.
+            x_bottom = x1 if y1 >= y2 else x2
+            side = "left" if x_bottom < center_x else "right"
+            s = sides[side]
+            s["ys"].extend([y1, y2])
+            s["xs"].extend([x1, x2])
+            s["wts"].extend([seg_len, seg_len])
+            s["len"] += seg_len
+
+        def fit_side(s):
+            if len(s["ys"]) < 2 or s["len"] <= 0:
+                return None
+            try:
+                a, b = np.polyfit(np.asarray(s["ys"]), np.asarray(s["xs"]), 1, w=np.asarray(s["wts"]))
+            except Exception:
+                return None
+            return (float(a), float(b), float(s["len"]))
+
+        left_fit = fit_side(sides["left"])
+        right_fit = fit_side(sides["right"])
+
+        # --- 4. Evaluate each line at the lookahead row -> a per-side 3D observation
+        y_look = int(np.clip(h * lookahead_frac, 0, h - 1))
+        ppx, ppy = intrinsics.ppx, intrinsics.ppy
+        fx, fy = intrinsics.fx, intrinsics.fy
+        pitch = float(self.current_pitch_rad)
+        roll = float(self.current_roll_rad)
+        cp, sp = math.cos(pitch), math.sin(pitch)
+        cr, sr = math.cos(roll), math.sin(roll)
+
+        def line_to_obs(fit):
+            if fit is None:
+                return None
+            a, b, support = fit
+            x_px = a * float(y_look) + b
+            if x_px < 0 or x_px > (w - 1):
+                return None                        # edge line runs off the frame -> not seen
+            depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_look))
+            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
+                return None
+            full_y = row_start + y_look
+            cam_X = (x_px - ppx) * depth_m / fx
+            cam_Y = (full_y - ppy) * depth_m / fy
+            rolled_X = cr * cam_X - sr * cam_Y
+            rolled_Y = sr * cam_X + cr * cam_Y
+            forward_m = sp * rolled_Y + cp * depth_m
+            if forward_m < 0.1 or forward_m > 8.0:
+                return None
+            confidence = 0.45 + min(0.5, float(support) / 260.0)
+            confidence = float(max(0.0, min(0.99, confidence)))
+            return {
+                "seen": True,
+                "x_distance_m": round(float(rolled_X), 4),
+                "y_distance_m": round(float(forward_m), 3),
+                "confidence": round(float(confidence), 2),
+                "m": round(float(-rolled_X), 4),
+                "x_m": round(float(rolled_X), 4),
+                "y_m": round(float(forward_m), 3),
+                "ts": time.time(),
+            }
+
+        nearest_left = line_to_obs(left_fit)
+        nearest_right = line_to_obs(right_fit)
+        return self._assemble_edge_result(nearest_left, nearest_right)
+
     def detect_path(self, color_image, depth_image, intrinsics):
+        if bool(self.config.get("edge_hough_detector", True)):
+            return self._detect_edges_hough(color_image, depth_image, intrinsics)
         if bool(self.config.get("edge_lines_only", True)):
             return self._detect_path_from_lines(color_image, depth_image, intrinsics)
 

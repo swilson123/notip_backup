@@ -1,6 +1,57 @@
-# ACTIVE DEBUG — Sidewalk edge detection: "both edges disappear together" (UNRESOLVED)
+# ACTIVE DEBUG — Sidewalk edge detection: "both edges disappear together"
 
-**Status as of 2026-06-17: NOT FIXED. In progress. Continuing on the Raspberry Pi (Noah) so the vision pipeline can actually be run/instrumented.**
+**Status 2026-06-17: NEW APPROACH BUILT (not yet tested on Noah). Scott called the
+hot-fixes dead-ends — correct. The blob-detector paradigm couples the two edges by
+construction. Replaced with a real lane-departure-style line detector. Build done on
+the dev box (no numpy/cv2 there → UNTESTED); Scott will push to Noah to test.**
+
+## NEW: `_detect_edges_hough` — independent two-line detector (the real fix)
+Why the old approach failed at the root: `_detect_path_from_lines` segments ONE
+walkable blob and reports its two sides, so the "left edge" and "right edge" are two
+ends of a single region — coupled by construction. No per-side patch can decouple
+them. Cars don't do this; lane-departure systems detect LINES directly (Canny →
+Hough → split left/right by slope/side, each fit independently).
+
+New method `_detect_edges_hough` in `realsense_vision.py` (~line 621):
+- ROI (near-field, edge_roi_top/bottom_frac).
+- Candidate edge pixels = Canny(gray) OR color-class boundary gradient OR depth
+  drop-off (|horizontal depth jump| > dropoff_min_depth_jump_m). This is the
+  color+depth cue Scott chose.
+- `cv2.HoughLinesP` → segments; drop near-horizontal (steepness < edge_line_min_abs_slope).
+- Split by the nearest (largest-y) endpoint's side of image center; fit ONE line per
+  side independently via `np.polyfit(y, x, 1, w=len)`. Either side can be None alone.
+- Evaluate each line at the lookahead row → 3D obs (pitch/roll corrected) → reuses
+  `_assemble_edge_result` (shared TTL cache + known() + use/target/x_angle + the exact
+  edge_* dict shape). LCD / message handler / steering unchanged.
+- `_assemble_edge_result` (~line 530) factored out of the old detector's tail.
+
+Routing: `detect_path` now checks `edge_hough_detector` (default TRUE) FIRST → new
+detector. Set `edge_hough_detector:false` to A/B back to the old blob detector
+(`_detect_path_from_lines`, still intact). Both in setup.json + setup_example.json.
+
+### TEST ON NOAH (Scott pushes, then runs)
+1. `python3 -c "import cv2; print(cv2.__version__, hasattr(cv2,'ximgproc'))"` — if
+   ximgproc present we can upgrade Hough → FastLineDetector/LSD later (optional).
+2. Drive/aim so only ONE sidewalk edge is visible. LCD3: visible side stays live
+   (conf>0, X/Y), occluded side shows `C00 X---- Y----` — INDEPENDENTLY.
+3. Read per-frame log in `realsense_message_handler.js` (~line 268): `L=..known R=..unknown`
+   should differ per side.
+4. Tune in setup.json if needed: edge_line_canny_low/high (45/130), edge_line_hough_threshold
+   (30), edge_line_min_len_px (30), edge_line_max_gap_px (20), edge_line_min_abs_slope
+   (0.25 — raise to reject more clutter), dropoff_min_depth_jump_m (0.15),
+   edge_line_lookahead_frac (0.82). Lower hough_threshold/min_len if edges are missed;
+   raise them if false lines appear.
+5. If a side flickers between known/unknown: edge_known_ttl_ms (5000) bridges gaps.
+
+### Known limitations / next ideas if Hough underperforms
+- Aggregating all left/right segments can pull in clutter (fences, building lines).
+  Mitigations: tighten min_abs_slope, restrict ROI width, or RANSAC the per-side fit.
+- Could add ximgproc FastLineDetector/LSD for cleaner segments.
+- Depth currently only ADDS candidate pixels; could also REQUIRE a depth step to
+  confirm a curb edge (reject painted-shadow false lines).
+
+---
+## (HISTORICAL) Earlier hot-fix attempts — superseded by the Hough detector above
 
 ## The bug (Scott's report)
 On LCD screen 3 the rover shows a left edge (EL) and right edge (ER) for sidewalk
