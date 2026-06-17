@@ -1269,10 +1269,11 @@ class RealsenseVision:
                     continue
 
                 band_scores = band_mask.mean(axis=0) / 255.0
-                left_px, right_px = self.find_nearest_mask_edges(
+                left_px, right_px = self.find_independent_edges(
                     band_scores,
                     threshold=float(self.config.get("edge_mask_threshold", 0.18)),
                     min_run_px=int(self.config.get("edge_min_run_px", 6)),
+                    border_px=int(self.config.get("edge_border_margin_px", 2)),
                 )
                 if left_px is None and right_px is None:
                     continue
@@ -1772,6 +1773,66 @@ class RealsenseVision:
         if right_edge <= left_edge:
             return None, None
         return int(left_edge), int(right_edge)
+
+    def find_independent_edges(self, column_scores, threshold=0.18, min_run_px=6, border_px=2):
+        # Per-side edge extraction where each boundary stands on its own.
+        #
+        # find_nearest_mask_edges returns the two ENDS of one walkable run, so it
+        # can only ever hand back (left, right) together or (None, None) together —
+        # losing one edge nulls the other. This finds the central walkable run the
+        # same way, then reports each boundary ONLY if it's a real walkable ->
+        # non-walkable transition INSIDE the frame. If the walkable region runs off
+        # an image border, that side has no visible edge and returns None for that
+        # side ALONE, leaving the opposite edge intact.
+        if column_scores is None:
+            return None, None
+        scores = np.asarray(column_scores, dtype=np.float32)
+        n = int(scores.size)
+        if n < 4:
+            return None, None
+
+        center = int(n // 2)
+        selected = None
+        for thr in (float(threshold), max(0.08, float(threshold) * 0.6)):
+            walkable = scores >= thr
+            if not np.any(walkable):
+                continue
+
+            padded = np.concatenate(([False], walkable, [False])).astype(np.int8)
+            changes = np.diff(padded)
+            starts = np.where(changes == 1)[0]
+            ends = np.where(changes == -1)[0] - 1
+            if starts.size == 0 or ends.size == 0:
+                continue
+
+            best_i, best_dist = None, None
+            for i in range(starts.size):
+                s, e = int(starts[i]), int(ends[i])
+                if (e - s + 1) < int(min_run_px):
+                    continue
+                if center < s:
+                    dist = s - center
+                elif center > e:
+                    dist = center - e
+                else:
+                    dist = 0
+                if best_dist is None or dist < best_dist:
+                    best_dist, best_i = dist, i
+
+            if best_i is None:
+                # No run meets min length; fall back to the largest run.
+                best_i = int(np.argmax(ends - starts + 1))
+            selected = (int(starts[best_i]), int(ends[best_i]))
+            break
+
+        if selected is None:
+            return None, None
+        left_edge, right_edge = selected
+        # A boundary is "real" only when it isn't jammed against the image border;
+        # a run that reaches the border means that edge is out of view -> None.
+        left_px = left_edge if left_edge > int(border_px) else None
+        right_px = right_edge if right_edge < (n - 1 - int(border_px)) else None
+        return left_px, right_px
 
     def find_depth_boundaries(self, roi_depth):
         depth_band = roi_depth[int(roi_depth.shape[0] * 0.35):int(roi_depth.shape[0] * 0.75), :]
