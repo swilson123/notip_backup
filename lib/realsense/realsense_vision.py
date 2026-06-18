@@ -78,11 +78,39 @@ class RealsenseVision:
         # Last-known per-side edge observations, populated from nearest-band detections.
         # Stored so telemetry can report each side reliably even if one edge blinks out.
         self.last_edge_obs = {"left": None, "right": None}
+        # EMA smoothing state: per-side exponential moving average of edge X/Y positions.
+        # Prevents frame-to-frame measurement noise from causing steering jitter.
+        self._edge_smooth = {"left": None, "right": None}
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
     def stop(self, *_args):
         self.running = False
+
+    def _smooth_obs(self, side, obs):
+        # Exponential moving average on detected edge X/Y.
+        # alpha (default 0.3): 30% new value, 70% old — ~4-frame time constant at 15 fps.
+        # Masks camera auto-exposure flicker and mask-boundary pixel noise (1-3 px jitter)
+        # without adding meaningful lag on genuine lateral motion.
+        if obs is None:
+            return obs
+        alpha = float(self.config.get("edge_ema_alpha", 0.3))
+        prev = self._edge_smooth.get(side)
+        x = float(obs["x_distance_m"])
+        y = float(obs["y_distance_m"])
+        if prev is None:
+            self._edge_smooth[side] = {"x": x, "y": y}
+            return obs
+        sx = alpha * x + (1.0 - alpha) * prev["x"]
+        sy = alpha * y + (1.0 - alpha) * prev["y"]
+        self._edge_smooth[side] = {"x": sx, "y": sy}
+        out = dict(obs)
+        out["x_distance_m"] = round(float(sx), 4)
+        out["y_distance_m"] = round(float(sy), 3)
+        out["m"]   = round(float(-sx), 4)
+        out["x_m"] = round(float(sx), 4)
+        out["y_m"] = round(float(sy), 3)
+        return out
 
     def _reset_camera(self):
         try:
@@ -439,12 +467,14 @@ class RealsenseVision:
                 if obs is not None and (nearest_right is None or obs["y_distance_m"] < nearest_right["y_distance_m"]):
                     nearest_right = obs
 
-        # Update per-side cached values with the newest seen edges.
+        # Update per-side cached values with the newest seen edges (EMA-smoothed).
         now_ts = time.time()
         ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
         if nearest_left is not None:
+            nearest_left = self._smooth_obs("left", nearest_left)
             self.last_edge_obs["left"] = nearest_left
         if nearest_right is not None:
+            nearest_right = self._smooth_obs("right", nearest_right)
             self.last_edge_obs["right"] = nearest_right
 
         def known(side, cur):
@@ -460,6 +490,12 @@ class RealsenseVision:
 
         left_k, left_age_ms, left_ok = known("left", nearest_left)
         right_k, right_age_ms, right_ok = known("right", nearest_right)
+        # Reset EMA when an edge is fully lost (no current detection + TTL expired)
+        # so the next detection doesn't blend into a stale position.
+        if not left_ok and nearest_left is None:
+            self._edge_smooth["left"] = None
+        if not right_ok and nearest_right is None:
+            self._edge_smooth["right"] = None
 
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
         use = "none"
@@ -534,8 +570,10 @@ class RealsenseVision:
         now_ts = time.time()
         ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
         if nearest_left is not None:
+            nearest_left = self._smooth_obs("left", nearest_left)
             self.last_edge_obs["left"] = nearest_left
         if nearest_right is not None:
+            nearest_right = self._smooth_obs("right", nearest_right)
             self.last_edge_obs["right"] = nearest_right
 
         def known(side, cur):
@@ -551,6 +589,10 @@ class RealsenseVision:
 
         left_k, left_age_ms, left_ok = known("left", nearest_left)
         right_k, right_age_ms, right_ok = known("right", nearest_right)
+        if not left_ok and nearest_left is None:
+            self._edge_smooth["left"] = None
+        if not right_ok and nearest_right is None:
+            self._edge_smooth["right"] = None
 
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
         use = "none"
