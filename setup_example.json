@@ -213,7 +213,9 @@
         "seek_sweep_ms": 800,
         "size_stop_threshold": 0.35,
         "search_timeout_ms": 20000,
-        "search_say_interval_ms": 10000
+        "search_say_interval_ms": 10000,
+        "steer_smoothing_alpha": 0.4,
+        "steer_deadband_deg": 2.0
     },
     "voice": {
         "enabled": true,
