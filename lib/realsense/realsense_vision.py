@@ -66,7 +66,13 @@ class RealsenseVision:
         # positions, or centerline forward distances.
         #   pitch positive = nose up
         #   roll  positive = right side down
-        self.current_pitch_rad = 0.0
+        # Static camera mount tilt. config camera_mount_pitch_deg is positive when the
+        # camera is pitched FORWARD (nose-down) — the opposite sign of the nose-up-positive
+        # convention, so it is SUBTRACTED from the rover's dynamic body pitch to get the
+        # camera's true pitch vs the ground. (If ground distances/heights read inverted on
+        # the rover, flip the sign of camera_mount_pitch_deg in setup.json.)
+        self.mount_pitch_rad = math.radians(float(self.config.get("camera_mount_pitch_deg", 0.0)))
+        self.current_pitch_rad = -self.mount_pitch_rad   # rover level + the camera mount tilt
         self.current_roll_rad  = 0.0
         # Edge-guidance hysteresis: once an edge is chosen as the steering reference,
         # stick with it as long as it stays confident — only switch sides when the
@@ -2385,7 +2391,9 @@ def stdin_listener(vision):
             try:
                 val = float(payload.get("value", 0.0))
                 if math.isfinite(val):           # reject NaN/inf so it can't poison the
-                    vision.current_pitch_rad = val   # roll/pitch rotation math downstream
+                    # rover body pitch (nose-up +) plus the static camera mount tilt
+                    # (forward/nose-down, so subtracted) = camera pitch vs the ground.
+                    vision.current_pitch_rad = val - vision.mount_pitch_rad
             except (TypeError, ValueError):
                 pass
         elif msg == "roll":
