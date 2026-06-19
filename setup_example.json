@@ -114,7 +114,7 @@
         "edge_hysteresis_ttl_ms": 3000,
         "edge_roi_top_frac": 0.85,
         "edge_roi_bottom_frac": 0.98,
-        "edge_hough_detector": false,
+        "edge_hough_detector": true,
         "edge_ema_alpha": 0.3,
         "edge_both_seen_conf_boost": 0.25,
         "edge_line_bands": 3,
