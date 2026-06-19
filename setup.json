@@ -224,11 +224,12 @@
         "tts_volume": 180,
         "tts_voice": "en+m3",
         "tts_pitch": 52,
-        "tts_alsa_device": "plughw:CARD=Plus,DEV=0",
+        "tts_alsa_device": "default",
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "asr_model_path": "./models/vosk-model-small-en-us-0.15",
         "audio_device": [
-            "EMEET"
+            "EMEET",
+            "default"
         ],
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,
