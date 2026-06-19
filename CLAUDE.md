@@ -35,6 +35,9 @@ Lasting context falls into two kinds, and they must NOT be mixed in the same fil
 ### setup.json / setup_example.json
 Whenever `setup.json` is modified, apply the same change to `setup_example.json`. Both files must always stay in sync.
 
+### RealSense config reaches Python via a JSON arg, not setup.json
+`realsense_vision.py` reads its config ONLY from `json.loads(sys.argv[1])` — it never opens setup.json. Flow: setup.json `realsense_vision` → `notip.js` (`white_rabbit.realsense.vision_full` = RAW section; `vision` = a curated Node-side subset) → `connect_to_realsense.js` builds `vision_config` by spreading `vision_full` → spawn arg. A `self.config.get("...")` key in the Python takes effect ONLY if it exists in setup.json's `realsense_vision` (now forwarded wholesale). Two hand-maintained subsets used to silently drop keys (`edge_hough_detector`, `edge_roi_*`, `edge_line_*`, `edge_mask_threshold`, `camera_mount_pitch_deg`…) so tuning them did nothing — do NOT reintroduce a subset. Camera geometry: `camera_height_m` (meters); `camera_mount_pitch_deg` (positive = pitched forward / nose-down; subtracted from the rover's nose-up-positive body pitch in the depth→ground projection).
+
 ## Project overview
 
 Node.js rover application that follows GPS waypoints, delivers a package, then returns to start. Runs on a Raspberry Pi 5 16GB.
