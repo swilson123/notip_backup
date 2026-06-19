@@ -211,7 +211,9 @@
         "max_steer_rpm": 15,
         "seek_yaw_speed": 12,
         "seek_sweep_ms": 800,
-        "size_stop_threshold": 0.35
+        "size_stop_threshold": 0.35,
+        "search_timeout_ms": 20000,
+        "search_say_interval_ms": 10000
     },
     "voice": {
         "enabled": true,
