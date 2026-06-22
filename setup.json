@@ -171,8 +171,16 @@
     },
     "imu": {
         "enable_imu": true,
+        "compass_type": "witmotion",
         "compass_offset_deg": 0,
-        "auto_calibrate": true
+        "auto_calibrate": true,
+        "witmotion": {
+            "i2c_address": 80,
+            "heading_invert": true,
+            "swap_roll_pitch": false,
+            "invert_roll": false,
+            "invert_pitch": false
+        }
     },
     "memory": {
         "period_ms": 1000,

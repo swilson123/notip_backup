@@ -138,6 +138,20 @@
     }
   },
   "changes": {
+    "witmotion_hwt906_compass": {
+      "priority": 2,
+      "decay": false,
+      "ts": "2026-06-22T00:00:00.000Z",
+      "asked": "Upgrade the compass to a WitMotion HWT906 (1000Hz industrial inclinometer/compass/gyro) over the Pi's I2C (SDA/SCL, plugged into the Raspberry Pi NOT the Pixhawk). Keep the old BNO055 for rollback. The HWT906 is mounted flipped: X = forward/back, Y = left/right.",
+      "done": "Added lib/imu/connect_to_witmotion.js — a parallel I2C driver (bus 1, default addr 0x50) that populates the SAME white_rabbit.imu_data struct as the BNO055, so get_heading/get_pitch/get_roll/send_imu_to_pixhawk/compass_calibration are unchanged. Reads WitMotion angle regs 0x3D Roll/0x3E Pitch/0x3F Yaw (raw/32768*180°), accel 0x34, gyro 0x37, temp 0x40; synthesises the quaternion from corrected Euler (RAW heading, no offset — send_imu_to_pixhawk still applies compass_offset_deg). The Pi reads the compass and still forwards attitude to the Pixhawk EKF via att_pos_mocap exactly as the BNO055 did. Orientation is config-driven (imu.witmotion): heading_invert default TRUE (WitMotion yaw is CCW-positive right-hand-rule → negated to CW compass heading), swap_roll_pitch/invert_roll/invert_pitch default FALSE, i2c_address default 0x50(=80). Selector imu.compass_type ('witmotion'|'bno055'); defaults to 'bno055' when key absent so old setups are unchanged; set to 'witmotion' in setup.json. ROLLBACK = set imu.compass_type back to 'bno055'. connect_to_imu.js (BNO055) left fully intact. Dispatch added in connect_to_devices.js. compass_offset_deg + 'Hey Noah set compass to X' voice cmd + GPS/odometry auto-cal still tune the zero-reference. Heading-jump guard kept (10°/50ms cap). NOTE: WitMotion reports no live cal status so imu_data.calibration is hard-set to {3,3,3,3}. setup.json + setup_example.json kept in sync (example keeps its compass_offset_deg 12.75).",
+      "files": [
+        "lib/imu/connect_to_witmotion.js",
+        "lib/notip.js",
+        "lib/start_white_rabbit_devices/connect_to_devices.js",
+        "setup.json",
+        "setup_example.json"
+      ]
+    },
     "memory_system_redesign": {
       "priority": 2,
       "decay": false,
