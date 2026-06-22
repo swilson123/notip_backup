@@ -138,6 +138,19 @@
     }
   },
   "changes": {
+    "delivery_360_overshoot_and_nav_tuning_allowlist": {
+      "priority": 1,
+      "decay": false,
+      "ts": "2026-06-22T00:00:00.000Z",
+      "asked": "Noah spun 360° at the last (delivery) waypoint before delivering, twice in a row. Scott suspected he was overshooting the waypoint.",
+      "done": "ROOT CAUSE: white_rabbit.nav_tuning in notip.js (lines ~18-49) is a HAND-MAINTAINED ALLOW-LIST (~27 keys, no spread of config.nav_tuning) — same trap as the RealSense subset CLAUDE.md warns about. run_mission binds `nav_tuning = white_rabbit.nav_tuning` (line 644), so any setup.json nav_tuning key NOT in the allow-list is silently dropped and run_mission's inline `typeof===number?:default` uses the CODE default. arrival_radius_delivery_m/dock_m were dropped → delivery used 0.1 m (code default) instead of setup.json's 0.5 m. A 0.1 m bubble held for required_inside_radius_count=3 consecutive 250 ms ticks is unsatisfiable while moving → Noah overshoots → bearing to the waypoint flips ~180° → mission_yaw (run_mission ~1404) spins in place to re-face → GPS bearing unstable that close → full 360°. FIX (2 parts): (1) wired arrival_radius_dock_m/delivery_m/waypoint_m + new overshoot_capture_m into notip.js nav_tuning (defaults 0.1/0.1/0.5/1.0 — preserve prior behavior when key absent). (2) Added OVERSHOOT CAPTURE in run_mission.js at the arrival check (~1146): if distance<=overshoot_capture_m (1 m) AND |signed bearing-to-wp − heading|>90°, the point is behind us → latch arrival immediately (set inside_radius_count=required) instead of spinning; logs 'overshoot capture: passed waypoint N'. General backstop for every waypoint, safe at turns (only fires when genuinely close+past). overshoot_capture_m added to setup.json+setup_example (1). STILL-DROPPED nav_tuning keys (flagged to Scott, NOT yet wired — behavior change): gps_forward_offset_m (setup 0.3556 but code uses 0 → 14in GPS-to-center offset NOT applied!), dock_center_angle_deg(5), avoidance_timeout_ms(30000), rs_block_timeout_ms(10000), edge_trail_* (5). sidewalk_gate_turn_deg(90)/sidewalk_gate_pair_distance_m(1) are dropped too but harmlessly equal their code defaults. PROPOSED systemic fix (awaiting Scott's OK): nav_tuning: Object.assign({}, config.nav_tuning, {…typed keys…}) so all keys pass through; would make gps_forward_offset_m start applying.",
+      "files": [
+        "lib/notip.js",
+        "lib/navigation/run_mission.js",
+        "setup.json",
+        "setup_example.json"
+      ]
+    },
     "witmotion_hwt906_compass": {
       "priority": 2,
       "decay": false,
