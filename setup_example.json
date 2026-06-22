@@ -171,7 +171,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 12.75,
+        "compass_offset_deg": -109.29,
         "auto_calibrate": true,
         "witmotion": {
             "i2c_address": 80,
@@ -223,7 +223,7 @@
         "search_timeout_ms": 20000,
         "search_say_interval_ms": 10000,
         "steer_smoothing_alpha": 0.4,
-        "steer_deadband_deg": 2.0
+        "steer_deadband_deg": 2
     },
     "voice": {
         "enabled": true,
