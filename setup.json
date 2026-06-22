@@ -171,8 +171,16 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_offset_deg": -111.56,
-        "auto_calibrate": true
+        "compass_type": "witmotion",
+        "compass_offset_deg": 0,
+        "auto_calibrate": true,
+        "witmotion": {
+            "i2c_address": 80,
+            "heading_invert": true,
+            "swap_roll_pitch": false,
+            "invert_roll": false,
+            "invert_pitch": false
+        }
     },
     "memory": {
         "period_ms": 1000,
@@ -212,7 +220,11 @@
         "max_steer_rpm": 15,
         "seek_yaw_speed": 12,
         "seek_sweep_ms": 800,
-        "size_stop_threshold": 0.35
+        "size_stop_threshold": 0.35,
+        "search_timeout_ms": 20000,
+        "search_say_interval_ms": 10000,
+        "steer_smoothing_alpha": 0.4,
+        "steer_deadband_deg": 2.0
     },
     "voice": {
         "enabled": true,
