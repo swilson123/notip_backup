@@ -175,7 +175,7 @@
         "auto_calibrate": true,
         "witmotion": {
             "i2c_address": 80,
-            "heading_invert": true,
+            "heading_invert": false,
             "swap_roll_pitch": false,
             "invert_roll": false,
             "invert_pitch": false
