@@ -171,7 +171,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "bno055",
-        "compass_offset_deg": 12.75,
+        "compass_offset_deg": -100.19,
         "auto_calibrate": true,
         "witmotion": {
             "i2c_address": 80,

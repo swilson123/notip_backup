@@ -1,6 +1,51 @@
 {
   "dreams": [
     {
+      "id": "d_1782227823843_282",
+      "dreamed_at": "2026-06-23T15:17:03.843Z",
+      "source": "local",
+      "seed": {
+        "trigger": "edge_journey",
+        "recent_event": "both_edges",
+        "heart_mood": "warm"
+      },
+      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
+      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.6
+      }
+    },
+    {
+      "id": "d_1782159444466_1047",
+      "dreamed_at": "2026-06-22T20:17:24.466Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782159354458_2301",
+      "dreamed_at": "2026-06-22T20:15:54.458Z",
+      "source": "local",
+      "seed": {
+        "trigger": "edge_journey",
+        "recent_event": "left_edge_only",
+        "heart_mood": "warm"
+      },
+      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
+      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.6
+      }
+    },
+    {
       "id": "d_1782158098510_5088",
       "dreamed_at": "2026-06-22T19:54:58.510Z",
       "source": "local",
@@ -431,59 +476,11 @@
         "situation": "path_blocked",
         "priority": 0.6
       }
-    },
-    {
-      "id": "d_1782147891606_2921",
-      "dreamed_at": "2026-06-22T17:04:51.606Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782147801602_9727",
-      "dreamed_at": "2026-06-22T17:03:21.602Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782147711590_3545",
-      "dreamed_at": "2026-06-22T17:01:51.590Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
     }
   ],
   "latest": {
-    "id": "d_1782158098510_5088",
-    "dreamed_at": "2026-06-22T19:54:58.510Z",
+    "id": "d_1782227823843_282",
+    "dreamed_at": "2026-06-23T15:17:03.843Z",
     "source": "local",
     "seed": {
       "trigger": "edge_journey",
