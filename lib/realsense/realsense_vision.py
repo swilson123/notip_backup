@@ -66,7 +66,13 @@ class RealsenseVision:
         # positions, or centerline forward distances.
         #   pitch positive = nose up
         #   roll  positive = right side down
-        self.current_pitch_rad = 0.0
+        # Static camera mount tilt. config camera_mount_pitch_deg is positive when the
+        # camera is pitched FORWARD (nose-down) — the opposite sign of the nose-up-positive
+        # convention, so it is SUBTRACTED from the rover's dynamic body pitch to get the
+        # camera's true pitch vs the ground. (If ground distances/heights read inverted on
+        # the rover, flip the sign of camera_mount_pitch_deg in setup.json.)
+        self.mount_pitch_rad = math.radians(float(self.config.get("camera_mount_pitch_deg", 0.0)))
+        self.current_pitch_rad = -self.mount_pitch_rad   # rover level + the camera mount tilt
         self.current_roll_rad  = 0.0
         # Edge-guidance hysteresis: once an edge is chosen as the steering reference,
         # stick with it as long as it stays confident — only switch sides when the
@@ -685,7 +691,6 @@ class RealsenseVision:
         min_len = int(cfg.get("edge_line_min_len_px", 30))
         max_gap = int(cfg.get("edge_line_max_gap_px", 20))
         min_slope = float(cfg.get("edge_line_min_abs_slope", 0.25))
-        lookahead_frac = float(cfg.get("edge_line_lookahead_frac", 0.82))
         depth_jump_m = float(cfg.get("dropoff_min_depth_jump_m", 0.15))
 
         # --- 1. Candidate edge pixels: color-class boundary | depth drop-off
@@ -754,26 +759,42 @@ class RealsenseVision:
         left_fit = fit_side(sides["left"])
         right_fit = fit_side(sides["right"])
 
-        # --- 4. Evaluate each line at the lookahead row -> a per-side 3D observation
-        y_look = int(np.clip(h * lookahead_frac, 0, h - 1))
+        # --- 4. Per side, take the CLOSEST edge point. Scan from the BOTTOM of the ROI
+        # upward (nearest ground first) and use the first row where the fitted line is
+        # in-frame with valid depth. This emits exactly the two points we care about —
+        # closest-left x/y and closest-right x/y — instead of a fixed lookahead sample.
+        # (The line is still FIT over the whole ROI, so it stays stable; only the reported
+        # point is the nearest one.)
         ppx, ppy = intrinsics.ppx, intrinsics.ppy
         fx, fy = intrinsics.fx, intrinsics.fy
         pitch = float(self.current_pitch_rad)
         roll = float(self.current_roll_rad)
         cp, sp = math.cos(pitch), math.sin(pitch)
         cr, sr = math.cos(roll), math.sin(roll)
+        # Distance weighting of confidence: a closer edge is geometrically more reliable,
+        # so weight it up and far ones down. edge_distance_conf_weight = how much (0 = off).
+        near_full_m = float(cfg.get("edge_distance_full_conf_m", 1.0))
+        far_zero_m = max(near_full_m + 0.1, float(cfg.get("edge_distance_zero_conf_m", 3.0)))
+        dist_weight = float(cfg.get("edge_distance_conf_weight", 0.3))
 
         def line_to_obs(fit):
             if fit is None:
                 return None
             a, b, support, residual_std = fit
-            x_px = a * float(y_look) + b
-            if x_px < 0 or x_px > (w - 1):
-                return None                        # edge line runs off the frame -> not seen
-            depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_look))
-            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
-                return None
-            full_y = row_start + y_look
+            chosen = None
+            for y_px in range(h - 1, -1, -1):          # bottom (closest) -> top
+                x_px = a * float(y_px) + b
+                if x_px < 0 or x_px > (w - 1):
+                    continue                           # line off-frame at this row
+                depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
+                if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
+                    continue
+                chosen = (y_px, x_px, depth_m)
+                break
+            if chosen is None:
+                return None                            # edge never lands on valid ground -> not seen
+            y_px, x_px, depth_m = chosen
+            full_y = row_start + y_px
             cam_X = (x_px - ppx) * depth_m / fx
             cam_Y = (full_y - ppy) * depth_m / fy
             rolled_X = cr * cam_X - sr * cam_Y
@@ -786,6 +807,14 @@ class RealsenseVision:
             # fit_quality: tight line (residual_std < 5 px) → ~1.0; scattered (> 40 px) → 0.0
             fit_quality = max(0.0, 1.0 - residual_std / 40.0)
             confidence = 0.45 + 0.5 * support_conf * fit_quality
+            # Distance weight: 1.0 at/under near_full_m, fading to 0 at/over far_zero_m.
+            if forward_m <= near_full_m:
+                df = 1.0
+            elif forward_m >= far_zero_m:
+                df = 0.0
+            else:
+                df = (far_zero_m - forward_m) / (far_zero_m - near_full_m)
+            confidence *= (1.0 - dist_weight) + dist_weight * df
             confidence = float(max(0.0, min(0.99, confidence)))
             return {
                 "seen": True,
@@ -2385,7 +2414,9 @@ def stdin_listener(vision):
             try:
                 val = float(payload.get("value", 0.0))
                 if math.isfinite(val):           # reject NaN/inf so it can't poison the
-                    vision.current_pitch_rad = val   # roll/pitch rotation math downstream
+                    # rover body pitch (nose-up +) plus the static camera mount tilt
+                    # (forward/nose-down, so subtracted) = camera pitch vs the ground.
+                    vision.current_pitch_rad = val - vision.mount_pitch_rad
             except (TypeError, ValueError):
                 pass
         elif msg == "roll":

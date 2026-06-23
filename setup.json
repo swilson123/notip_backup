@@ -36,9 +36,9 @@
         "sidewalk_gate_turn_deg": 90,
         "sidewalk_gate_pair_distance_m": 1,
         "edge_trail_enabled": true,
-        "edge_trail_sample_dist_m": 0.10,
+        "edge_trail_sample_dist_m": 0.1,
         "edge_trail_max_samples": 20,
-        "edge_trail_max_x_jump_m": 0.20,
+        "edge_trail_max_x_jump_m": 0.2,
         "edge_trail_max_y_jump_m": 0.15,
         "breadcrumb_sample_distance_m": 0.5,
         "breadcrumb_sample_hz": 1,
@@ -50,6 +50,7 @@
         "arrival_radius_dock_m": 0.5,
         "arrival_radius_delivery_m": 0.5,
         "arrival_radius_waypoint_m": 0.5,
+        "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556
     },
@@ -69,7 +70,8 @@
         "correction_direction": -1,
         "path_center_deadband_m": 0.03,
         "stale_detection_ms": 2000,
-        "camera_height_m": 0.406,
+        "camera_height_m": 0.6731,
+        "camera_mount_pitch_deg": 33,
         "rover_width_m": 0.432,
         "rover_length_m": 0.686,
         "object_detection_enabled": true,
@@ -112,9 +114,12 @@
         "edge_hysteresis_keep_conf": 0.6,
         "edge_hysteresis_switch_margin": 0.2,
         "edge_hysteresis_ttl_ms": 3000,
-        "edge_roi_top_frac": 0.85,
-        "edge_roi_bottom_frac": 0.98,
-        "edge_hough_detector": false,
+        "edge_roi_top_frac": 0.4,
+        "edge_roi_bottom_frac": 1,
+        "edge_distance_conf_weight": 0.3,
+        "edge_distance_full_conf_m": 1,
+        "edge_distance_zero_conf_m": 3,
+        "edge_hough_detector": true,
         "edge_ema_alpha": 0.3,
         "edge_both_seen_conf_boost": 0.25,
         "edge_line_bands": 3,
@@ -167,8 +172,16 @@
     },
     "imu": {
         "enable_imu": true,
+        "compass_type": "bno055",
         "compass_offset_deg": 0,
-        "auto_calibrate": true
+        "auto_calibrate": false,
+        "witmotion": {
+            "i2c_address": 80,
+            "heading_invert": false,
+            "swap_roll_pitch": false,
+            "invert_roll": false,
+            "invert_pitch": false
+        }
     },
     "memory": {
         "period_ms": 1000,
@@ -200,7 +213,7 @@
         "level_tolerance": 0.07,
         "post_ramp_drive_ms": 2500,
         "post_ramp_drive_distance_m": 2,
-        "pre_search_drive_m": 1.0,
+        "pre_search_drive_m": 0,
         "steer_gain": 1.2,
         "steer_invert": true,
         "pitch_gain": 30,
@@ -208,7 +221,11 @@
         "max_steer_rpm": 15,
         "seek_yaw_speed": 12,
         "seek_sweep_ms": 800,
-        "size_stop_threshold": 0.35
+        "size_stop_threshold": 0.35,
+        "search_timeout_ms": 20000,
+        "search_say_interval_ms": 10000,
+        "steer_smoothing_alpha": 0.4,
+        "steer_deadband_deg": 2
     },
     "voice": {
         "enabled": true,
@@ -220,11 +237,12 @@
         "tts_volume": 180,
         "tts_voice": "en+m3",
         "tts_pitch": 52,
-        "tts_alsa_device": "plughw:CARD=Plus,DEV=0",
+        "tts_alsa_device": "default",
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "asr_model_path": "./models/vosk-model-small-en-us-0.15",
         "audio_device": [
-            "EMEET"
+            "EMEET",
+            "default"
         ],
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,
