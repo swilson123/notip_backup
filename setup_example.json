@@ -11,9 +11,9 @@
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
     "nav_tuning": {
-        "two_wheel_steering_gain": 0.6,
+        "two_wheel_steering_gain": 0.4,
         "two_wheel_steering_deadband_deg": 2,
-        "two_wheel_max_steering_deg": 15,
+        "two_wheel_max_steering_deg": 6,
         "two_wheel_max_steering_delta_deg": 4,
         "two_wheel_slowdown_yaw_low_deg": 6,
         "two_wheel_slowdown_yaw_medium_deg": 10,
@@ -179,14 +179,15 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 0,
-        "auto_calibrate": true,
+        "compass_offset_deg": 134.81,
+        "use_pixhawk_heading": false,
+        "auto_calibrate": false,
         "witmotion": {
             "i2c_address": 80,
             "heading_invert": true,
             "swap_roll_pitch": false,
-            "invert_roll": true,
-            "invert_pitch": true
+            "invert_roll": false,
+            "invert_pitch": false
         }
     },
     "memory": {

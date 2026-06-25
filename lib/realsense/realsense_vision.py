@@ -602,6 +602,11 @@ class RealsenseVision:
             nearest_left = None
         if nearest_right is not None and abs(float(nearest_right.get("x_distance_m", 0.0))) < min_lat_m:
             nearest_right = None
+        # Left edge must be to the left of camera center (negative x), right must be positive.
+        if nearest_left is not None and float(nearest_left.get("x_distance_m", 0.0)) > 0:
+            nearest_left = None
+        if nearest_right is not None and float(nearest_right.get("x_distance_m", 0.0)) < 0:
+            nearest_right = None
         if nearest_left is not None:
             nearest_left = self._smooth_obs("left", nearest_left)
             self.last_edge_obs["left"] = nearest_left
@@ -1909,6 +1914,11 @@ class RealsenseVision:
         if closest["left"]  is not None and abs(float(closest["left"].get("x_m",  0.0))) < min_lat_m:
             closest["left"]  = None
         if closest["right"] is not None and abs(float(closest["right"].get("x_m", 0.0))) < min_lat_m:
+            closest["right"] = None
+        # Left edge must be left of camera center (negative x_m); right must be positive.
+        if closest["left"]  is not None and float(closest["left"].get("x_m",  0.0)) > 0:
+            closest["left"]  = None
+        if closest["right"] is not None and float(closest["right"].get("x_m", 0.0)) < 0:
             closest["right"] = None
         closest["left"]  = self._smooth_guidance_obs("left",  closest["left"])
         closest["right"] = self._smooth_guidance_obs("right", closest["right"])
