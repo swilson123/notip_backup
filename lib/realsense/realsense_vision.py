@@ -87,11 +87,32 @@ class RealsenseVision:
         # EMA smoothing state: per-side exponential moving average of edge X/Y positions.
         # Prevents frame-to-frame measurement noise from causing steering jitter.
         self._edge_smooth = {"left": None, "right": None}
+        self._guidance_smooth = {"left": None, "right": None}
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
 
     def stop(self, *_args):
         self.running = False
+
+    def _smooth_guidance_obs(self, side, obs):
+        # EMA on lateral position (x_m) only — keeps edge X steady without smearing
+        # the forward distance (y_m). Smoothing y_m causes EMA lag to inflate it past
+        # edge_correction_max_forward_m, silently blocking corrections.
+        if obs is None:
+            self._guidance_smooth[side] = None
+            return None
+        alpha = float(self.config.get("edge_ema_alpha", 0.3))
+        prev = self._guidance_smooth.get(side)
+        x = float(obs["x_m"])
+        if prev is None:
+            self._guidance_smooth[side] = {"x": x}
+            return obs
+        sx = alpha * x + (1.0 - alpha) * prev["x"]
+        self._guidance_smooth[side] = {"x": sx}
+        out = dict(obs)
+        out["x_m"] = round(float(sx), 4)
+        out["m"]   = round(float(-sx), 4)
+        return out
 
     def _smooth_obs(self, side, obs):
         # Exponential moving average on detected edge X/Y.
@@ -503,25 +524,26 @@ class RealsenseVision:
         if not right_ok and nearest_right is None:
             self._edge_smooth["right"] = None
 
-        side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
+        side_offset_m = float(self.config.get("edge_side_offset_m", 0.5))
         use = "none"
         if nearest_left is not None and nearest_right is not None:
-            use = "left" if nearest_left["confidence"] >= nearest_right["confidence"] else "right"
+            use = "center"
         elif nearest_left is not None:
             use = "left"
         elif nearest_right is not None:
             use = "right"
 
-        valid = use in ("left", "right")
+        valid = use in ("left", "right", "center")
         target_offset = 0.0
         chosen_conf = 0.0
         edge_forward_m = None
-        if valid:
+        if use == "center":
+            target_offset = (nearest_left["m"] + nearest_right["m"]) / 2.0
+            edge_forward_m = (nearest_left["y_distance_m"] + nearest_right["y_distance_m"]) / 2.0
+            chosen_conf = (nearest_left["confidence"] + nearest_right["confidence"]) / 2.0
+        elif valid:
             chosen = nearest_left if use == "left" else nearest_right
-            if use == "left":
-                target_offset = chosen["m"] - side_offset_m
-            else:
-                target_offset = chosen["m"] + side_offset_m
+            target_offset = chosen["m"] - side_offset_m if use == "left" else chosen["m"] + side_offset_m
             edge_forward_m = chosen["y_distance_m"]
             chosen_conf = chosen["confidence"]
 
@@ -575,6 +597,11 @@ class RealsenseVision:
         # _detect_path_from_lines so the LCD / message handler / steering are unchanged.
         now_ts = time.time()
         ttl_ms = float(self.config.get("edge_known_ttl_ms", 5000))
+        min_lat_m = float(self.config.get("edge_min_lateral_m", 0.4))
+        if nearest_left is not None and abs(float(nearest_left.get("x_distance_m", 0.0))) < min_lat_m:
+            nearest_left = None
+        if nearest_right is not None and abs(float(nearest_right.get("x_distance_m", 0.0))) < min_lat_m:
+            nearest_right = None
         if nearest_left is not None:
             nearest_left = self._smooth_obs("left", nearest_left)
             self.last_edge_obs["left"] = nearest_left
@@ -600,25 +627,26 @@ class RealsenseVision:
         if not right_ok and nearest_right is None:
             self._edge_smooth["right"] = None
 
-        side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))
+        side_offset_m = float(self.config.get("edge_side_offset_m", 0.5))
         use = "none"
         if nearest_left is not None and nearest_right is not None:
-            use = "left" if nearest_left["confidence"] >= nearest_right["confidence"] else "right"
+            use = "center"
         elif nearest_left is not None:
             use = "left"
         elif nearest_right is not None:
             use = "right"
 
-        valid = use in ("left", "right")
+        valid = use in ("left", "right", "center")
         target_offset = 0.0
         chosen_conf = 0.0
         edge_forward_m = None
-        if valid:
+        if use == "center":
+            target_offset = (nearest_left["m"] + nearest_right["m"]) / 2.0
+            edge_forward_m = (nearest_left["y_distance_m"] + nearest_right["y_distance_m"]) / 2.0
+            chosen_conf = (nearest_left["confidence"] + nearest_right["confidence"]) / 2.0
+        elif valid:
             chosen = nearest_left if use == "left" else nearest_right
-            if use == "left":
-                target_offset = chosen["m"] - side_offset_m
-            else:
-                target_offset = chosen["m"] + side_offset_m
+            target_offset = chosen["m"] - side_offset_m if use == "left" else chosen["m"] + side_offset_m
             edge_forward_m = chosen["y_distance_m"]
             chosen_conf = chosen["confidence"]
 
@@ -1668,8 +1696,8 @@ class RealsenseVision:
                         "right_x_m": right_obs["x_m"],
                     }
 
-                if best is None or abs(float(band_forward_m) - lookahead_m) < abs(best["forward_m"] - lookahead_m):
-                    best = band_info
+            closest["left"]  = self._smooth_guidance_obs("left",  closest["left"])
+            closest["right"] = self._smooth_guidance_obs("right", closest["right"])
 
             now_ts = time.time()
             for side in ("left", "right"):
@@ -1688,74 +1716,56 @@ class RealsenseVision:
                     return None, None, False
                 return last, age_ms, True
 
-            left_known, left_age_ms, left_known_ok = known_edge("left")
-            right_known, right_age_ms, right_known_ok = known_edge("right")
+            left_cur,  left_age_ms,  left_known_ok  = known_edge("left")
+            right_cur, right_age_ms, right_known_ok = known_edge("right")
 
             result.update({
-                "left_m": round(float(left_known["m"]), 4) if left_known_ok else None,
-                "left_conf": round(float(left_known["conf"]), 2) if left_known_ok else 0.0,
-                "left_x_m": round(float(left_known["x_m"]), 4) if left_known_ok else None,
-                "left_y_m": round(float(left_known["y_m"]), 3) if left_known_ok else None,
-                "right_m": round(float(right_known["m"]), 4) if right_known_ok else None,
-                "right_conf": round(float(right_known["conf"]), 2) if right_known_ok else 0.0,
-                "right_x_m": round(float(right_known["x_m"]), 4) if right_known_ok else None,
-                "right_y_m": round(float(right_known["y_m"]), 3) if right_known_ok else None,
+                "left_m": round(float(left_cur["m"]), 4) if left_known_ok else None,
+                "left_conf": round(float(left_cur["conf"]), 2) if left_known_ok else 0.0,
+                "left_x_m": round(float(left_cur["x_m"]), 4) if left_known_ok else None,
+                "left_y_m": round(float(left_cur["y_m"]), 3) if left_known_ok else None,
+                "right_m": round(float(right_cur["m"]), 4) if right_known_ok else None,
+                "right_conf": round(float(right_cur["conf"]), 2) if right_known_ok else 0.0,
+                "right_x_m": round(float(right_cur["x_m"]), 4) if right_known_ok else None,
+                "right_y_m": round(float(right_cur["y_m"]), 3) if right_known_ok else None,
                 "left_known": bool(left_known_ok),
                 "right_known": bool(right_known_ok),
                 "left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
                 "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
             })
 
-            if best is not None:
-                left_m = best["left_m"]
-                left_conf = best["left_conf"]
-                right_m = best["right_m"]
-                right_conf = best["right_conf"]
-                forward_m = best["forward_m"]
+            if left_cur is not None or right_cur is not None:
+                left_m    = left_cur["m"]    if left_cur  is not None else None
+                left_conf = left_cur["conf"] if left_cur  is not None else 0.0
+                right_m    = right_cur["m"]    if right_cur is not None else None
+                right_conf = right_cur["conf"] if right_cur is not None else 0.0
 
-                present = {"left": left_m is not None, "right": right_m is not None}
-                conf = {"left": left_conf, "right": right_conf}
-
-                if self.last_edge_used is not None and (time.time() - self.last_edge_used_ts) * 1000.0 > float(self.config.get("edge_hysteresis_ttl_ms", 3000)):
-                    self.last_edge_used = None
-
-                prev = self.last_edge_used
-                other = "right" if prev == "left" else "left"
-                if prev is not None and present.get(prev) and conf[prev] >= float(self.config.get("edge_hysteresis_keep_conf", 0.6)):
-                    if present.get(other) and (conf[other] - conf[prev]) >= float(self.config.get("edge_hysteresis_switch_margin", 0.2)):
-                        use = other
-                    else:
-                        use = prev
-                elif left_m is not None and right_m is not None:
-                    use = "left" if left_conf >= right_conf else "right"
+                if left_m is not None and right_m is not None:
+                    u_target    = (left_m + right_m) / 2.0
+                    chosen_conf = (left_conf + right_conf) / 2.0
+                    use         = "center"
+                    forward_m   = (left_cur["y_m"] + right_cur["y_m"]) / 2.0
                 elif left_m is not None:
-                    use = "left"
-                elif right_m is not None:
-                    use = "right"
+                    u_target    = left_m - side_offset_m
+                    chosen_conf = left_conf
+                    use         = "left"
+                    forward_m   = left_cur["y_m"]
                 else:
-                    use = None
+                    u_target    = right_m + side_offset_m
+                    chosen_conf = right_conf
+                    use         = "right"
+                    forward_m   = right_cur["y_m"]
 
-                if use is not None:
-                    self.last_edge_used = use
-                    self.last_edge_used_ts = time.time()
-
-                    if use == "left":
-                        u_target = left_m - side_offset_m
-                        chosen_conf = left_conf
-                    else:
-                        u_target = right_m + side_offset_m
-                        chosen_conf = right_conf
-
-                    x_angle_deg = math.degrees(math.atan2(-u_target, forward_m)) if forward_m > 0 else 0.0
-                    result.update({
-                        "valid": True,
-                        "x_angle_deg": round(float(x_angle_deg), 2),
-                        "offset_m": round(float(u_target), 4),
-                        "used": use,
-                        "forward_m": round(float(forward_m), 3),
-                        "confidence": round(float(chosen_conf), 2),
-                    })
-                    return result
+                x_angle_deg = math.degrees(math.atan2(-u_target, float(forward_m))) if forward_m > 0 else 0.0
+                result.update({
+                    "valid": True,
+                    "x_angle_deg": round(float(x_angle_deg), 2),
+                    "offset_m": round(float(u_target), 4),
+                    "used": use,
+                    "forward_m": round(float(forward_m), 3),
+                    "confidence": round(float(chosen_conf), 2),
+                })
+                return result
 
         lookahead_m   = float(self.config.get("edge_lookahead_m",   0.6096))  # 2 ft
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))  # 1.5 ft
@@ -1895,13 +1905,20 @@ class RealsenseVision:
             if best is None or abs(forward_m - lookahead_m) < abs(best["forward_m"] - lookahead_m):
                 best = band_info
 
-        # Refresh last-known per-side observations from the nearest currently visible edges.
+        min_lat_m = float(self.config.get("edge_min_lateral_m", 0.4))
+        if closest["left"]  is not None and abs(float(closest["left"].get("x_m",  0.0))) < min_lat_m:
+            closest["left"]  = None
+        if closest["right"] is not None and abs(float(closest["right"].get("x_m", 0.0))) < min_lat_m:
+            closest["right"] = None
+        closest["left"]  = self._smooth_guidance_obs("left",  closest["left"])
+        closest["right"] = self._smooth_guidance_obs("right", closest["right"])
+
+        # Store current-frame observations; TTL cache holds last good value briefly.
         now_ts = time.time()
         for side in ("left", "right"):
             if closest[side] is not None:
                 self.last_edge_obs[side] = closest[side]
 
-        # Read the freshest known edge for each side (current frame preferred, then cache).
         def known_edge(side):
             cur = closest[side]
             if cur is not None:
@@ -1914,72 +1931,49 @@ class RealsenseVision:
                 return None, None, False
             return last, age_ms, True
 
-        left_known, left_age_ms, left_known_ok = known_edge("left")
-        right_known, right_age_ms, right_known_ok = known_edge("right")
+        left_cur,  left_age_ms,  left_known_ok  = known_edge("left")
+        right_cur, right_age_ms, right_known_ok = known_edge("right")
 
         result.update({
-            "left_m": round(float(left_known["m"]), 4) if left_known_ok else None,
-            "left_conf": round(float(left_known["conf"]), 2) if left_known_ok else 0.0,
-            "left_x_m": round(float(left_known["x_m"]), 4) if left_known_ok else None,
-            "left_y_m": round(float(left_known["y_m"]), 3) if left_known_ok else None,
-            "right_m": round(float(right_known["m"]), 4) if right_known_ok else None,
-            "right_conf": round(float(right_known["conf"]), 2) if right_known_ok else 0.0,
-            "right_x_m": round(float(right_known["x_m"]), 4) if right_known_ok else None,
-            "right_y_m": round(float(right_known["y_m"]), 3) if right_known_ok else None,
+            "left_m": round(float(left_cur["m"]), 4) if left_known_ok else None,
+            "left_conf": round(float(left_cur["conf"]), 2) if left_known_ok else 0.0,
+            "left_x_m": round(float(left_cur["x_m"]), 4) if left_known_ok else None,
+            "left_y_m": round(float(left_cur["y_m"]), 3) if left_known_ok else None,
+            "right_m": round(float(right_cur["m"]), 4) if right_known_ok else None,
+            "right_conf": round(float(right_cur["conf"]), 2) if right_known_ok else 0.0,
+            "right_x_m": round(float(right_cur["x_m"]), 4) if right_known_ok else None,
+            "right_y_m": round(float(right_cur["y_m"]), 3) if right_known_ok else None,
             "left_known": bool(left_known_ok),
             "right_known": bool(right_known_ok),
             "left_known_age_ms": round(float(left_age_ms), 1) if left_age_ms is not None else None,
             "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
         })
 
-        if best is None:
+        if left_cur is None and right_cur is None:
             return result
 
-        left_m,  left_conf  = best["left_m"],  best["left_conf"]
-        right_m, right_conf = best["right_m"], best["right_conf"]
-        forward_m = best["forward_m"]
+        left_m    = left_cur["m"]    if left_cur  is not None else None
+        left_conf = left_cur["conf"] if left_cur  is not None else 0.0
+        right_m    = right_cur["m"]    if right_cur is not None else None
+        right_conf = right_cur["conf"] if right_cur is not None else 0.0
 
-        # Hysteresis: stick with the previously chosen edge while it stays confident.
-        keep_conf     = float(self.config.get("edge_hysteresis_keep_conf",     0.6))
-        switch_margin = float(self.config.get("edge_hysteresis_switch_margin", 0.2))
-        ttl_ms        = float(self.config.get("edge_hysteresis_ttl_ms",        3000))
-
-        present = {"left": left_m is not None, "right": right_m is not None}
-        conf    = {"left": left_conf, "right": right_conf}
-
-        # Forget a stale choice so a fresh pick can be made after a gap in tracking.
-        if self.last_edge_used is not None and (time.time() - self.last_edge_used_ts) * 1000.0 > ttl_ms:
-            self.last_edge_used = None
-
-        prev = self.last_edge_used
-        other = "right" if prev == "left" else "left"
-        if prev is not None and present.get(prev) and conf[prev] >= keep_conf:
-            # Keep the current edge unless the other one is substantially more confident.
-            if present.get(other) and (conf[other] - conf[prev]) >= switch_margin:
-                use = other
-            else:
-                use = prev
-        elif left_m is not None and right_m is not None:
-            use = "left" if left_conf >= right_conf else "right"
+        if left_m is not None and right_m is not None:
+            u_target    = (left_m + right_m) / 2.0
+            chosen_conf = (left_conf + right_conf) / 2.0
+            use         = "center"
+            forward_m   = (left_cur["y_m"] + right_cur["y_m"]) / 2.0
         elif left_m is not None:
-            use = "left"
-        elif right_m is not None:
-            use = "right"
-        else:
-            return result
-
-        self.last_edge_used = use
-        self.last_edge_used_ts = time.time()
-
-        if use == "left":
-            u_target = left_m - side_offset_m   # hold 1.5 ft RIGHT of the left edge
+            u_target    = left_m - side_offset_m
             chosen_conf = left_conf
+            use         = "left"
+            forward_m   = left_cur["y_m"]
         else:
-            u_target = right_m + side_offset_m  # hold 1.5 ft LEFT of the right edge
+            u_target    = right_m + side_offset_m
             chosen_conf = right_conf
+            use         = "right"
+            forward_m   = right_cur["y_m"]
 
-        # Angle to the desired track position. +right target → x_angle_deg > 0 → steer right.
-        x_angle_deg = math.degrees(math.atan2(-u_target, forward_m)) if forward_m > 0 else 0.0
+        x_angle_deg = math.degrees(math.atan2(-u_target, float(forward_m))) if forward_m > 0 else 0.0
 
         result.update({
             "valid": True,
