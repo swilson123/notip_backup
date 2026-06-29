@@ -145,7 +145,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 134.81,
+        "compass_offset_deg": -89.35,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
