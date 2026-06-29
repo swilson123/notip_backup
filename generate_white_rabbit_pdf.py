@@ -157,7 +157,7 @@ def build_cover(path):
     cv.setFont('Helvetica', 8)
     cv.drawCentredString(W/2, H * 0.065,
         'A conversation between Scott Christopher Wilson and Claude'
-        '  ·  May 30 – June 7, 2026')
+        '  ·  May 30 – June 29, 2026')
 
     cv.showPage()
     cv.save()
