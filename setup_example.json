@@ -128,7 +128,7 @@
         "simple_edge_light_min": 55,
         "simple_edge_component_min_area": 250,
         "simple_edge_clahe_enabled": true,
-        "simple_edge_val_mean_frac": 0.40,
+        "simple_edge_val_mean_frac": 0.4,
         "simple_edge_dark_val_max": 30,
         "perspective_check_max_distance_m": 2,
         "perspective_min_narrowing_ratio": 0.85,
@@ -148,7 +148,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": -71.03,
+        "compass_offset_deg": -73.79,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {
