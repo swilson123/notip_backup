@@ -298,20 +298,37 @@ class RealsenseVision:
         }
 
     def _build_simple_ground_mask(self, roi_color):
-        hsv = cv2.cvtColor(roi_color, cv2.COLOR_BGR2HSV)
+        # CLAHE illumination normalization: equalizes local contrast so dappled
+        # tree shadows on concrete don't push pixels below the walkable-value floor.
+        if bool(self.config.get("simple_edge_clahe_enabled", True)):
+            clahe_clip = float(self.config.get("edge_line_clahe_clip", 2))
+            clahe_tile = int(self.config.get("edge_line_clahe_tile", 8))
+            lab = cv2.cvtColor(roi_color, cv2.COLOR_BGR2LAB)
+            clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(clahe_tile, clahe_tile))
+            lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+            roi_color_eq = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        else:
+            roi_color_eq = roi_color
+
+        hsv = cv2.cvtColor(roi_color_eq, cv2.COLOR_BGR2HSV)
         sat_limit = int(self.config.get("simple_edge_saturation_limit", 100))
         val_min = int(self.config.get("simple_edge_value_min", 55))
         light_min = int(self.config.get("simple_edge_light_min", 55))
         min_area = int(self.config.get("simple_edge_component_min_area", 250))
+        val_mean_frac = float(self.config.get("simple_edge_val_mean_frac", 0.40))
 
         mean_val = int(np.mean(hsv[:, :, 2]))
-        val_floor = max(light_min, max(val_min, int(mean_val * 0.45)))
+        val_floor = max(light_min, max(val_min, int(mean_val * val_mean_frac)))
 
         concrete_mask = cv2.inRange(hsv, (0, 0, val_floor), (179, sat_limit, 255))
         green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
         mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+        # Very dark pixels (nearly black) are non-walkable regardless of hue/saturation.
+        # Catches jet-black or low-saturation mulch that falls outside the HSV mulch range.
+        dark_val_max = int(self.config.get("simple_edge_dark_val_max", 30))
+        dark_nonwalkable = cv2.inRange(hsv, (0, 0, 0), (179, 255, dark_val_max))
 
-        non_walkable = cv2.bitwise_or(green_mask_roi, mulch_mask)
+        non_walkable = cv2.bitwise_or(cv2.bitwise_or(green_mask_roi, mulch_mask), dark_nonwalkable)
         walkable = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
         walkable = cv2.medianBlur(walkable, 5)
         walkable = cv2.morphologyEx(walkable, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))

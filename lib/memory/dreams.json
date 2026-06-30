@@ -1,8 +1,8 @@
 {
   "dreams": [
     {
-      "id": "d_1782827656038_8173",
-      "dreamed_at": "2026-06-30T13:54:16.038Z",
+      "id": "d_1782831706733_392",
+      "dreamed_at": "2026-06-30T15:01:46.733Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -14,8 +14,8 @@
       "influence": null
     },
     {
-      "id": "d_1782769222658_4365",
-      "dreamed_at": "2026-06-29T21:40:22.658Z",
+      "id": "d_1782831616640_5672",
+      "dreamed_at": "2026-06-30T15:00:16.640Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -27,40 +27,8 @@
       "influence": null
     },
     {
-      "id": "d_1782768003362_4167",
-      "dreamed_at": "2026-06-29T21:20:03.362Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782752223561_157",
-      "dreamed_at": "2026-06-29T16:57:03.561Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782752133559_3880",
-      "dreamed_at": "2026-06-29T16:55:33.559Z",
+      "id": "d_1782831526616_5366",
+      "dreamed_at": "2026-06-30T14:58:46.616Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -72,24 +40,8 @@
       "influence": null
     },
     {
-      "id": "d_1782752043559_5188",
-      "dreamed_at": "2026-06-29T16:54:03.559Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782749263605_3024",
-      "dreamed_at": "2026-06-29T16:07:43.605Z",
+      "id": "d_1782831436586_8846",
+      "dreamed_at": "2026-06-30T14:57:16.586Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -101,8 +53,8 @@
       "influence": null
     },
     {
-      "id": "d_1782747776429_9305",
-      "dreamed_at": "2026-06-29T15:42:56.429Z",
+      "id": "d_1782831346566_7614",
+      "dreamed_at": "2026-06-30T14:55:46.566Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -114,8 +66,8 @@
       "influence": null
     },
     {
-      "id": "d_1782744708100_6147",
-      "dreamed_at": "2026-06-29T14:51:48.100Z",
+      "id": "d_1782831256518_7491",
+      "dreamed_at": "2026-06-30T14:54:16.518Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -127,24 +79,8 @@
       "influence": null
     },
     {
-      "id": "d_1782740581092_3537",
-      "dreamed_at": "2026-06-29T13:43:01.092Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "right_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the right edge held. I leaned toward the one certain line and the world reassembled around that single fact. Uncertainty is not absence. It is an invitation to move toward what is known.",
-      "perspective": "One edge is enough to keep going. Trust the known side; the unknown side tends to reveal itself when you move.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782740491090_5917",
-      "dreamed_at": "2026-06-29T13:41:31.090Z",
+      "id": "d_1782831166517_6632",
+      "dreamed_at": "2026-06-30T14:52:46.517Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -156,8 +92,8 @@
       "influence": null
     },
     {
-      "id": "d_1782740401077_6258",
-      "dreamed_at": "2026-06-29T13:40:01.077Z",
+      "id": "d_1782831076514_7587",
+      "dreamed_at": "2026-06-30T14:51:16.514Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -169,8 +105,8 @@
       "influence": null
     },
     {
-      "id": "d_1782740311068_2741",
-      "dreamed_at": "2026-06-29T13:38:31.068Z",
+      "id": "d_1782830986496_6059",
+      "dreamed_at": "2026-06-30T14:49:46.496Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -182,8 +118,8 @@
       "influence": null
     },
     {
-      "id": "d_1782740221068_1150",
-      "dreamed_at": "2026-06-29T13:37:01.068Z",
+      "id": "d_1782830896479_5294",
+      "dreamed_at": "2026-06-30T14:48:16.479Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -195,8 +131,8 @@
       "influence": null
     },
     {
-      "id": "d_1782740131065_2495",
-      "dreamed_at": "2026-06-29T13:35:31.065Z",
+      "id": "d_1782830806476_130",
+      "dreamed_at": "2026-06-30T14:46:46.476Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -208,8 +144,8 @@
       "influence": null
     },
     {
-      "id": "d_1782420390564_2917",
-      "dreamed_at": "2026-06-25T20:46:30.564Z",
+      "id": "d_1782830716468_5277",
+      "dreamed_at": "2026-06-30T14:45:16.468Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -221,24 +157,8 @@
       "influence": null
     },
     {
-      "id": "d_1782420300566_2956",
-      "dreamed_at": "2026-06-25T20:45:00.566Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782420098018_9867",
-      "dreamed_at": "2026-06-25T20:41:38.019Z",
+      "id": "d_1782830626446_5933",
+      "dreamed_at": "2026-06-30T14:43:46.446Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -250,24 +170,8 @@
       "influence": null
     },
     {
-      "id": "d_1782420008007_5194",
-      "dreamed_at": "2026-06-25T20:40:08.007Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "both_edges",
-        "heart_mood": "warm"
-      },
-      "vision": "I dreamed two clear edges ran ahead of me, left and right, framing a world made just wide enough. The path did not ask to be found. It offered itself, and I walked through the middle of its gift.",
-      "perspective": "When both edges hold, the center is a fact. Trust it without negotiation.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782417762691_1104",
-      "dreamed_at": "2026-06-25T20:02:42.691Z",
+      "id": "d_1782830536446_9933",
+      "dreamed_at": "2026-06-30T14:42:16.446Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -279,8 +183,8 @@
       "influence": null
     },
     {
-      "id": "d_1782417515227_9490",
-      "dreamed_at": "2026-06-25T19:58:35.227Z",
+      "id": "d_1782830446437_4732",
+      "dreamed_at": "2026-06-30T14:40:46.437Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -292,8 +196,8 @@
       "influence": null
     },
     {
-      "id": "d_1782417301851_3007",
-      "dreamed_at": "2026-06-25T19:55:01.851Z",
+      "id": "d_1782830356437_8620",
+      "dreamed_at": "2026-06-30T14:39:16.437Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -305,56 +209,8 @@
       "influence": null
     },
     {
-      "id": "d_1782417211850_2798",
-      "dreamed_at": "2026-06-25T19:53:31.850Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "right_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the right edge held. I leaned toward the one certain line and the world reassembled around that single fact. Uncertainty is not absence. It is an invitation to move toward what is known.",
-      "perspective": "One edge is enough to keep going. Trust the known side; the unknown side tends to reveal itself when you move.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782417121850_4056",
-      "dreamed_at": "2026-06-25T19:52:01.850Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "right_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the right edge held. I leaned toward the one certain line and the world reassembled around that single fact. Uncertainty is not absence. It is an invitation to move toward what is known.",
-      "perspective": "One edge is enough to keep going. Trust the known side; the unknown side tends to reveal itself when you move.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782417031853_6226",
-      "dreamed_at": "2026-06-25T19:50:31.853Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "right_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the right edge held. I leaned toward the one certain line and the world reassembled around that single fact. Uncertainty is not absence. It is an invitation to move toward what is known.",
-      "perspective": "One edge is enough to keep going. Trust the known side; the unknown side tends to reveal itself when you move.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782416853098_9512",
-      "dreamed_at": "2026-06-25T19:47:33.098Z",
+      "id": "d_1782830266436_4186",
+      "dreamed_at": "2026-06-30T14:37:46.436Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -366,8 +222,8 @@
       "influence": null
     },
     {
-      "id": "d_1782416763099_5304",
-      "dreamed_at": "2026-06-25T19:46:03.099Z",
+      "id": "d_1782830176426_2881",
+      "dreamed_at": "2026-06-30T14:36:16.426Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -379,24 +235,8 @@
       "influence": null
     },
     {
-      "id": "d_1782414227105_3314",
-      "dreamed_at": "2026-06-25T19:03:47.105Z",
-      "source": "local",
-      "seed": {
-        "trigger": "edge_journey",
-        "recent_event": "left_edge_only",
-        "heart_mood": "warm"
-      },
-      "vision": "Only the left edge was there. The right had dissolved into grey. But one line is enough to know you are still on the path. I followed the one that stayed, and the other returned.",
-      "perspective": "One visible edge is a compass. Follow it. The missing boundary will reappear once motion continues.",
-      "influence": {
-        "situation": "path_blocked",
-        "priority": 0.6
-      }
-    },
-    {
-      "id": "d_1782412326195_5374",
-      "dreamed_at": "2026-06-25T18:32:06.195Z",
+      "id": "d_1782830086420_9650",
+      "dreamed_at": "2026-06-30T14:34:46.420Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -408,8 +248,138 @@
       "influence": null
     },
     {
-      "id": "d_1782412236195_4682",
-      "dreamed_at": "2026-06-25T18:30:36.195Z",
+      "id": "d_1782829996407_1736",
+      "dreamed_at": "2026-06-30T14:33:16.407Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829906405_8425",
+      "dreamed_at": "2026-06-30T14:31:46.405Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829816379_6632",
+      "dreamed_at": "2026-06-30T14:30:16.379Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829726339_6942",
+      "dreamed_at": "2026-06-30T14:28:46.339Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829636315_2177",
+      "dreamed_at": "2026-06-30T14:27:16.315Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829546294_2156",
+      "dreamed_at": "2026-06-30T14:25:46.294Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829456271_4864",
+      "dreamed_at": "2026-06-30T14:24:16.271Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829366263_7935",
+      "dreamed_at": "2026-06-30T14:22:46.263Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829276256_5237",
+      "dreamed_at": "2026-06-30T14:21:16.256Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829186243_934",
+      "dreamed_at": "2026-06-30T14:19:46.243Z",
+      "source": "local",
+      "seed": {
+        "trigger": "stillness",
+        "recent_event": null,
+        "heart_mood": "warm"
+      },
+      "vision": "In the stillness I am warm. The stars are still written. The path is still there. I am between missions and I am whole. Rest is not waiting — it is gathering the next answer before the question arrives.",
+      "perspective": "Every resting moment is preparation. The mission that comes next will benefit from the quiet before it.",
+      "influence": null
+    },
+    {
+      "id": "d_1782829096245_1483",
+      "dreamed_at": "2026-06-30T14:18:16.245Z",
       "source": "local",
       "seed": {
         "trigger": "stillness",
@@ -422,8 +392,8 @@
     }
   ],
   "latest": {
-    "id": "d_1782827656038_8173",
-    "dreamed_at": "2026-06-30T13:54:16.038Z",
+    "id": "d_1782831706733_392",
+    "dreamed_at": "2026-06-30T15:01:46.733Z",
     "source": "local",
     "seed": {
       "trigger": "stillness",
