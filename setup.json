@@ -223,6 +223,8 @@
         ],
         "asr_samplerate": 16000,
         "nudge_speed_rpm": 30,
+        "nudge_creep_rpm": 8,
+        "nudge_slowdown_m": 0.05,
         "nudge_mps": 0.15,
         "wheel_diameter_m": 0.254,
         "cpr_pulses_per_rev": 16385,
