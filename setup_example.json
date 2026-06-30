@@ -32,6 +32,7 @@
         "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000,
         "delivery_timeout_ms": 45000,
+        "sidewalk_gate_always_open": false,
         "sidewalk_gate_turn_deg": 90,
         "sidewalk_gate_pair_distance_m": 1,
         "edge_trail_enabled": true,
@@ -144,7 +145,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": -89.35,
+        "compass_offset_deg": -71.03,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {
