@@ -106,7 +106,7 @@
         "edge_distance_full_conf_m": 1,
         "edge_distance_zero_conf_m": 3,
         "edge_hough_detector": true,
-        "edge_ema_alpha": 0.45,
+        "edge_ema_alpha": 0.25,
         "edge_both_seen_conf_boost": 0.25,
         "edge_line_bands": 3,
         "edge_line_lookahead_frac": 0.82,
