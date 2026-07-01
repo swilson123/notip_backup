@@ -116,7 +116,11 @@
       "Bash(readlink -f /sys/bus/usb/devices/usb4 && echo \"---\" && readlink -f /sys/bus/usb/devices/usb4/.. && echo \"---\" && cat /sys/bus/usb/devices/usb4/busnum /sys/bus/usb/devices/usb4/devpath /sys/bus/usb/devices/usb4/of_node 2>/dev/null)",
       "Read(//sys/devices/platform/axi/1000120000.pcie/1f00300000.usb/xhci-hcd.1/usb4/**)",
       "Read(//sys/bus/usb/devices/**)",
-      "Read(//sys/bus/usb/devices/usb4-port1/**)"
+      "Read(//sys/bus/usb/devices/usb4-port1/**)",
+      "Bash(/usr/bin/python3 generate_realsense_vision_pdf.py)",
+      "Bash(/usr/bin/python3 -c ' *)",
+      "Bash(pdftotext -layout /home/rover/notip/realsense_vision_guide.pdf -)",
+      "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",

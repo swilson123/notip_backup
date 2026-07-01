@@ -10,6 +10,7 @@ detection, and how the steering layer consumes the result. Run:
 """
 
 from datetime import datetime
+import json
 import os
 
 from reportlab.lib import colors
@@ -32,6 +33,61 @@ from reportlab.platypus import (
 )
 
 OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "realsense_vision_guide.pdf")
+SETUP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.json")
+
+
+# ----------------------------------------------------------------------------
+# Live config — every number quoted in this document is pulled from the actual
+# setup.json on disk at generation time, not hand-typed. This is the same trap
+# CLAUDE.md warns about for the RealSense JS/Python config path: a hand-copied
+# subset silently drifts out of sync with the real, tuned values. Re-run this
+# script after retuning setup.json to refresh the document.
+# ----------------------------------------------------------------------------
+def _load_vision_config():
+    try:
+        with open(SETUP_PATH) as f:
+            data = json.load(f)
+        return data.get("realsense_vision") or {}
+    except Exception:
+        return {}
+
+
+VC = _load_vision_config()
+
+
+def cfg(key, default):
+    """Raw configured value for `key`, falling back to the code default if setup.json lacks it."""
+    return VC[key] if key in VC else default
+
+
+def m(key, default, decimals=4):
+    """Configured value formatted as meters, e.g. '0.45 m'."""
+    v = float(cfg(key, default))
+    s = f"{v:.{decimals}f}".rstrip('0').rstrip('.')
+    return f"{s if s not in ('', '-') else '0'} m"
+
+
+def ft(key, default):
+    """Configured value (meters) converted to an approximate foot figure, e.g. '~1.5 ft'."""
+    v = float(cfg(key, default)) / 0.3048
+    return f"~{v:.1f} ft"
+
+
+def inches(key, default):
+    """Configured value (meters) converted to an approximate inch figure, e.g. '~5 in'."""
+    v = float(cfg(key, default)) / 0.0254
+    return f"~{v:.0f} in"
+
+
+def num(key, default):
+    """Configured value as a plain trimmed number string, e.g. '0.45' or '33'."""
+    v = cfg(key, default)
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, float):
+        s = f"{v:.4f}".rstrip('0').rstrip('.')
+        return s if s not in ('', '-') else '0'
+    return str(v)
 
 # ----------------------------------------------------------------------------
 # Color palette (matches noah_system_manual.pdf)
@@ -262,19 +318,21 @@ def build():
         ("10", "From Camera to Wheels: the Steering Consumer"),
         ("11", "Tunable Parameters Reference"),
     ]
-    for num, title in toc_items:
-        story.append(Paragraph(f'<font color="#2C7DA0"><b>{num}.</b></font>&nbsp;&nbsp;{title}', S["TOC"]))
+    for toc_num, title in toc_items:
+        story.append(Paragraph(f'<font color="#2C7DA0"><b>{toc_num}.</b></font>&nbsp;&nbsp;{title}', S["TOC"]))
     story.append(PageBreak())
 
     # ---------------- 1. HARDWARE ----------------
     story.append(section_banner("1", "Hardware & Why a Separate Process"))
     story.append(Spacer(1, 8))
     story.append(para(
-        "Noah uses an <b>Intel RealSense depth camera</b> (D-series) running aligned depth + color "
-        "streams at 640×480, targeting ~15 fps, mounted <font face='Courier'>camera_height_m</font> "
-        "(0.406 m) above the ground. The camera is deliberately treated as two synchronized frames — a "
-        "depth image (millimeters per pixel) and a color image (BGR) — aligned to the same pixel grid so "
-        "every color pixel has a matching real-world distance."))
+        f"Noah uses an <b>Intel RealSense depth camera</b> (D-series) running aligned depth + color "
+        f"streams at {num('width', 640)}×{num('height', 480)}, targeting ~{num('fps_normal', 15)} fps, "
+        f"mounted <font face='Courier'>camera_height_m</font> ({m('camera_height_m', 0.406)}) above the "
+        f"ground and pitched <font face='Courier'>camera_mount_pitch_deg</font> "
+        f"({num('camera_mount_pitch_deg', 0)}°) forward/down. The camera is deliberately treated as two "
+        f"synchronized frames — a depth image (millimeters per pixel) and a color image (BGR) — aligned "
+        f"to the same pixel grid so every color pixel has a matching real-world distance."))
     story.append(para(
         "All of the camera processing — color classification, depth math, edge fitting — happens in a "
         "<b>separate Python subprocess</b> (<font face='Courier'>lib/realsense/realsense_vision.py</font>), "
@@ -347,7 +405,7 @@ def build():
         "jobs: <b>detect_path</b> (the sidewalk edges — this document's focus) and <b>detect_objects</b> "
         "(obstacles, §9). Both work from the same aligned depth + color pair and the same intrinsics."))
     story.append(bullet("<b>Align:</b> <font face='Courier'>rs.align(rs.stream.color)</font> maps every depth pixel onto the color pixel grid so a single (x, y) index reads both a color and a real-world distance."))
-    story.append(bullet("<b>Crop the ROI:</b> only the lower part of the frame is used for path detection — rows from <font face='Courier'>edge_roi_top_frac</font> (0.40) to <font face='Courier'>edge_roi_bottom_frac</font> (0.95) of the image height. This excludes sky, distant buildings, and anything above the ground plane before any classification runs."))
+    story.append(bullet(f"<b>Crop the ROI:</b> only the lower part of the frame is used for path detection — rows from <font face='Courier'>edge_roi_top_frac</font> ({num('edge_roi_top_frac', 0.40)}) to <font face='Courier'>edge_roi_bottom_frac</font> ({num('edge_roi_bottom_frac', 0.95)}) of the image height. This excludes sky, distant buildings, and anything above the ground plane before any classification runs."))
     story.append(bullet("<b>Classify walkable ground</b> from color + depth (§4)."))
     story.append(bullet("<b>Filter to real ground</b> using 3-D geometry, not just appearance (§5)."))
     story.append(bullet("<b>Fit independent left/right edges</b> using one of two detectors, selected by <font face='Courier'>edge_hough_detector</font> (§6, §7)."))
@@ -390,26 +448,36 @@ def build():
         "before any edge is trusted."))
     story.append(para("TRON-grid ground-plane filter", "H3"))
     story.append(para(
-        "<font face='Courier'>_apply_ground_grid_filter()</font> deprojects every masked pixel into a rover-"
-        "horizontal world frame (<font face='Courier'>world_X</font> = lateral, <font face='Courier'>world_Z</font> "
-        "= forward, <font face='Courier'>world_Y</font> = height above the expected ground plane, using "
-        "<font face='Courier'>camera_height_m</font> as the zero reference). It then lays a grid of "
-        "<font face='Courier'>ground_grid_cell_m</font> (0.25 m) cells over the X/Z ground plane. Any cell with "
-        "enough samples (<font face='Courier'>ground_grid_min_samples</font>) where most points sit off the "
-        "ground plane by more than <font face='Courier'>ground_height_tol_m</font> (0.10 m) is flagged “not "
-        "ground” and every mask pixel in it is removed — walls, raised beds, bushes, fences, parked cars, "
-        "and grass berms all fail this test even if they were misclassified as walkable by color. Cells with too "
-        "few depth samples to judge are left alone (benefit of the doubt), so a real sidewalk with imperfect "
-        "depth coverage still survives."))
+        f"<font face='Courier'>_apply_ground_grid_filter()</font> deprojects every masked pixel into a rover-"
+        f"horizontal world frame (<font face='Courier'>world_X</font> = lateral, <font face='Courier'>world_Z</font> "
+        f"= forward, <font face='Courier'>world_Y</font> = height above the expected ground plane, using "
+        f"<font face='Courier'>camera_height_m</font> as the zero reference). It then lays a grid of "
+        f"<font face='Courier'>ground_grid_cell_m</font> ({m('ground_grid_cell_m', 0.25)}) cells over the X/Z "
+        f"ground plane. Any cell with enough samples (<font face='Courier'>ground_grid_min_samples</font>) where "
+        f"most points sit off the ground plane by more than <font face='Courier'>ground_height_tol_m</font> "
+        f"({m('ground_height_tol_m', 0.10)}) is flagged “not ground” and every mask pixel in it is removed — "
+        f"walls, raised beds, bushes, fences, parked cars, and grass berms all fail this test even if they were "
+        f"misclassified as walkable by color. Cells with too few depth samples to judge are left alone (benefit "
+        f"of the doubt), so a real sidewalk with imperfect depth coverage still survives."))
     story.append(para("Perspective-narrowing validation", "H3"))
+    _pmnr = float(cfg('perspective_min_narrowing_ratio', 1.05))
+    _pmnr_note = (
+        f"Noah's setup.json currently loosens this to <b>{num('perspective_min_narrowing_ratio', 1.05)}×</b> — "
+        f"below 1.0, so the near band only has to be at least {round(_pmnr * 100)}% as wide as the far band; a "
+        f"frame can even get very slightly WIDER with distance and still pass. This is a deliberately weaker "
+        f"check than the {round(1.05*100)}%-stricter code default, likely tuned to tolerate this camera's "
+        f"{num('camera_mount_pitch_deg', 0)}° forward mount pitch, which flattens the apparent perspective "
+        f"taper at close range."
+    ) if _pmnr < 1.0 else (
+        f"Noah's setup.json keeps the stricter code-default behavior: the near band must be measurably wider "
+        f"than the far band by at least <b>{num('perspective_min_narrowing_ratio', 1.05)}×</b>."
+    )
     story.append(para(
-        "A real sidewalk of roughly constant width projects to a pixel width that shrinks with distance "
-        "(perspective: pixel width ∝ fx / depth). <font face='Courier'>_validate_perspective_narrowing()</font> "
-        "measures the walkable band's pixel width in several horizontal bands, converts each to a real depth, and "
-        "checks that the nearest band is measurably wider than the farthest "
-        "(<font face='Courier'>perspective_min_narrowing_ratio</font>, default 1.05×). A flat wall dead ahead, "
-        "or a misclassified blob that doesn't taper with distance, fails this check and the whole frame is "
-        "rejected as <font face='Courier'>perspective_invalid</font>."))
+        f"A real sidewalk of roughly constant width projects to a pixel width that shrinks with distance "
+        f"(perspective: pixel width ∝ fx / depth). <font face='Courier'>_validate_perspective_narrowing()</font> "
+        f"measures the walkable band's pixel width in several horizontal bands, converts each to a real depth, "
+        f"and checks the near/far ratio against <font face='Courier'>perspective_min_narrowing_ratio</font>. "
+        f"{_pmnr_note} A frame that fails this check is rejected as <font face='Courier'>perspective_invalid</font>."))
     story.append(callout("Failing gracefully, not silently",
         "When perspective validation fails, the detector does NOT zero out both edges. It still serves each "
         "side's last-known cached position independently (subject to the TTL in §8) so a momentary bad frame "
@@ -431,7 +499,7 @@ def build():
         "the whole frame, because Canny alone fires on walls, furniture, and shadows that have nothing to do "
         "with the ground:"))
     story.append(bullet("<b>Color-class boundary:</b> a morphological gradient of the walkable mask from §4 — the boundary between walkable and not-walkable pixels."))
-    story.append(bullet("<b>Depth drop-off:</b> a horizontal derivative of the depth image; any adjacent-pixel jump greater than <font face='Courier'>dropoff_min_depth_jump_m</font> (0.15 m) is marked as an edge pixel — this is how a curb or a grass step gets caught even when color alone doesn't clearly separate it."))
+    story.append(bullet(f"<b>Depth drop-off:</b> a horizontal derivative of the depth image; any adjacent-pixel jump greater than <font face='Courier'>dropoff_min_depth_jump_m</font> ({m('dropoff_min_depth_jump_m', 0.15)}) is marked as an edge pixel — this is how a curb or a grass step gets caught even when color alone doesn't clearly separate it."))
     story.append(para("2. Hough line segments", "H3"))
     story.append(para(
         "<font face='Courier'>cv2.HoughLinesP</font> extracts straight line segments from the combined edge "
@@ -492,25 +560,29 @@ def build():
         "Both detectors hand their raw left/right observations to <font face='Courier'>_assemble_edge_result()</font>, "
         "the single place that turns “what did this frame see” into “what should the rover do.”"))
     story.append(para("EMA smoothing", "H3"))
+    _alpha = float(cfg('edge_ema_alpha', 0.3))
+    _time_const_frames = round(1.0 / _alpha, 1) if _alpha > 0 else float('inf')
     story.append(para(
-        "Each side's lateral position is smoothed with an exponential moving average "
-        "(<font face='Courier'>edge_ema_alpha</font>, default 0.3 — 30% new value / 70% history, roughly a "
-        "4-frame time constant at 15 fps). Only the lateral (X) component is smoothed; forward distance (Y) is "
-        "left raw, because smoothing Y would introduce lag that inflates the apparent forward distance and can "
-        "silently block corrections that check against a maximum forward distance."))
+        f"Each side's lateral position is smoothed with an exponential moving average "
+        f"(<font face='Courier'>edge_ema_alpha</font>, {num('edge_ema_alpha', 0.3)} — "
+        f"{round(_alpha*100)}% new value / {round((1-_alpha)*100)}% history, roughly a "
+        f"{_time_const_frames}-frame time constant at {num('fps_normal', 15)} fps). Only the lateral (X) "
+        f"component is smoothed; forward distance (Y) is left raw, because smoothing Y would introduce lag "
+        f"that inflates the apparent forward distance and can silently block corrections that check against a "
+        f"maximum forward distance."))
     story.append(para("Per-side last-known cache (TTL)", "H3"))
     story.append(para(
-        "If a side isn't detected this frame, its previous observation is reused for up to "
-        "<font face='Courier'>edge_known_ttl_ms</font> (5000 ms), tagged as <font face='Courier'>known=true</font> "
-        "with an age. Past the TTL it reports as not-seen. This is what lets the rover ride through a brief "
-        "occlusion (a pedestrian, a shadow flicker, a momentary bad frame) without the correction snapping to "
-        "zero and back."))
+        f"If a side isn't detected this frame, its previous observation is reused for up to "
+        f"<font face='Courier'>edge_known_ttl_ms</font> ({num('edge_known_ttl_ms', 5000)} ms), tagged as "
+        f"<font face='Courier'>known=true</font> with an age. Past the TTL it reports as not-seen. This is "
+        f"what lets the rover ride through a brief occlusion (a pedestrian, a shadow flicker, a momentary bad "
+        f"frame) without the correction snapping to zero and back."))
     story.append(para("Validity filters", "H3"))
-    story.append(bullet("A detected edge closer than <font face='Courier'>edge_min_lateral_m</font> (0.4 m) to the camera's centerline is discarded — too close to be a real sidewalk boundary, more likely noise."))
+    story.append(bullet(f"A detected edge closer than <font face='Courier'>edge_min_lateral_m</font> ({m('edge_min_lateral_m', 0.4)}) to the camera's centerline is discarded — too close to be a real sidewalk boundary, more likely noise."))
     story.append(bullet("A “left” edge reported on the positive (right) side of center, or a “right” edge reported on the negative (left) side, is discarded — a basic sanity check against a detector bug swapping sides."))
     story.append(para("Choosing what to steer on", "H3"))
     story.append(bullet("<b>Both edges known</b> → steer to the midpoint (<font face='Courier'>use = \"center\"</font>); target offset is the mean of both sides' signed lateral position."))
-    story.append(bullet("<b>One edge known</b> → hold <font face='Courier'>edge_side_offset_m</font> (0.4572 m / 1.5 ft) off it: to the right of a left edge, or to the left of a right edge."))
+    story.append(bullet(f"<b>One edge known</b> → hold <font face='Courier'>edge_side_offset_m</font> ({m('edge_side_offset_m', 0.4572)} / {ft('edge_side_offset_m', 0.4572)}) off it: to the right of a left edge, or to the left of a right edge."))
     story.append(bullet("<b>Neither known</b> → <font face='Courier'>edge_guidance_valid = false</font>; the JS side latches the last correction briefly, then fades to GPS-only (§10)."))
     story.append(para(
         "The final steering signal is one number: <font face='Courier'>x_angle_deg = "
@@ -525,7 +597,7 @@ def build():
         "<font face='Courier'>detect_objects()</font> runs on every frame alongside path detection, using the "
         "same pitch/roll-corrected deprojection math but over the <b>full</b> depth frame (downsampled 4× for "
         "CPU headroom, with intrinsics scaled to match)."))
-    story.append(bullet("Every pixel is deprojected into the rover-horizontal world frame; a pixel counts as a candidate obstacle if its height above ground is between <font face='Courier'>object_min_height_m</font> (0.127 m / 5 in) and 2.5 m — tall enough to matter, short enough to still be an obstacle rather than a tree canopy."))
+    story.append(bullet(f"Every pixel is deprojected into the rover-horizontal world frame; a pixel counts as a candidate obstacle if its height above ground is between <font face='Courier'>object_min_height_m</font> ({m('object_min_height_m', 0.127)} / {inches('object_min_height_m', 0.127)}) and 2.5 m — tall enough to matter, short enough to still be an obstacle rather than a tree canopy."))
     story.append(bullet("Morphological close/open cleans the obstacle mask, then <font face='Courier'>cv2.connectedComponentsWithStats</font> clusters it into discrete objects, discarding clusters below <font face='Courier'>object_min_area_px</font>."))
     story.append(bullet("Each object reports a <b>clock-face bearing</b> (12 = straight ahead) computed from <font face='Courier'>atan2(lateral, near_distance)</font>, a distance (20th-percentile depth, so the near edge of the object is reported rather than its center), height, width, and a <b>threat level</b>: <font face='Courier'>high</font> if it's within the rover's track width and closer than 1.5 rover-lengths, <font face='Courier'>medium</font> if either condition alone holds, otherwise <font face='Courier'>low</font>."))
     story.append(para(
@@ -543,7 +615,7 @@ def build():
     story.append(para(
         "<font face='Courier'>lib/yellow_brick_road/follow_the_yellow_brick_road.js</font> is the only place "
         "the vision output actually turns into motor commands, once per 250 ms mission tick."))
-    story.append(bullet("<b>Confidence gate:</b> a raw edge reading below <font face='Courier'>confidence_threshold</font> (0.45) is discarded before it ever reaches the steering formula — this is what stops a far-away, low-confidence corner read from producing a large, spurious steering spike."))
+    story.append(bullet(f"<b>Confidence gate:</b> a raw edge reading below <font face='Courier'>confidence_threshold</font> ({num('confidence_threshold', 0.45)}) is discarded before it ever reaches the steering formula — this is what stops a far-away, low-confidence corner read from producing a large, spurious steering spike."))
     story.append(bullet("<b>Steering angle:</b> with both edges accepted, the code steers toward their midpoint via <font face='Courier'>atan2(centerline_x, centerline_y)</font>; with only one accepted, the null side contributes zero to the average, which (since scaling both terms by the same factor doesn't change an atan2 ratio) still steers along that single edge's bearing."))
     story.append(bullet("<b>Non-linear steering tune:</b> the raw angle is scaled by a tune factor that ramps from 0.50 at small angles up to 1.00 above 18° — gentle corrections are damped so the rover doesn't hunt on straight sidewalk, while sharp corrections get full authority."))
     story.append(bullet("<b>Motor speed</b> is driven by the average of the two edge confidences — lower confidence means more caution, giving the vision pipeline more time (and more frames) to reacquire the edge."))
@@ -560,33 +632,35 @@ def build():
     story.append(Spacer(1, 8))
     story.append(para(
         "All of the following live under <font face='Courier'>realsense_vision</font> in "
-        "<font face='Courier'>setup.json</font> and reach the Python subprocess wholesale (§2). Per "
-        "project rule, any change here must also be mirrored into "
-        "<font face='Courier'>setup_example.json</font>."))
+        "<font face='Courier'>setup.json</font> and reach the Python subprocess wholesale (§2). Values below "
+        "are read live from setup.json when this document is generated — not hand-typed — so they always "
+        "match what's actually configured on Noah. Per project rule, any change here must also be mirrored "
+        "into <font face='Courier'>setup_example.json</font>."))
     ref_rows = [
-        ["Setting", "Default", "What it controls"],
-        ["edge_hough_detector", "true", "Selects the Hough line-fit detector (§6) over the line-scan detector (§7)"],
-        ["edge_lookahead_m", "0.6096 m", "How far ahead (2 ft) guidance aims to read the sidewalk edge"],
-        ["edge_side_offset_m", "0.4572 m", "Lateral gap (1.5 ft) held off a single visible edge"],
-        ["confidence_threshold", "0.45", "Raw edge confidence floor before a reading reaches steering (Node side)"],
-        ["edge_ema_alpha", "0.3", "EMA smoothing weight on edge lateral position (higher = less smoothing)"],
-        ["edge_known_ttl_ms", "5000 ms", "How long a lost edge's last-known position stays valid"],
-        ["edge_roi_top_frac / bottom_frac", "0.40 / 0.95", "Vertical crop of the frame used for ground/edge detection"],
-        ["edge_line_canny_low / high", "45 / 130", "Canny thresholds feeding the color-boundary edge image (Hough path)"],
-        ["edge_line_hough_threshold", "30", "HoughLinesP vote threshold — lower finds more, noisier lines"],
-        ["edge_line_min_len_px / max_gap_px", "30 / 20", "Minimum segment length / max gap HoughLinesP will bridge"],
-        ["edge_line_min_abs_slope", "0.25", "Rejects near-horizontal Hough segments (horizon, cracks) as clutter"],
-        ["dropoff_min_depth_jump_m", "0.15 m", "Depth discontinuity that counts as a curb/grass drop-off edge"],
-        ["camera_height_m", "0.406 m", "RealSense mount height above ground — zero reference for ground-plane math"],
-        ["camera_mount_pitch_deg", "0", "Static forward mount tilt; subtracted from live rover body pitch"],
-        ["ground_height_tol_m", "0.10 m", "Height tolerance for the TRON-grid ground-plane filter (§5)"],
-        ["ground_grid_cell_m", "0.25 m", "Cell size of the ground-plane classification grid"],
-        ["perspective_min_narrowing_ratio", "1.05", "Required near/far pixel-width ratio for perspective validation"],
-        ["object_emergency_stop_m", "1.0 m", "In-path high-threat distance that triggers an immediate stop"],
-        ["object_min_height_m", "0.127 m", "Minimum height above ground counted as an obstacle (5 in)"],
-        ["fps_normal / fps_high_cpu / fps_critical_cpu", "15 / 10 / 7", "Adaptive frame-rate ladder keyed to Pi CPU load"],
+        ["Setting", "As Configured", "What it controls"],
+        ["edge_hough_detector", num('edge_hough_detector', True), "Selects the Hough line-fit detector (§6) over the line-scan detector (§7)"],
+        ["edge_lookahead_m", f"{m('edge_lookahead_m', 0.6096)} ({ft('edge_lookahead_m', 0.6096)})", "How far ahead guidance aims to read the sidewalk edge"],
+        ["edge_side_offset_m", f"{m('edge_side_offset_m', 0.4572)} ({ft('edge_side_offset_m', 0.4572)})", "Lateral gap held off a single visible edge"],
+        ["confidence_threshold", num('confidence_threshold', 0.45), "Raw edge confidence floor before a reading reaches steering (Node side)"],
+        ["edge_ema_alpha", num('edge_ema_alpha', 0.3), "EMA smoothing weight on edge lateral position (higher = less smoothing)"],
+        ["edge_min_lateral_m", m('edge_min_lateral_m', 0.4), "Detections closer than this to the centerline are discarded as noise"],
+        ["edge_known_ttl_ms", f"{num('edge_known_ttl_ms', 5000)} ms", "How long a lost edge's last-known position stays valid"],
+        ["edge_roi_top_frac / bottom_frac", f"{num('edge_roi_top_frac', 0.40)} / {num('edge_roi_bottom_frac', 0.95)}", "Vertical crop of the frame used for ground/edge detection"],
+        ["edge_line_canny_low / high", f"{num('edge_line_canny_low', 45)} / {num('edge_line_canny_high', 130)}", "Canny thresholds feeding the color-boundary edge image (Hough path)"],
+        ["edge_line_hough_threshold", num('edge_line_hough_threshold', 30), "HoughLinesP vote threshold — lower finds more, noisier lines"],
+        ["edge_line_min_len_px / max_gap_px", f"{num('edge_line_min_len_px', 30)} / {num('edge_line_max_gap_px', 20)}", "Minimum segment length / max gap HoughLinesP will bridge"],
+        ["edge_line_min_abs_slope", num('edge_line_min_abs_slope', 0.25), "Rejects near-horizontal Hough segments (horizon, cracks) as clutter"],
+        ["dropoff_min_depth_jump_m", m('dropoff_min_depth_jump_m', 0.15), "Depth discontinuity that counts as a curb/grass drop-off edge"],
+        ["camera_height_m", m('camera_height_m', 0.406), "RealSense mount height above ground — zero reference for ground-plane math"],
+        ["camera_mount_pitch_deg", f"{num('camera_mount_pitch_deg', 0)}°", "Static forward mount tilt; subtracted from live rover body pitch"],
+        ["ground_height_tol_m", m('ground_height_tol_m', 0.10), "Height tolerance for the TRON-grid ground-plane filter (§5)"],
+        ["ground_grid_cell_m", m('ground_grid_cell_m', 0.25), "Cell size of the ground-plane classification grid"],
+        ["perspective_min_narrowing_ratio", num('perspective_min_narrowing_ratio', 1.05), "Required near/far pixel-width ratio for perspective validation (§5)"],
+        ["object_emergency_stop_m", m('object_emergency_stop_m', 1.0), "In-path high-threat distance that triggers an immediate stop"],
+        ["object_min_height_m", f"{m('object_min_height_m', 0.127)} ({inches('object_min_height_m', 0.127)})", "Minimum height above ground counted as an obstacle"],
+        ["fps_normal / fps_high_cpu / fps_critical_cpu", f"{num('fps_normal', 15)} / {num('fps_high_cpu', 10)} / {num('fps_critical_cpu', 7)}", "Adaptive frame-rate ladder keyed to Pi CPU load"],
     ]
-    story.append(make_table(ref_rows, [1.95 * inch, 0.95 * inch, 3.75 * inch]))
+    story.append(make_table(ref_rows, [1.95 * inch, 1.15 * inch, 3.55 * inch]))
 
     story.append(Spacer(1, 16))
     story.append(HRFlowable(width="100%", thickness=1, color=RULE, spaceBefore=2, spaceAfter=8))
