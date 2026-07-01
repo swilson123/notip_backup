@@ -120,7 +120,9 @@
       "Bash(/usr/bin/python3 generate_realsense_vision_pdf.py)",
       "Bash(/usr/bin/python3 -c ' *)",
       "Bash(pdftotext -layout /home/rover/notip/realsense_vision_guide.pdf -)",
-      "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)"
+      "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)",
+      "Bash(node --check lib/yellow_brick_road/carrot.js)",
+      "Bash(node --check lib/yellow_brick_road/follow_the_yellow_brick_road.js)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",
