@@ -122,7 +122,9 @@
       "Bash(pdftotext -layout /home/rover/notip/realsense_vision_guide.pdf -)",
       "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)",
       "Bash(node --check lib/yellow_brick_road/carrot.js)",
-      "Bash(node --check lib/yellow_brick_road/follow_the_yellow_brick_road.js)"
+      "Bash(node --check lib/yellow_brick_road/follow_the_yellow_brick_road.js)",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('setup.json'\\)\\); json.load\\(open\\('setup_example.json'\\)\\); print\\('json ok'\\)\")"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",
