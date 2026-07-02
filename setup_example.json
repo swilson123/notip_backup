@@ -96,6 +96,7 @@
         "edge_turn_anticipation_max_deg": 10,
         "edge_steer_max_delta_deg_per_tick": 3,
         "edge_steer_gain": 0.5,
+        "edge_steer_deadband_deg": 2,
         "edge_guidance_bands": 8,
         "edge_mask_threshold": 0.14,
         "edge_known_ttl_ms": 5000,
