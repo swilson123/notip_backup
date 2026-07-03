@@ -97,6 +97,7 @@
         "edge_turn_anticipation_max_deg": 18,
         "edge_steer_max_delta_deg_per_tick": 6,
         "edge_steer_gain": 1,
+        "edge_steer_deadband_deg": 2,
         "carrot_bias_alpha": 0.02,
         "carrot_bias_cap_m": 0.2,
         "carrot_last_known_hdg_ttl_ms": 3000,
