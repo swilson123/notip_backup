@@ -91,10 +91,16 @@
         "edge_max_lookahead_m": 2.5,
         "dropoff_min_depth_jump_m": 0.08,
         "edge_stop_clearance_m": -0.05,
-        "edge_lookahead_m": 0.45,
+        "edge_lookahead_m": 1,
         "edge_side_offset_m": 0.5,
         "edge_turn_anticipation_gain_deg_per_m": 3,
         "edge_turn_anticipation_max_deg": 18,
+        "edge_steer_max_delta_deg_per_tick": 6,
+        "edge_steer_gain": 1,
+        "edge_steer_deadband_deg": 2,
+        "carrot_bias_alpha": 0.02,
+        "carrot_bias_cap_m": 0.2,
+        "carrot_last_known_hdg_ttl_ms": 3000,
         "edge_guidance_bands": 8,
         "edge_mask_threshold": 0.14,
         "edge_known_ttl_ms": 5000,
@@ -151,7 +157,11 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
+<<<<<<< HEAD
         "compass_offset_deg": -85.57,
+=======
+        "compass_offset_deg": -44.44,
+>>>>>>> 60fc053445e8cfc77f81cd8af00801f827c10fd6
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {

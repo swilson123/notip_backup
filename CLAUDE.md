@@ -191,7 +191,20 @@ realsense_vision.heading_correction_gain  0.3  blend weight for path-curve headi
 realsense_vision.correction_direction    -1   camera mount sign (flip if corrections go wrong way)
 realsense_vision.correction_gain_deg_per_meter  8
 realsense_vision.object_emergency_stop_m  1.0
-realsense_vision.edge_lookahead_m       0.6096  how far ahead (m) to read the sidewalk edge (2 ft)
+realsense_vision.edge_lookahead_m       1.0  how far ahead (m) to read the sidewalk edge. Raised from 0.6096/0.45
+                                          2026-07-03: the camera (D435, ~87deg horizontal FOV) is front-mounted,
+                                          so if Noah's heading lags the carrot enough during a curb turn, the
+                                          sidewalk swings out of frame entirely and vision guidance is lost with
+                                          no graceful recovery. angle-off-boresight = atan(lateral_offset_m /
+                                          lookahead_m) -- at the old 0.45m lookahead, a typical ~0.5m sidewalk
+                                          half-width already used ~48deg of the ~43.5deg half-FOV (negative
+                                          margin even head-on); measured on Noah's own capture
+                                          (logger/2026-07-03/2/rc_edge_capture_1) the real per-tick margin before
+                                          an edge left frame was 9.4deg on average, as low as 2-4.4deg on the
+                                          worst 10% of ticks -- well inside the heading errors already observed
+                                          (mean 4.1deg, max 15.9deg). At 1.0m lookahead the same 0.5m offset
+                                          computes to ~17deg of margin, and 1.0m is still within
+                                          edge_distance_full_conf_m (no confidence penalty for reading farther).
 realsense_vision.edge_side_offset_m     0.4572  lateral gap (m) to hold off the edge (1.5 ft)
 realsense_vision.edge_guidance_bands    8     near-field bands scanned to find the lookahead edge
 ```
