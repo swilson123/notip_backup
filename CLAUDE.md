@@ -156,6 +156,9 @@ Whenever `setup.json` is modified, apply the same change to `setup_example.json`
 ### RealSense config reaches Python via a JSON arg, not setup.json
 `realsense_vision.py` reads its config ONLY from `json.loads(sys.argv[1])` — it never opens setup.json. Flow: setup.json `realsense_vision` → `notip.js` (`white_rabbit.realsense.vision_full` = RAW section; `vision` = a curated Node-side subset) → `connect_to_realsense.js` builds `vision_config` by spreading `vision_full` → spawn arg. A `self.config.get("...")` key in the Python takes effect ONLY if it exists in setup.json's `realsense_vision` (now forwarded wholesale). Two hand-maintained subsets used to silently drop keys (`edge_hough_detector`, `edge_roi_*`, `edge_line_*`, `edge_mask_threshold`, `camera_mount_pitch_deg`…) so tuning them did nothing — do NOT reintroduce a subset. Camera geometry: `camera_height_m` (meters); `camera_mount_pitch_deg` (positive = pitched forward / nose-down; subtracted from the rover's nose-up-positive body pitch in the depth→ground projection).
 
+### Don't alias white_rabbit fields into local variables
+Never write `var _pd = white_rabbit.realsense.path_detection;` (or similar) just to shorten access. Reference `white_rabbit.x.y.z` directly at every use site, even when it's repeated many times in the same function. A local variable is fine ONLY when it holds a genuinely *computed* value — a confidence-gated result, a fallback-defaulted config lookup, an accumulated bias — never when it's a pure rename of something already reachable on white_rabbit. Why: Scott moves code between functions and files constantly; an alias only exists inside the function that declared it, so pasted code silently breaks or shadows, while `white_rabbit.x.y.z` works unchanged wherever it lands. This bit us in `carrot.js`: `var _pd = white_rabbit.realsense.path_detection;` was pure aliasing and got removed in favor of the direct path at each call site (2026-07-01).
+
 ## Project overview
 
 Node.js rover application that follows GPS waypoints, delivers a package, then returns to start. Runs on a Raspberry Pi 5 16GB.
@@ -188,7 +191,20 @@ realsense_vision.heading_correction_gain  0.3  blend weight for path-curve headi
 realsense_vision.correction_direction    -1   camera mount sign (flip if corrections go wrong way)
 realsense_vision.correction_gain_deg_per_meter  8
 realsense_vision.object_emergency_stop_m  1.0
-realsense_vision.edge_lookahead_m       0.6096  how far ahead (m) to read the sidewalk edge (2 ft)
+realsense_vision.edge_lookahead_m       1.0  how far ahead (m) to read the sidewalk edge. Raised from 0.6096/0.45
+                                          2026-07-03: the camera (D435, ~87deg horizontal FOV) is front-mounted,
+                                          so if Noah's heading lags the carrot enough during a curb turn, the
+                                          sidewalk swings out of frame entirely and vision guidance is lost with
+                                          no graceful recovery. angle-off-boresight = atan(lateral_offset_m /
+                                          lookahead_m) -- at the old 0.45m lookahead, a typical ~0.5m sidewalk
+                                          half-width already used ~48deg of the ~43.5deg half-FOV (negative
+                                          margin even head-on); measured on Noah's own capture
+                                          (logger/2026-07-03/2/rc_edge_capture_1) the real per-tick margin before
+                                          an edge left frame was 9.4deg on average, as low as 2-4.4deg on the
+                                          worst 10% of ticks -- well inside the heading errors already observed
+                                          (mean 4.1deg, max 15.9deg). At 1.0m lookahead the same 0.5m offset
+                                          computes to ~17deg of margin, and 1.0m is still within
+                                          edge_distance_full_conf_m (no confidence penalty for reading farther).
 realsense_vision.edge_side_offset_m     0.4572  lateral gap (m) to hold off the edge (1.5 ft)
 realsense_vision.edge_guidance_bands    8     near-field bands scanned to find the lookahead edge
 ```
