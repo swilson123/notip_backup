@@ -114,6 +114,94 @@ class RealsenseVision:
         out["m"]   = round(float(-sx), 4)
         return out
 
+    def _apply_edge_use_hysteresis(self, natural_use, left_m, left_conf, right_m, right_conf):
+        # Once an edge (or "center", both edges averaged) is chosen as the steering
+        # reference, stick with it as long as it's still available -- only switch when
+        # the currently-used side disappears, or the candidate is clearly better
+        # (edge_hysteresis_keep_conf / _switch_margin) and edge_hysteresis_ttl_ms has
+        # passed since the last switch. Without this, x_angle_deg mode-flips between
+        # "center" and a single-edge offset every time a borderline edge's confidence
+        # jitters a few percent frame to frame -- a real jump, not sensor noise.
+        def mode_conf(mode):
+            if mode == "center":
+                return (left_conf + right_conf) / 2.0
+            if mode == "left":
+                return left_conf
+            if mode == "right":
+                return right_conf
+            return 0.0
+
+        def holdable(mode):
+            if mode == "center":
+                return left_m is not None and right_m is not None
+            if mode == "left":
+                return left_m is not None
+            if mode == "right":
+                return right_m is not None
+            return False
+
+        keep_conf     = float(self.config.get("edge_hysteresis_keep_conf", 0.6))
+        switch_margin = float(self.config.get("edge_hysteresis_switch_margin", 0.2))
+        switch_ttl_s  = float(self.config.get("edge_hysteresis_ttl_ms", 3000)) / 1000.0
+        now = time.time()
+
+        prev = self.last_edge_used
+        use = natural_use
+        if prev is not None and prev != natural_use and holdable(prev):
+            dwell_met = (now - self.last_edge_used_ts) >= switch_ttl_s
+            confident_enough = (mode_conf(natural_use) >= keep_conf
+                                 or (mode_conf(natural_use) - mode_conf(prev)) >= switch_margin)
+            if not (dwell_met and confident_enough):
+                use = prev
+
+        if use != self.last_edge_used:
+            self.last_edge_used = use
+            self.last_edge_used_ts = now
+        return use
+
+    def _finalize_edge_guidance_result(self, result, left_cur, right_cur, side_offset_m):
+        if left_cur is None and right_cur is None:
+            return result
+
+        left_m    = left_cur["m"]    if left_cur  is not None else None
+        left_conf = left_cur["conf"] if left_cur  is not None else 0.0
+        right_m    = right_cur["m"]    if right_cur is not None else None
+        right_conf = right_cur["conf"] if right_cur is not None else 0.0
+
+        if left_m is not None and right_m is not None:
+            natural_use = "center"
+        elif left_m is not None:
+            natural_use = "left"
+        else:
+            natural_use = "right"
+
+        use = self._apply_edge_use_hysteresis(natural_use, left_m, left_conf, right_m, right_conf)
+
+        if use == "center":
+            u_target    = (left_m + right_m) / 2.0
+            chosen_conf = (left_conf + right_conf) / 2.0
+            forward_m   = (left_cur["y_m"] + right_cur["y_m"]) / 2.0
+        elif use == "left":
+            u_target    = left_m - side_offset_m
+            chosen_conf = left_conf
+            forward_m   = left_cur["y_m"]
+        else:
+            u_target    = right_m + side_offset_m
+            chosen_conf = right_conf
+            forward_m   = right_cur["y_m"]
+
+        x_angle_deg = math.degrees(math.atan2(-u_target, float(forward_m))) if forward_m > 0 else 0.0
+
+        result.update({
+            "valid": True,
+            "x_angle_deg": round(float(x_angle_deg), 2),
+            "offset_m": round(float(u_target), 4),
+            "used": use,
+            "forward_m": round(float(forward_m), 3),
+            "confidence": round(float(chosen_conf), 2),
+        })
+        return result
+
     def _smooth_obs(self, side, obs):
         # Exponential moving average on detected edge X/Y.
         # alpha (default 0.3): 30% new value, 70% old — ~4-frame time constant at 15 fps.
@@ -649,14 +737,36 @@ class RealsenseVision:
         if not right_ok and nearest_right is None:
             self._edge_smooth["right"] = None
 
-        side_offset_m = float(self.config.get("edge_side_offset_m", 0.5))
-        use = "none"
-        if nearest_left is not None and nearest_right is not None:
-            use = "center"
-        elif nearest_left is not None:
-            use = "left"
-        elif nearest_right is not None:
-            use = "right"
+        # This is the live decision (detect_path -> _detect_edges_hough -> here, per
+        # setup.json's edge_hough_detector: true). Hysteresis via _apply_edge_use_hysteresis
+        # stops "use" from mode-flipping between center/left/right every time a borderline
+        # edge's confidence jitters a few percent frame to frame -- see that method's
+        # docstring. natural_use is what this tick's raw detections alone would pick;
+        # _apply_edge_use_hysteresis is what actually decides whether to switch to it.
+        #
+        # Single-edge offset: hold HALF THE ACTUAL SIDEWALK WIDTH off the one visible
+        # edge, not a fixed generic distance -- last_path_width_meters is the width
+        # measured the last time both edges were seen together (or the 0.9m startup
+        # default before that's ever happened), so this tracks whatever width THIS
+        # sidewalk actually runs instead of assuming every sidewalk is edge_side_offset_m
+        # x2 wide. Same idea as mowing along one edge once you know the strip's width.
+        side_offset_m = self.last_path_width_meters / 2.0
+        left_m    = nearest_left["m"]    if nearest_left  is not None else None
+        left_conf = nearest_left["confidence"] if nearest_left  is not None else 0.0
+        right_m    = nearest_right["m"]    if nearest_right is not None else None
+        right_conf = nearest_right["confidence"] if nearest_right is not None else 0.0
+
+        if left_m is not None and right_m is not None:
+            natural_use = "center"
+        elif left_m is not None:
+            natural_use = "left"
+        elif right_m is not None:
+            natural_use = "right"
+        else:
+            natural_use = "none"
+
+        use = (self._apply_edge_use_hysteresis(natural_use, left_m, left_conf, right_m, right_conf)
+               if natural_use != "none" else "none")
 
         valid = use in ("left", "right", "center")
         target_offset = 0.0
@@ -1757,37 +1867,7 @@ class RealsenseVision:
             })
 
             if left_cur is not None or right_cur is not None:
-                left_m    = left_cur["m"]    if left_cur  is not None else None
-                left_conf = left_cur["conf"] if left_cur  is not None else 0.0
-                right_m    = right_cur["m"]    if right_cur is not None else None
-                right_conf = right_cur["conf"] if right_cur is not None else 0.0
-
-                if left_m is not None and right_m is not None:
-                    u_target    = (left_m + right_m) / 2.0
-                    chosen_conf = (left_conf + right_conf) / 2.0
-                    use         = "center"
-                    forward_m   = (left_cur["y_m"] + right_cur["y_m"]) / 2.0
-                elif left_m is not None:
-                    u_target    = left_m - side_offset_m
-                    chosen_conf = left_conf
-                    use         = "left"
-                    forward_m   = left_cur["y_m"]
-                else:
-                    u_target    = right_m + side_offset_m
-                    chosen_conf = right_conf
-                    use         = "right"
-                    forward_m   = right_cur["y_m"]
-
-                x_angle_deg = math.degrees(math.atan2(-u_target, float(forward_m))) if forward_m > 0 else 0.0
-                result.update({
-                    "valid": True,
-                    "x_angle_deg": round(float(x_angle_deg), 2),
-                    "offset_m": round(float(u_target), 4),
-                    "used": use,
-                    "forward_m": round(float(forward_m), 3),
-                    "confidence": round(float(chosen_conf), 2),
-                })
-                return result
+                return self._finalize_edge_guidance_result(result, left_cur, right_cur, side_offset_m)
 
         lookahead_m   = float(self.config.get("edge_lookahead_m",   0.6096))  # 2 ft
         side_offset_m = float(self.config.get("edge_side_offset_m", 0.4572))  # 1.5 ft
@@ -1976,41 +2056,7 @@ class RealsenseVision:
             "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
         })
 
-        if left_cur is None and right_cur is None:
-            return result
-
-        left_m    = left_cur["m"]    if left_cur  is not None else None
-        left_conf = left_cur["conf"] if left_cur  is not None else 0.0
-        right_m    = right_cur["m"]    if right_cur is not None else None
-        right_conf = right_cur["conf"] if right_cur is not None else 0.0
-
-        if left_m is not None and right_m is not None:
-            u_target    = (left_m + right_m) / 2.0
-            chosen_conf = (left_conf + right_conf) / 2.0
-            use         = "center"
-            forward_m   = (left_cur["y_m"] + right_cur["y_m"]) / 2.0
-        elif left_m is not None:
-            u_target    = left_m - side_offset_m
-            chosen_conf = left_conf
-            use         = "left"
-            forward_m   = left_cur["y_m"]
-        else:
-            u_target    = right_m + side_offset_m
-            chosen_conf = right_conf
-            use         = "right"
-            forward_m   = right_cur["y_m"]
-
-        x_angle_deg = math.degrees(math.atan2(-u_target, float(forward_m))) if forward_m > 0 else 0.0
-
-        result.update({
-            "valid": True,
-            "x_angle_deg": round(float(x_angle_deg), 2),
-            "offset_m": round(float(u_target), 4),
-            "used": use,
-            "forward_m": round(float(forward_m), 3),
-            "confidence": round(float(chosen_conf), 2),
-        })
-        return result
+        return self._finalize_edge_guidance_result(result, left_cur, right_cur, side_offset_m)
 
     def _find_signed_depth_edges(self, depth_band, dropoff_jump_m):
         # Like find_depth_boundaries but uses SIGNED gradients so we can tell
