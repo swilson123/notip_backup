@@ -1,0 +1,26 @@
+# 1. Clone + venv (isolated, avoids "externally-managed-environment")
+git clone https://github.com/ChaoningZhang/MobileSAM
+cd MobileSAM
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+pip install onnx onnxruntime
+
+# 2. Export the decoder (prompt-encoder + mask-decoder combo — this repo's own script)
+python scripts/export_onnx_model.py \
+    --checkpoint weights/mobile_sam.pt \
+    --model-type vit_t \
+    --output mobile_sam_decoder.onnx \
+    --opset 13 \
+    --return-single-mask
+
+# 3. Export the image encoder (save the script below as export_mobile_sam_encoder.py
+#    in the MobileSAM repo root first)
+python export_mobile_sam_encoder.py \
+    --checkpoint weights/mobile_sam.pt \
+    --model-type vit_t \
+    --output mobile_sam_encoder.onnx \
+    --opset 13
+
+# 4. Copy both onto the rover (replace with the Pi's actual hostname/IP)
+scp mobile_sam_encoder.onnx mobile_sam_decoder.onnx rover@<pi-hostname-or-ip>:/home/rover/notip/lib/realsense/mobilesam/

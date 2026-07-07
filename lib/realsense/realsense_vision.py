@@ -99,6 +99,24 @@ class RealsenseVision:
         self._last_display_mask = None
         self._last_display_row_start = 0
         self._last_display_row_end = 0
+        # MobileSAM ground segmenter (restored 2026-07-07 -- removed in the 2026-06-01
+        # "bird eye update" alongside BEV and the funnel warp, in favor of
+        # _build_simple_ground_mask's plain HSV thresholding). Class-agnostic: give it
+        # an image and a point, it returns the mask of whatever surface contains that
+        # point -- unlike fixed HSV ranges, it isn't fooled by mulch that happens to be
+        # bright/desaturated enough to pass as "concrete" (see
+        # screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png and 2.45.15 PM.png).
+        # Loaded lazily in start(); self-disables to the HSV mask on any failure --
+        # missing ONNX weight files (not checked into git, see
+        # lib/realsense/mobilesam/README.md) or a missing onnxruntime install must
+        # never take down live steering.
+        self.sam_segmenter = None
+        self.sam_load_attempted = False
+        # Adaptive seed for SAM: the previous frame's near-field walkable centroid, so
+        # the foreground prompt tracks wherever the rover is actually standing instead
+        # of always sampling bottom-center (wrong the moment the rover drifts laterally).
+        self.last_seed_x = None
+        self.last_seed_x_ts = 0.0
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGUSR1, self._toggle_display)
@@ -428,6 +446,7 @@ class RealsenseVision:
             "timestamp": int(time.time() * 1000),
             "fps_target": self.current_fps_target
         })
+        self._load_sam_model()
 
     def update_target_fps(self):
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -597,6 +616,90 @@ class RealsenseVision:
             walkable = clean
 
         return walkable, green_mask_roi
+
+    def _load_sam_model(self):
+        if self.sam_load_attempted:
+            return
+        self.sam_load_attempted = True
+        if not bool(self.config.get("sam_enabled", True)):
+            return
+        encoder_path = self.config.get("sam_encoder_path") or "./lib/realsense/mobilesam/mobile_sam_encoder.onnx"
+        decoder_path = self.config.get("sam_decoder_path") or "./lib/realsense/mobilesam/mobile_sam_decoder.onnx"
+        try:
+            from mobilesam.mobilesam import MobileSAMSegmenter
+        except Exception:
+            # Fall back to file-path import when the script isn't launched as a package.
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "mobilesam"))
+            try:
+                from mobilesam import MobileSAMSegmenter  # type: ignore
+            except Exception as exc:
+                emit({"message_type": "status", "status": "sam_load_failed",
+                      "error": "import failed: " + str(exc),
+                      "timestamp": int(time.time() * 1000)})
+                return
+        try:
+            self.sam_segmenter = MobileSAMSegmenter(encoder_path, decoder_path)
+            emit({"message_type": "status", "status": "sam_loaded",
+                  "encoder": encoder_path, "decoder": decoder_path,
+                  "timestamp": int(time.time() * 1000)})
+        except Exception as exc:
+            # Most commonly: the .onnx weight files aren't on disk (they're deliberately
+            # not checked into git -- see lib/realsense/mobilesam/README.md) or
+            # onnxruntime isn't installed. Either way, walkable-mask detection keeps
+            # running on _build_simple_ground_mask alone; SAM is a refinement, not a
+            # dependency.
+            emit({"message_type": "status", "status": "sam_load_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            self.sam_segmenter = None
+
+    def _pick_appearance_seed(self, roi_color):
+        # Foreground prompt point for SAM: the previous frame's near-field walkable
+        # centroid if recent enough, else bottom-center of the ROI. Adaptive so the
+        # prompt tracks the rover drifting laterally instead of always sampling
+        # bottom-center (wrong the moment the rover isn't dead-centered on the path).
+        h, w = roi_color.shape[:2]
+        seed_y_frac = float(self.config.get("appearance_seed_y_frac", 0.92))
+        ttl_ms = float(self.config.get("appearance_seed_ttl_ms", 2000))
+        y = int(np.clip(h * seed_y_frac, 0, h - 1))
+        x = w // 2
+        if self.last_seed_x is not None:
+            age_ms = (time.time() - self.last_seed_x_ts) * 1000.0
+            if age_ms <= ttl_ms:
+                x = int(np.clip(self.last_seed_x, 0, w - 1))
+        return (x, y)
+
+    def _get_sam_mask(self, roi_color):
+        # Class-agnostic ground segmentation: feed SAM the ROI plus a foreground point
+        # (the adaptive seed -- wherever the rover is currently standing) and it returns
+        # a mask of that surface. Unlike _build_simple_ground_mask's fixed HSV ranges,
+        # it isn't fooled by mulch that happens to be bright/desaturated enough to read
+        # as "concrete" -- it segments by what's actually the same physical surface as
+        # the seed point, not by a hardcoded color range.
+        if self.sam_segmenter is None:
+            return None
+        try:
+            seed = self._pick_appearance_seed(roi_color)
+            image = roi_color
+            if bool(self.config.get("sam_clahe_enabled", True)):
+                clip = float(self.config.get("sam_clahe_clip", 2.0))
+                tile = int(self.config.get("sam_clahe_tile_size", 8))
+                lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+                lab[:, :, 0] = cv2.createCLAHE(clipLimit=clip,
+                                                tileGridSize=(tile, tile)).apply(lab[:, :, 0])
+                image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            h, w = image.shape[:2]
+            # Background points at 4%/96% of ROI width, same row as the seed: these
+            # columns are almost always off the path (mulch/grass either side), so they
+            # tell SAM what NOT to include and prevent mask bleed into the mulch bed.
+            bg_y = seed[1]
+            bg_left = (int(w * 0.04), bg_y)
+            bg_right = (int(w * 0.96), bg_y)
+            mask = self.sam_segmenter.infer(image, seed, background_points=[bg_left, bg_right])
+            return mask
+        except Exception as exc:
+            emit({"message_type": "status", "status": "sam_infer_failed",
+                  "error": str(exc), "timestamp": int(time.time() * 1000)})
+            return None
 
     def _select_center_component(self, walkable_mask):
         if cv2.countNonZero(walkable_mask) == 0:
@@ -1032,6 +1135,23 @@ class RealsenseVision:
 
         try:
             walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
+            # SAM refinement: when loaded, its class-agnostic segmentation of the seed
+            # point's surface replaces the HSV mask -- SAM isn't fooled by mulch that
+            # happens to be bright/desaturated enough to pass the HSV "concrete" test
+            # (screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png, 2.45.15 PM.png).
+            # Falls straight back to the HSV mask above on any load/inference failure.
+            if self.sam_segmenter is not None:
+                sam_mask = self._get_sam_mask(roi_color)
+                if sam_mask is not None and cv2.countNonZero(sam_mask) > 0:
+                    walkable_mask = sam_mask
+            # Adaptive seed for next frame's SAM prompt: this frame's near-field
+            # walkable centroid, so the prompt tracks the rover drifting laterally
+            # instead of always sampling ROI bottom-center.
+            bottom_band = walkable_mask[max(0, h - 20):h, :]
+            seed_xs = np.where(bottom_band > 0)[1]
+            if seed_xs.size > 0:
+                self.last_seed_x = float(np.mean(seed_xs))
+                self.last_seed_x_ts = time.time()
             if self.display_enabled:
                 self._last_display_mask = walkable_mask
                 self._last_display_row_start = row_start
