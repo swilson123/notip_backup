@@ -14,8 +14,8 @@ python scripts/export_onnx_model.py \
     --opset 13 \
     --return-single-mask
 
-# 3. Export the image encoder (save the script below as export_mobile_sam_encoder.py
-#    in the MobileSAM repo root first)
+# 3. Export the image encoder — copy export_mobile_sam_encoder.py (in this same
+#    lib/realsense/mobilesam/ folder) into the MobileSAM repo root first
 python export_mobile_sam_encoder.py \
     --checkpoint weights/mobile_sam.pt \
     --model-type vit_t \

@@ -95,10 +95,24 @@ class RealsenseVision:
         self.display_enabled = bool(self.config.get("display_enabled", False))
         self._display_window_name = "Noah Vision"
         self._display_window_ready = False
+        self._display_window_failed = False
         self._display_error_logged = False
-        self._last_display_mask = None
         self._last_display_row_start = 0
         self._last_display_row_end = 0
+        # Periodic frame capture to disk (display_capture_enabled) -- independent of
+        # whether a live HDMI window is even possible, so a running set of real,
+        # annotated frames builds up for review on a headless run too.
+        self._last_capture_ts = 0.0
+        # Display now fills between the fitted Hough edge lines directly (what
+        # steering actually uses) rather than the separate appearance mask, which
+        # over/under-segments independently of edge accuracy -- see
+        # screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png onward.
+        self._last_display_left_fit = None
+        self._last_display_right_fit = None
+        # Width-validated (y_full, x_left, x_right) rows -- see the fill-rows comment
+        # in _detect_edges_hough. Populated only when both fits exist AND stay a
+        # plausible, non-crossing real-world width apart at that row.
+        self._last_display_fill_rows = []
         # MobileSAM ground segmenter (restored 2026-07-07 -- removed in the 2026-06-01
         # "bird eye update" alongside BEV and the funnel warp, in favor of
         # _build_simple_ground_mask's plain HSV thresholding). Class-agnostic: give it
@@ -201,11 +215,46 @@ class RealsenseVision:
             frame = color_image.copy()
             h, w = frame.shape[:2]
 
-            if self._last_display_mask is not None:
-                full_mask = np.zeros((h, w), dtype=np.uint8)
+            # Dots mark the raw fitted lines themselves (same lines x_angle_deg/el_x/er_x
+            # come from), so a bad fit is visible even where the fill below refuses it.
+            # Two real sidewalk edges only meet at the vanishing point, which should sit
+            # beyond what we're analyzing here -- if the fitted lines cross INSIDE the
+            # ROI, at least one fit has gone bad. Stop drawing both dots at that row
+            # rather than let them visibly swap sides on screen.
+            left_fit = self._last_display_left_fit
+            right_fit = self._last_display_right_fit
+            if left_fit is not None or right_fit is not None:
                 r0, r1 = self._last_display_row_start, self._last_display_row_end
-                full_mask[r0:r1, :] = self._last_display_mask
-                mask_bool = full_mask > 0
+                for y_roi in range(0, max(0, r1 - r0)):
+                    y_full = r0 + y_roi
+                    if y_full < 0 or y_full >= h:
+                        continue
+                    x_left = None
+                    x_right = None
+                    if left_fit is not None:
+                        a, b, _, _ = left_fit
+                        x_left = a * y_roi + b
+                    if right_fit is not None:
+                        a, b, _, _ = right_fit
+                        x_right = a * y_roi + b
+                    if x_left is not None and x_right is not None and x_right <= x_left:
+                        continue                        # crossed -- stop trusting both here
+                    if x_left is not None:
+                        cv2.circle(frame, (int(np.clip(x_left, 0, w - 1)), y_full), 1, (255, 120, 0), -1)  # blue: left edge
+                    if x_right is not None:
+                        cv2.circle(frame, (int(np.clip(x_right, 0, w - 1)), y_full), 1, (0, 80, 255), -1)  # orange: right edge
+
+            # Fill only rows where left/right project to a plausible, non-crossing
+            # real-world width (computed in _detect_edges_hough, where depth/intrinsics
+            # are already in scope) -- a curve shows up as the whole corridor bending
+            # together, not as the two lines pinching into a triangle at a bad fit.
+            fill_rows = self._last_display_fill_rows
+            if fill_rows:
+                fill_mask = np.zeros((h, w), dtype=np.uint8)
+                for y_full, x_left, x_right in fill_rows:
+                    if 0 <= y_full < h:
+                        fill_mask[y_full, max(0, x_left):min(w, x_right)] = 255
+                mask_bool = fill_mask > 0
                 if np.any(mask_bool):
                     tint = np.zeros_like(frame)
                     tint[:] = (0, 200, 0)  # BGR green
@@ -239,13 +288,46 @@ class RealsenseVision:
             cv2.putText(frame, label, (12, h - 12), cv2.FONT_HERSHEY_SIMPLEX,
                         0.6, (255, 255, 255), 2, cv2.LINE_AA)
 
-            if not self._display_window_ready:
-                cv2.namedWindow(self._display_window_name, cv2.WND_PROP_FULLSCREEN)
-                cv2.setWindowProperty(self._display_window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-                self._display_window_ready = True
+            # Periodic capture to disk -- deliberately independent of whether the live
+            # HDMI window below succeeds, so this still works on a headless run (no X
+            # server) instead of dying with it on the first namedWindow/imshow failure.
+            if bool(self.config.get("display_capture_enabled", False)):
+                capture_interval_s = float(self.config.get("display_capture_interval_s", 1.0))
+                now_ts = time.time()
+                if now_ts - self._last_capture_ts >= capture_interval_s:
+                    self._last_capture_ts = now_ts
+                    try:
+                        capture_dir = str(self.config.get("display_capture_dir", "./screenshots/auto_capture"))
+                        os.makedirs(capture_dir, exist_ok=True)
+                        fname = os.path.join(capture_dir, "frame_{:013d}.jpg".format(int(now_ts * 1000)))
+                        cv2.imwrite(fname, frame)
+                        max_frames = int(self.config.get("display_capture_max_frames", 200))
+                        files = sorted(os.listdir(capture_dir))
+                        for old in files[:max(0, len(files) - max_frames)]:
+                            try:
+                                os.remove(os.path.join(capture_dir, old))
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass  # a capture failure must never affect steering or the live display
 
-            cv2.imshow(self._display_window_name, frame)
-            cv2.waitKey(1)
+            # Live HDMI window: isolated from the block above so a windowing failure
+            # (e.g. no X server) only disables the WINDOW, not the overlay build or
+            # the disk capture -- those keep running every tick regardless.
+            if not self._display_window_failed:
+                try:
+                    if not self._display_window_ready:
+                        cv2.namedWindow(self._display_window_name, cv2.WND_PROP_FULLSCREEN)
+                        cv2.setWindowProperty(self._display_window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                        self._display_window_ready = True
+                    cv2.imshow(self._display_window_name, frame)
+                    cv2.waitKey(1)
+                except Exception as exc:
+                    self._display_window_failed = True
+                    if not self._display_error_logged:
+                        self._display_error_logged = True
+                        sys.stderr.write("realsense_vision display window disabled after error: {}\n".format(exc))
+                        sys.stderr.flush()
         except Exception as exc:
             if not self._display_error_logged:
                 self._display_error_logged = True
@@ -1135,17 +1217,17 @@ class RealsenseVision:
 
         try:
             walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
-            # SAM refinement: when loaded, its class-agnostic segmentation of the seed
-            # point's surface replaces the HSV mask -- SAM isn't fooled by mulch that
-            # happens to be bright/desaturated enough to pass the HSV "concrete" test
-            # (screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png, 2.45.15 PM.png).
-            # Falls straight back to the HSV mask above on any load/inference failure.
-            if self.sam_segmenter is not None:
-                sam_mask = self._get_sam_mask(roi_color)
-                if sam_mask is not None and cv2.countNonZero(sam_mask) > 0:
-                    walkable_mask = sam_mask
-            # Adaptive seed for next frame's SAM prompt: this frame's near-field
-            # walkable centroid, so the prompt tracks the rover drifting laterally
+            # Depth-based sanity check instead of a per-frame SAM pass: mulch beds are
+            # rarely perfectly coplanar with the sidewalk, so this drops appearance
+            # false-positives (screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png,
+            # 2.45.15 PM.png) at zero added latency. SAM's ViT encoder is a full
+            # transformer forward pass every frame -- measured ~5s/frame on this Pi
+            # (vs the ~150-200ms hoped for), unusable on the 250ms steering tick. Left
+            # loaded (see _load_sam_model) rather than ripped out, in case a quantized
+            # export or faster board makes it viable later; just not consulted per frame.
+            walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
+            # Adaptive seed kept warm for that future SAM pass -- this frame's near-field
+            # walkable centroid, so the prompt would track the rover drifting laterally
             # instead of always sampling ROI bottom-center.
             bottom_band = walkable_mask[max(0, h - 20):h, :]
             seed_xs = np.where(bottom_band > 0)[1]
@@ -1153,7 +1235,6 @@ class RealsenseVision:
                 self.last_seed_x = float(np.mean(seed_xs))
                 self.last_seed_x_ts = time.time()
             if self.display_enabled:
-                self._last_display_mask = walkable_mask
                 self._last_display_row_start = row_start
                 self._last_display_row_end = row_end
             mask_grad = cv2.morphologyEx(walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
@@ -1197,38 +1278,151 @@ class RealsenseVision:
             s["wts"].extend([seg_len, seg_len])
             s["len"] += seg_len
 
-        def fit_side(s):
-            if len(s["ys"]) < 2 or s["len"] <= 0:
-                return None
-            try:
-                ys_arr = np.asarray(s["ys"])
-                xs_arr = np.asarray(s["xs"])
-                a, b = np.polyfit(ys_arr, xs_arr, 1, w=np.asarray(s["wts"]))
-                residual_std = float(np.std(xs_arr - (a * ys_arr + b)))
-            except Exception:
-                return None
-            return (float(a), float(b), float(s["len"]), residual_std)
-
-        left_fit = fit_side(sides["left"])
-        right_fit = fit_side(sides["right"])
-
-        # --- 4. Per side, take the CLOSEST edge point. Scan from the BOTTOM of the ROI
-        # upward (nearest ground first) and use the first row where the fitted line is
-        # in-frame with valid depth. This emits exactly the two points we care about —
-        # closest-left x/y and closest-right x/y — instead of a fixed lookahead sample.
-        # (The line is still FIT over the whole ROI, so it stays stable; only the reported
-        # point is the nearest one.)
+        # Needed inside fit_side below to turn pixel points into real-world forward
+        # distance, so the near-field cluster window is a real distance (inches),
+        # not a pixel-row count that covers a few inches up close but many feet far away.
         ppx, ppy = intrinsics.ppx, intrinsics.ppy
         fx, fy = intrinsics.fx, intrinsics.fy
         pitch = float(self.current_pitch_rad)
         roll = float(self.current_roll_rad)
         cp, sp = math.cos(pitch), math.sin(pitch)
         cr, sr = math.cos(roll), math.sin(roll)
+        near_field_window_m = float(cfg.get("edge_line_near_field_window_m", 0.3048))  # 12 in
+
+        def fit_side(s):
+            # Anchor at the REAL nearest detected point (smallest actual forward
+            # distance), not an assumed frame corner -- forcing a line through a point
+            # that isn't real (the sidewalk usually doesn't span the full camera width)
+            # requires an extreme slope to also hit the real data a few rows away,
+            # which is what produced both the triangle and, worse, a slope so steep it
+            # shoots off-frame within the ROI (confirmed: forcing the corner measured
+            # a=-23.4, landing at x=3814 by row 100). The angle itself is fit only from
+            # the near-field cluster around that anchor (within near_field_window_m),
+            # not blended with far-away points. For display, this line is simply drawn
+            # down to the bottom row wherever the real geometry puts it -- not forced.
+            if len(s["ys"]) < 2 or s["len"] <= 0:
+                return None
+            try:
+                ys_arr = np.asarray(s["ys"])
+                xs_arr = np.asarray(s["xs"])
+                wts_arr = np.asarray(s["wts"])
+                forward_m = np.full(ys_arr.shape, np.nan)
+                for i in range(ys_arr.size):
+                    d = self._sample_depth_at(roi_depth, int(round(xs_arr[i])), int(round(ys_arr[i])))
+                    if not d or np.isnan(d):
+                        continue
+                    full_y = row_start + ys_arr[i]
+                    cam_X = (xs_arr[i] - ppx) * d / fx
+                    cam_Y = (full_y - ppy) * d / fy
+                    rolled_Y = sr * cam_X + cr * cam_Y
+                    forward_m[i] = sp * rolled_Y + cp * d
+                valid = ~np.isnan(forward_m)
+                if not np.any(valid):
+                    return None
+                valid_idx = np.where(valid)[0]
+                anchor_i = int(valid_idx[np.argmin(forward_m[valid_idx])])
+                anchor_y = float(ys_arr[anchor_i])
+                anchor_x = float(xs_arr[anchor_i])
+                nearest_m = float(forward_m[anchor_i])
+                keep = valid & (forward_m <= nearest_m + near_field_window_m)
+                if np.count_nonzero(keep) >= 2:
+                    ys_arr, xs_arr, wts_arr = ys_arr[keep], xs_arr[keep], wts_arr[keep]
+                dy = ys_arr - anchor_y
+                dx = xs_arr - anchor_x
+                denom = float(np.sum(wts_arr * dy * dy))
+                if denom <= 1e-6:
+                    return None
+                a = float(np.sum(wts_arr * dy * dx) / denom)
+                b = anchor_x - a * anchor_y
+                residual_std = float(np.std(xs_arr - (a * ys_arr + b)))
+            except Exception:
+                return None
+            return (a, b, float(s["len"]), residual_std)
+
+        left_fit = fit_side(sides["left"])
+        right_fit = fit_side(sides["right"])
+        # The two edges of a sidewalk are always parallel (constant width), even where
+        # both bend together around a turn -- so when only one is actually detected,
+        # mirror ITS angle onto the missing side. There's no real data for that side at
+        # all, so the frame corner is the least-bad anchor available (unlike above,
+        # where a real anchor exists and should always be preferred). This feeds the
+        # real steering values (x_angle_deg/el_x/er_x), not just the display -- a
+        # confirmed single-edge sighting now implies BOTH edges.
+        if left_fit is None and right_fit is not None:
+            ra, rb, r_support, r_resid = right_fit
+            left_fit = (ra, 0.0 - ra * float(h - 1), r_support, r_resid)
+        elif right_fit is None and left_fit is not None:
+            la, lb, l_support, l_resid = left_fit
+            right_fit = (la, float(w - 1) - la * float(h - 1), l_support, l_resid)
+        if self.display_enabled:
+            self._last_display_left_fit = left_fit
+            self._last_display_right_fit = right_fit
+
+        # --- 4. Per side, take the CLOSEST edge point. Scan from the BOTTOM of the ROI
+        # upward (nearest ground first) and use the first row where the fitted line is
+        # in-frame with valid depth. This emits exactly the two points we care about —
+        # closest-left x/y and closest-right x/y — instead of a fixed lookahead sample.
+        # (The line is still FIT over the whole ROI, so it stays stable; only the reported
+        # point is the nearest one.) ppx/ppy/fx/fy/cp/sp/cr/sr were already set up above,
+        # before fit_side, for the near-field-window real-distance filtering.
+
+        # Two independently-fit lines have no constraint that they stay a plausible
+        # sidewalk width apart -- a noisy segment on one side can skew that side's slope
+        # until the lines pinch or cross, which the display then draws as a triangle. A
+        # real sidewalk can curve, but its WIDTH stays roughly constant, so validate width
+        # in real-world meters (not pixels, which shrink with perspective regardless) at
+        # every row and only trust rows where it's plausible. Feeds the display fill so
+        # it draws a clean equal-width corridor instead of the raw, unconstrained lines.
+        if self.display_enabled and left_fit is not None and right_fit is not None:
+            min_width_m = float(cfg.get("edge_min_lateral_m", 0.4)) * 2.0
+            max_width_m = float(cfg.get("edge_distance_zero_conf_m", 3.0))
+            la, lb, _, _ = left_fit
+            ra, rb, _, _ = right_fit
+            fill_rows = []
+            for y_roi in range(h):
+                x_left = la * y_roi + lb
+                x_right = ra * y_roi + rb
+                if x_left < 0 or x_left > (w - 1) or x_right < 0 or x_right > (w - 1):
+                    continue
+                if x_right <= x_left:
+                    continue                            # crossed -- never trust
+                d_left = self._sample_depth_at(roi_depth, int(round(x_left)), y_roi)
+                d_right = self._sample_depth_at(roi_depth, int(round(x_right)), y_roi)
+                if not d_left or not d_right or np.isnan(d_left) or np.isnan(d_right):
+                    continue
+                lat_left = cr * ((x_left - ppx) * d_left / fx) - sr * ((row_start + y_roi - ppy) * d_left / fy)
+                lat_right = cr * ((x_right - ppx) * d_right / fx) - sr * ((row_start + y_roi - ppy) * d_right / fy)
+                width_m = lat_right - lat_left
+                if min_width_m <= width_m <= max_width_m:
+                    fill_rows.append((row_start + y_roi, int(round(x_left)), int(round(x_right))))
+            self._last_display_fill_rows = fill_rows
+        elif self.display_enabled:
+            self._last_display_fill_rows = []
         # Distance weighting of confidence: a closer edge is geometrically more reliable,
         # so weight it up and far ones down. edge_distance_conf_weight = how much (0 = off).
         near_full_m = float(cfg.get("edge_distance_full_conf_m", 1.0))
         far_zero_m = max(near_full_m + 0.1, float(cfg.get("edge_distance_zero_conf_m", 3.0)))
         dist_weight = float(cfg.get("edge_distance_conf_weight", 0.3))
+
+        # The bottom of each fitted line is a FIXED anchor (x=0 / x=w-1), not a
+        # measurement -- reporting el_x/er_x there would just report that constant,
+        # never the line's actual angle. Skip forward until we're far enough out that
+        # the fitted angle has had room to diverge from the anchor into a real reading.
+        min_report_forward_m = float(cfg.get("edge_lookahead_m", 0.6096))
+
+        # Two real sidewalk edges only meet at the vanishing point, which should sit
+        # beyond what we're analyzing here -- if the two fitted lines cross INSIDE the
+        # ROI, at least one fit has gone bad (same failure the display's crossing check
+        # and the fill's width check guard against). Stop trusting either line at/past
+        # that row so a bad fit can't report a point from the wrong side of the sidewalk.
+        crossing_y_px = None
+        if left_fit is not None and right_fit is not None:
+            la, lb, _, _ = left_fit
+            ra, rb, _, _ = right_fit
+            if la != ra:
+                y_cross = (rb - lb) / (la - ra)
+                if 0 <= y_cross <= (h - 1):
+                    crossing_y_px = y_cross
 
         def line_to_obs(fit):
             if fit is None:
@@ -1236,25 +1430,27 @@ class RealsenseVision:
             a, b, support, residual_std = fit
             chosen = None
             for y_px in range(h - 1, -1, -1):          # bottom (closest) -> top
+                if crossing_y_px is not None and y_px <= crossing_y_px:
+                    break                              # past the crossing -- rest of the scan is worse
                 x_px = a * float(y_px) + b
                 if x_px < 0 or x_px > (w - 1):
                     continue                           # line off-frame at this row
                 depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
                 if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
                     continue
-                chosen = (y_px, x_px, depth_m)
+                full_y = row_start + y_px
+                cam_X = (x_px - ppx) * depth_m / fx
+                cam_Y = (full_y - ppy) * depth_m / fy
+                rolled_X = cr * cam_X - sr * cam_Y
+                rolled_Y = sr * cam_X + cr * cam_Y
+                forward_m = sp * rolled_Y + cp * depth_m
+                if forward_m < min_report_forward_m or forward_m > 8.0:
+                    continue                           # too close -- still just the anchor
+                chosen = (x_px, depth_m, forward_m, rolled_X)
                 break
             if chosen is None:
-                return None                            # edge never lands on valid ground -> not seen
-            y_px, x_px, depth_m = chosen
-            full_y = row_start + y_px
-            cam_X = (x_px - ppx) * depth_m / fx
-            cam_Y = (full_y - ppy) * depth_m / fy
-            rolled_X = cr * cam_X - sr * cam_Y
-            rolled_Y = sr * cam_X + cr * cam_Y
-            forward_m = sp * rolled_Y + cp * depth_m
-            if forward_m < 0.1 or forward_m > 8.0:
-                return None
+                return None                            # edge never lands on valid ground far enough out -> not seen
+            x_px, depth_m, forward_m, rolled_X = chosen
             # support_conf: one full-height edge line (support ≈ h) → ~0.5; saturates at 2×h
             support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
             # fit_quality: tight line (residual_std < 5 px) → ~1.0; scattered (> 40 px) → 0.0
