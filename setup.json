@@ -142,6 +142,7 @@
         "simple_edge_clahe_enabled": true,
         "simple_edge_val_mean_frac": 0.4,
         "simple_edge_dark_val_max": 30,
+        "simple_edge_mulch_val_max": 255,
         "perspective_check_max_distance_m": 2,
         "perspective_min_narrowing_ratio": 0.85,
         "ground_grid_filter_enabled": true,

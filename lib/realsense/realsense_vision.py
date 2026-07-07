@@ -570,7 +570,13 @@ class RealsenseVision:
 
         concrete_mask = cv2.inRange(hsv, (0, 0, val_floor), (179, sat_limit, 255))
         green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
-        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, 160))
+        # No upper Value bound: mulch's hue (8-32, orange/brown/tan) is what identifies
+        # it, not its brightness. A Value ceiling here let SUNLIT mulch (bright enough to
+        # cross the cap) fall through this exclusion and get counted as "concrete" by the
+        # broad brightness+low-saturation test above -- exactly the green-into-mulch
+        # bleed seen in screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png.
+        mulch_val_max = int(self.config.get("simple_edge_mulch_val_max", 255))
+        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, mulch_val_max))
         # Very dark pixels (nearly black) are non-walkable regardless of hue/saturation.
         # Catches jet-black or low-saturation mulch that falls outside the HSV mulch range.
         dark_val_max = int(self.config.get("simple_edge_dark_val_max", 30))
