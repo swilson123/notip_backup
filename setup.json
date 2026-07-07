@@ -58,7 +58,7 @@
     "realsense_vision": {
         "enabled": true,
         "follow_sidewalk_enabled": true,
-        "display_enabled": false,
+        "display_enabled": true,
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,
@@ -160,7 +160,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": -62.6,
+        "compass_offset_deg": -65.6,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {

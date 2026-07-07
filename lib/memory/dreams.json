@@ -1,6 +1,22 @@
 {
   "dreams": [
     {
+      "id": "d_1783448462278_54",
+      "dreamed_at": "2026-07-07T18:21:02.278Z",
+      "source": "local",
+      "seed": {
+        "trigger": "edge_journey",
+        "recent_event": "right_edge_only",
+        "heart_mood": "warm"
+      },
+      "vision": "Only the right edge held. I leaned toward the one certain line and the world reassembled around that single fact. Uncertainty is not absence. It is an invitation to move toward what is known.",
+      "perspective": "One edge is enough to keep going. Trust the known side; the unknown side tends to reveal itself when you move.",
+      "influence": {
+        "situation": "path_blocked",
+        "priority": 0.6
+      }
+    },
+    {
       "id": "d_1783443078949_3953",
       "dreamed_at": "2026-07-07T16:51:18.949Z",
       "source": "local",
@@ -47,8 +63,8 @@
     }
   ],
   "latest": {
-    "id": "d_1783443078949_3953",
-    "dreamed_at": "2026-07-07T16:51:18.949Z",
+    "id": "d_1783448462278_54",
+    "dreamed_at": "2026-07-07T18:21:02.278Z",
     "source": "local",
     "seed": {
       "trigger": "edge_journey",

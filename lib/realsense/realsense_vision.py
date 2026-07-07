@@ -530,6 +530,8 @@ class RealsenseVision:
             "edge_right_y_m": result.get("edge_right_y_m"),
             "edge_right_known": result.get("edge_right_known", False),
             "edge_right_known_age_ms": result.get("edge_right_known_age_ms"),
+            "edge_left_bands": result.get("edge_left_bands", []),
+            "edge_right_bands": result.get("edge_right_bands", []),
             "edge_used": result.get("edge_used", "none"),
             "edge_target_offset_m": result.get("edge_target_offset_m"),
             "edge_forward_m": result.get("edge_forward_m"),
@@ -854,7 +856,8 @@ class RealsenseVision:
             "status": "tracking" if valid else "low_confidence",
         }
 
-    def _assemble_edge_result(self, nearest_left, nearest_right):
+    def _assemble_edge_result(self, nearest_left, nearest_right,
+                               left_bands=None, right_bands=None, centerline=None):
         # Shared output contract for the edge detectors: per-side TTL cache, known()
         # state, edge selection, target offset, steering angle. Identical dict shape to
         # _detect_path_from_lines so the LCD / message handler / steering are unchanged.
@@ -955,7 +958,9 @@ class RealsenseVision:
             "confidence": round(float(chosen_conf), 2) if valid else 0.0,
             "left_boundary_visible": nearest_left is not None,
             "right_boundary_visible": nearest_right is not None,
-            "centerline": [],
+            "centerline": centerline if centerline is not None else [],
+            "edge_left_bands": left_bands if left_bands is not None else [],
+            "edge_right_bands": right_bands if right_bands is not None else [],
             "nearest_edge_m": edge_forward_m,
             "nearest_edge_side": use if valid else None,
             "nearest_edge_clearance_m": None,
@@ -1161,7 +1166,65 @@ class RealsenseVision:
                 boost = float(cfg.get("edge_both_seen_conf_boost", 0.25))
                 for obs in (nearest_left, nearest_right):
                     obs["confidence"] = round(min(0.98, max(obs["confidence"], 0.6) + boost), 2)
-        return self._assemble_edge_result(nearest_left, nearest_right)
+
+        def sample_row(fit, y_px):
+            # Same projection as line_to_obs's chosen point, but at a caller-picked row
+            # instead of "closest valid" -- lets one fitted line yield several points at
+            # different forward distances (a trace), not just the nearest one.
+            if fit is None:
+                return None
+            a, b, support, residual_std = fit
+            x_px = a * float(y_px) + b
+            if x_px < 0 or x_px > (w - 1):
+                return None
+            depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
+            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
+                return None
+            full_y = row_start + y_px
+            cam_X = (x_px - ppx) * depth_m / fx
+            cam_Y = (full_y - ppy) * depth_m / fy
+            rolled_X = cr * cam_X - sr * cam_Y
+            rolled_Y = sr * cam_X + cr * cam_Y
+            forward_m = sp * rolled_Y + cp * depth_m
+            if forward_m < 0.1 or forward_m > 8.0:
+                return None
+            support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
+            fit_quality = max(0.0, 1.0 - residual_std / 40.0)
+            confidence = float(max(0.0, min(0.99, 0.45 + 0.5 * support_conf * fit_quality)))
+            return {
+                "m": round(float(-rolled_X), 4),
+                "x_m": round(float(rolled_X), 4),
+                "y_m": round(float(forward_m), 3),
+                "conf": confidence,
+                "ts": time.time(),
+            }
+
+        # Turn-anticipation trace: sample each fitted line at several rows (near to far),
+        # not just the closest point line_to_obs already picked. Feeds path_map (the
+        # fallback carrot.js reaches for when edge_guidance_valid is false, e.g. right at
+        # a corner where the closest-point pick alone loses the edge) with real data
+        # instead of the permanently-empty centerline this detector used to report.
+        left_bands, right_bands, band_infos = [], [], []
+        for y_px in np.linspace(0, h - 1, 6).astype(int):
+            l_obs = sample_row(left_fit, int(y_px))
+            r_obs = sample_row(right_fit, int(y_px))
+            if l_obs is None and r_obs is None:
+                continue
+            if l_obs is not None:
+                left_bands.append(l_obs)
+            if r_obs is not None:
+                right_bands.append(r_obs)
+            band_infos.append({
+                "forward_m": (l_obs["y_m"] + r_obs["y_m"]) / 2.0 if (l_obs and r_obs)
+                             else (l_obs["y_m"] if l_obs else r_obs["y_m"]),
+                "left_m": l_obs["m"] if l_obs is not None else None,
+                "right_m": r_obs["m"] if r_obs is not None else None,
+            })
+
+        return self._assemble_edge_result(nearest_left, nearest_right,
+                                           left_bands=self._trace_bands(left_bands),
+                                           right_bands=self._trace_bands(right_bands),
+                                           centerline=self._centerline_from_band_infos(band_infos))
 
     def detect_path(self, color_image, depth_image, intrinsics):
         if bool(self.config.get("edge_hough_detector", True)):
@@ -1240,12 +1303,16 @@ class RealsenseVision:
                 "status": "perspective_invalid"
             }
 
-        centerline = self._compute_centerline(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
         edge_info = self._compute_edge_clearance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
         # Edge guidance is the guiding key: a single near-field band ~2 ft ahead drives
-        # steering. The centerline/offset math below is still computed for the path map
-        # and edge-clearance safety, but the emitted steering signal comes from edges.
+        # steering. The emitted steering signal comes from edges.
         edge_guidance = self._compute_edge_guidance(walkable_mask, green_mask_roi, roi_depth, intrinsics, row_start)
+        # Centerline (feeds path_map, the turn-anticipation fallback) is derived from the
+        # SAME per-band detections as edge_guidance above, not the separate/weaker
+        # _compute_centerline detector -- that detector requires its own whole-band
+        # merge_boundary agreement and was confirmed empty in practice even on frames
+        # where edge_guidance's per-band side_edge merge succeeded (2026-07-07 test log).
+        centerline = edge_guidance["centerline"]
 
         column_scores = walkable_mask.mean(axis=0) / 255.0
         color_left, color_right = self.find_mask_boundaries(column_scores, green_col_scores)
@@ -1568,92 +1635,6 @@ class RealsenseVision:
 
         return near_width >= far_width * min_ratio
 
-    def _compute_centerline(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
-        # Split the ROI into N horizontal bands. For each band, find the sidewalk
-        # center pixel and convert to (forward_m, lateral_offset_m). Result is a
-        # list of points along the sidewalk centerline, ordered near→far. This is
-        # what the carrot-projection uses so it tracks curves instead of cutting
-        # the chord between rover and waypoint.
-        # Sign convention matches offset_meters: positive lateral_offset_m = sidewalk
-        # center is to the LEFT of the camera bore at that forward distance.
-        # forward_m is corrected for current rover pitch so that bumps/potholes don't
-        # squash or stretch the per-band depth.
-        N_BANDS = 6
-        h, w = walkable_mask.shape
-        band_h = max(1, h // N_BANDS)
-        ppx = intrinsics.ppx
-        ppy = intrinsics.ppy
-        fx = intrinsics.fx
-        fy = intrinsics.fy
-        pitch = float(self.current_pitch_rad)
-        roll  = float(self.current_roll_rad)
-        cp, sp = math.cos(pitch), math.sin(pitch)
-        cr, sr = math.cos(roll),  math.sin(roll)
-
-        points = []
-        for i in range(N_BANDS):
-            r0 = i * band_h
-            r1 = min(h, r0 + band_h) if i < N_BANDS - 1 else h
-            if r1 - r0 < 4:
-                continue
-
-            band_walkable = walkable_mask[r0:r1, :]
-            band_depth = roi_depth[r0:r1, :]
-            band_col_scores = band_walkable.mean(axis=0) / 255.0
-            band_green_col = (green_mask_roi[r0:r1, :].mean(axis=0) / 255.0
-                              if green_mask_roi is not None else None)
-
-            color_left, color_right = self.find_mask_boundaries(band_col_scores, band_green_col)
-            depth_left, depth_right = self.find_depth_boundaries(band_depth)
-            left_px = self.merge_boundary(color_left, depth_left)
-            right_px = self.merge_boundary(color_right, depth_right)
-
-            if left_px is None and right_px is None:
-                continue
-
-            # Estimate a center depth first using whichever boundary we have, then
-            # use it to scale a half-width assumption when only one boundary is visible.
-            ref_px = left_px if left_px is not None else right_px
-            ref_depth = self.sample_depth_meters(band_depth, ref_px)
-            if not ref_depth or np.isnan(ref_depth):
-                continue
-
-            if left_px is not None and right_px is not None and right_px > left_px:
-                center_px = (left_px + right_px) / 2.0
-            elif left_px is not None:
-                half_w = self.meters_to_pixel_span(self.last_path_width_meters / 2.0, ref_depth, fx)
-                center_px = left_px + half_w
-            else:
-                half_w = self.meters_to_pixel_span(self.last_path_width_meters / 2.0, ref_depth, fx)
-                center_px = right_px - half_w
-
-            center_px = float(np.clip(center_px, 0, w - 1))
-            center_depth = self.sample_depth_meters(band_depth, center_px)
-            if not center_depth or np.isnan(center_depth) or center_depth < 0.2 or center_depth > 8.0:
-                continue
-
-            # Roll- and pitch-correct the band's center point.
-            # Use the band's middle row (full-image coords) as the representative row.
-            band_mid_row_full = roi_row_start + (r0 + r1) / 2.0
-            cam_X = (center_px - ppx) * center_depth / fx
-            cam_Y = (band_mid_row_full - ppy) * center_depth / fy
-            # Un-roll: (cam_X, cam_Y) → (rolled_X, rolled_Y)
-            rolled_X = cr * cam_X - sr * cam_Y
-            rolled_Y = sr * cam_X + cr * cam_Y
-            # Un-pitch on the rolled Y/Z → recover horizontal forward
-            horizontal_forward = sp * rolled_Y + cp * center_depth
-            if horizontal_forward < 0.2 or horizontal_forward > 8.0:
-                continue
-
-            lateral_offset_m = -rolled_X
-            points.append({
-                "forward_m": round(float(horizontal_forward), 3),
-                "lateral_offset_m": round(float(lateral_offset_m), 4),
-            })
-
-        points.sort(key=lambda p: p["forward_m"])
-        return points
-
     def _compute_edge_clearance(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
         # For each near-field band, compute the lateral clearance from the rover's
         # track edges to the nearest sidewalk boundary. Negative clearance = the
@@ -1789,6 +1770,7 @@ class RealsenseVision:
             "forward_m": None,
             "confidence": 0.0,
             "left_bands": [], "right_bands": [],
+            "centerline": [],
         }
 
     def _trace_bands(self, band_obs_list, max_bands=6):
@@ -1798,6 +1780,32 @@ class RealsenseVision:
         # across the trace instead of jumping between two unrelated bands.
         ordered = sorted(band_obs_list, key=lambda o: o["y_m"])[:max_bands]
         return [{"x_m": o["x_m"], "y_m": o["y_m"], "conf": o["conf"]} for o in ordered]
+
+    def _centerline_from_band_infos(self, band_infos):
+        # Feeds path_map (the turn-anticipation fallback carrot.js reaches for when
+        # edge_guidance_valid is false). Reuses the SAME per-band left_m/right_m this
+        # function's caller already computed -- rather than the separate, weaker
+        # _compute_centerline detector -- so the map gets fed on every frame the live
+        # edge signal itself trusts, not just frames where a second, stricter detector
+        # also happens to agree.
+        points = []
+        for b in band_infos:
+            left_m, right_m = b["left_m"], b["right_m"]
+            if left_m is not None and right_m is not None:
+                lateral_offset_m = (left_m + right_m) / 2.0
+                width_m = abs(left_m - right_m)
+                if 0.4 <= width_m <= 2.0:
+                    self.last_path_width_meters = width_m
+            elif left_m is not None:
+                lateral_offset_m = left_m - (self.last_path_width_meters / 2.0)
+            else:
+                lateral_offset_m = right_m + (self.last_path_width_meters / 2.0)
+            points.append({
+                "forward_m": round(float(b["forward_m"]), 3),
+                "lateral_offset_m": round(float(lateral_offset_m), 4),
+            })
+        points.sort(key=lambda p: p["forward_m"])
+        return points
 
     def _compute_edge_guidance(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
         # Edge-as-guiding-key: look at a single near-field band ~edge_lookahead_m ahead
@@ -1859,6 +1867,7 @@ class RealsenseVision:
         # one per side survives past this loop. Collect all of them (near to far) so a
         # turn approach -- where the near-field "closest" pick can be misleading -- has
         # the full per-band trace (el1..el6 / er1..er6 in the steer log) to reason from.
+        band_infos = []  # every band's combined left+right observation, feeds centerline below
         left_bands = []
         right_bands = []
         for i in range(N_BANDS):
@@ -1958,6 +1967,7 @@ class RealsenseVision:
 
             if best is None or abs(forward_m - lookahead_m) < abs(best["forward_m"] - lookahead_m):
                 best = band_info
+            band_infos.append(band_info)
 
         min_lat_m = float(self.config.get("edge_min_lateral_m", 0.4))
         if closest["left"]  is not None and abs(float(closest["left"].get("x_m",  0.0))) < min_lat_m:
@@ -2008,6 +2018,7 @@ class RealsenseVision:
             "right_known_age_ms": round(float(right_age_ms), 1) if right_age_ms is not None else None,
             "left_bands": self._trace_bands(left_bands),
             "right_bands": self._trace_bands(right_bands),
+            "centerline": self._centerline_from_band_infos(band_infos),
         })
 
         return self._finalize_edge_guidance_result(result, left_cur, right_cur, side_offset_m,
