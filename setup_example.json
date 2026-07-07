@@ -57,6 +57,7 @@
     "realsense_vision": {
         "enabled": true,
         "follow_sidewalk_enabled": true,
+        "display_enabled": false,
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/realsense/realsense_vision.py",
         "width": 640,

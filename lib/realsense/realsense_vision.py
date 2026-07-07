@@ -88,11 +88,152 @@ class RealsenseVision:
         # Prevents frame-to-frame measurement noise from causing steering jitter.
         self._edge_smooth = {"left": None, "right": None}
         self._guidance_smooth = {"left": None, "right": None}
+        # HDMI screen preview: OFF by default (display_enabled in setup.json), toggled
+        # live via SIGUSR1 so it can be flipped on/off without restarting the mission --
+        # this process already owns the exclusive RealSense camera handle, so the
+        # preview has to live here rather than in a second standalone script.
+        self.display_enabled = bool(self.config.get("display_enabled", False))
+        self._display_window_name = "Noah Vision"
+        self._display_window_ready = False
+        self._display_error_logged = False
+        self._last_display_mask = None
+        self._last_display_row_start = 0
+        self._last_display_row_end = 0
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
+        signal.signal(signal.SIGUSR1, self._toggle_display)
 
     def stop(self, *_args):
         self.running = False
+
+    def _toggle_display(self, *_args):
+        self.display_enabled = not self.display_enabled
+        if not self.display_enabled and self._display_window_ready:
+            try:
+                cv2.destroyWindow(self._display_window_name)
+            except Exception:
+                pass
+            self._display_window_ready = False
+
+    def _draw_carrot_arrow(self, frame, base, tip, status_color):
+        # A literal carrot: tapered orange body pointing at the steering target
+        # (Noah follows the carrot -- see carrot.js), status_color as the outline
+        # so tracking/low-confidence/lost is still legible at a glance, plus a
+        # leafy green top fanned out from the base end.
+        bx, by = float(base[0]), float(base[1])
+        tx, ty = float(tip[0]), float(tip[1])
+        dx, dy = tx - bx, ty - by
+        axis_len = math.hypot(dx, dy)
+        if axis_len < 1e-3:
+            return
+        ux, uy = dx / axis_len, dy / axis_len   # unit vector along the carrot's long axis
+        px, py = -uy, ux                        # unit perpendicular, for body width
+
+        def along(t):
+            return (bx + ux * axis_len * t, by + uy * axis_len * t)
+
+        def offset(pt, w):
+            x, y = pt
+            return (int(round(x + px * w)), int(round(y + py * w)))
+
+        half_w_base = max(10, int(axis_len * 0.11))
+        p0 = along(0.0)
+        p_shoulder = along(0.12)
+        body_pts = np.array([
+            offset(p0, -half_w_base),
+            offset(p_shoulder, -half_w_base * 0.9),
+            [int(round(tx)), int(round(ty))],
+            offset(p_shoulder, half_w_base * 0.9),
+            offset(p0, half_w_base),
+        ], dtype=np.int32)
+
+        carrot_orange = (0, 140, 255)   # BGR
+        ridge_orange  = (0, 100, 210)
+        leaf_green    = (40, 170, 60)
+
+        cv2.fillPoly(frame, [body_pts], carrot_orange)
+        cv2.polylines(frame, [body_pts], True, status_color, 3, cv2.LINE_AA)
+
+        # Ridge marks along the body for a bit of carrot texture.
+        for t in (0.30, 0.50, 0.70):
+            c = along(t)
+            w = half_w_base * (1.0 - t) * 0.85
+            cv2.line(frame, offset(c, -w), offset(c, w), ridge_orange, 2, cv2.LINE_AA)
+
+        # Leafy top, fanned out from the base end (opposite the steering tip).
+        leaf_len = axis_len * 0.22
+        rev_x, rev_y = -ux, -uy
+        base_px = (int(round(bx)), int(round(by)))
+        for angle_deg in (-32, 0, 32):
+            a = math.radians(angle_deg)
+            rx = rev_x * math.cos(a) - rev_y * math.sin(a)
+            ry = rev_x * math.sin(a) + rev_y * math.cos(a)
+            leaf_tip = (int(round(bx + rx * leaf_len)), int(round(by + ry * leaf_len)))
+            cv2.line(frame, base_px, leaf_tip, leaf_green, 5, cv2.LINE_AA)
+
+    def _render_display(self, color_image, detection):
+        # HDMI screen preview: highlighted walkable-mask overlay + a carrot pointing
+        # along x_angle_deg. Runs inline in the same process/tick that already owns
+        # the camera, gated on display_enabled (toggled live via SIGUSR1). Wrapped in
+        # a broad try/except and self-disables on any failure (e.g. no X server on
+        # this session) -- a display problem must never take down live steering.
+        if not self.display_enabled:
+            return
+        try:
+            frame = color_image.copy()
+            h, w = frame.shape[:2]
+
+            if self._last_display_mask is not None:
+                full_mask = np.zeros((h, w), dtype=np.uint8)
+                r0, r1 = self._last_display_row_start, self._last_display_row_end
+                full_mask[r0:r1, :] = self._last_display_mask
+                mask_bool = full_mask > 0
+                if np.any(mask_bool):
+                    tint = np.zeros_like(frame)
+                    tint[:] = (0, 200, 0)  # BGR green
+                    blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
+                    frame[mask_bool] = blended[mask_bool]
+
+            x_angle_deg = float(detection.get("x_angle_deg", 0) or 0)
+            confidence = float(detection.get("confidence", 0) or 0)
+            status = detection.get("status", "unknown")
+            valid = bool(detection.get("edge_guidance_valid", False))
+
+            if valid and confidence >= 0.6:
+                status_color = (0, 220, 0)      # green: tracking
+            elif valid:
+                status_color = (0, 210, 255)    # amber: low confidence
+            else:
+                status_color = (60, 60, 220)    # red: no signal
+
+            base = (w // 2, h - 30)
+            length = int(min(h, w) * 0.28)
+            # Clamp only how far the CARROT is drawn, not the underlying angle value --
+            # a 70 degree steering angle should still visibly point hard to one side
+            # rather than run off the top of the frame.
+            display_angle_deg = max(-70.0, min(70.0, x_angle_deg))
+            angle_rad = math.radians(display_angle_deg)
+            tip = (int(base[0] + length * math.sin(angle_rad)),
+                   int(base[1] - length * math.cos(angle_rad)))
+            self._draw_carrot_arrow(frame, base, tip, status_color)
+
+            label = "x_angle: {:+.1f} deg   conf: {:.2f}   {}".format(x_angle_deg, confidence, status)
+            cv2.putText(frame, label, (12, h - 12), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6, (255, 255, 255), 2, cv2.LINE_AA)
+
+            if not self._display_window_ready:
+                cv2.namedWindow(self._display_window_name, cv2.WND_PROP_FULLSCREEN)
+                cv2.setWindowProperty(self._display_window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                self._display_window_ready = True
+
+            cv2.imshow(self._display_window_name, frame)
+            cv2.waitKey(1)
+        except Exception as exc:
+            if not self._display_error_logged:
+                self._display_error_logged = True
+                sys.stderr.write("realsense_vision display disabled after error: {}\n".format(exc))
+                sys.stderr.flush()
+            self.display_enabled = False
 
     def _smooth_guidance_obs(self, side, obs):
         # EMA on lateral position (x_m) only — keeps edge X steady without smearing
@@ -343,6 +484,7 @@ class RealsenseVision:
         result = self.detect_path(color_image, depth_image, intrinsics)
         objects = self.detect_objects(depth_image, intrinsics)
         self.update_measured_fps()
+        self._render_display(color_image, result)
 
         return {
             "message_type": "path_detection",
@@ -863,6 +1005,10 @@ class RealsenseVision:
 
         try:
             walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
+            if self.display_enabled:
+                self._last_display_mask = walkable_mask
+                self._last_display_row_start = row_start
+                self._last_display_row_end = row_end
             mask_grad = cv2.morphologyEx(walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
             edge_img = cv2.bitwise_or(edge_img, mask_grad)
         except Exception:
