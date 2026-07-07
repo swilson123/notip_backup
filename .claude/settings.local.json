@@ -120,7 +120,13 @@
       "Bash(/usr/bin/python3 generate_realsense_vision_pdf.py)",
       "Bash(/usr/bin/python3 -c ' *)",
       "Bash(pdftotext -layout /home/rover/notip/realsense_vision_guide.pdf -)",
-      "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)"
+      "Bash(pdfinfo /home/rover/notip/realsense_vision_guide.pdf)",
+      "Bash(node --check lib/yellow_brick_road/carrot.js)",
+      "Bash(node --check lib/yellow_brick_road/follow_the_yellow_brick_road.js)",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('setup.json'\\)\\); json.load\\(open\\('setup_example.json'\\)\\); print\\('json ok'\\)\")",
+      "Bash(node /tmp/claude-1000/bundled-skills/2.1.201/f915ab07f9d09594d7d3ce24a4d7a7a8/dataviz/scripts/validate_palette.js \"#2a78d6,#1baf7a\" --mode light)",
+      "Bash(node /tmp/claude-1000/bundled-skills/2.1.201/f915ab07f9d09594d7d3ce24a4d7a7a8/dataviz/scripts/validate_palette.js \"#2a78d6,#e34948\" --mode light)"
     ],
     "additionalDirectories": [
       "/Users/swilson123/rover/notip/lib",
