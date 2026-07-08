@@ -343,12 +343,25 @@ class RealsenseVision:
             self._guidance_smooth[side] = None
             return None
         alpha = float(self.config.get("edge_ema_alpha", 0.3))
+        reset_jump_m = float(self.config.get("edge_ema_reset_jump_m", 0.3))
         prev = self._guidance_smooth.get(side)
         x = float(obs["x_m"])
         if prev is None:
             self._guidance_smooth[side] = {"x": x}
             return obs
-        sx = alpha * x + (1.0 - alpha) * prev["x"]
+        # Innovation gate: a real curvature reversal moves the true edge position
+        # by a large, real amount in a single tick — the same jump a normal EMA
+        # can't tell apart from noise, so it keeps blending in the stale
+        # pre-reversal value for several ticks afterward (confirmed on a
+        # figure-8/wave sim: a wrong, oscillating steering angle for ~4 ticks
+        # after every reversal, severe enough to lose the edge entirely). A jump
+        # this size is real signal, not jitter — snap straight to it instead of
+        # blending, and let the normal alpha blend keep doing its job on small
+        # frame-to-frame noise the rest of the time.
+        if abs(x - prev["x"]) >= reset_jump_m:
+            sx = x
+        else:
+            sx = alpha * x + (1.0 - alpha) * prev["x"]
         self._guidance_smooth[side] = {"x": sx}
         out = dict(obs)
         out["x_m"] = round(float(sx), 4)
@@ -1344,16 +1357,18 @@ class RealsenseVision:
         # The two edges of a sidewalk are always parallel (constant width), even where
         # both bend together around a turn -- so when only one is actually detected,
         # mirror ITS angle onto the missing side. There's no real data for that side at
-        # all, so the frame corner is the least-bad anchor available (unlike above,
-        # where a real anchor exists and should always be preferred). This feeds the
-        # real steering values (x_angle_deg/el_x/er_x), not just the display -- a
-        # confirmed single-edge sighting now implies BOTH edges.
+        # all, so the anchor is where Noah actually is -- bottom-CENTER of the frame
+        # (his own position projected down), not the frame corner. A corner anchor
+        # forces an extreme, physically meaningless slope to reach real data a few
+        # rows away (confirmed: it produced a=-23.4, landing at x=3814 by row 100).
+        # This feeds the real steering values (x_angle_deg/el_x/er_x), not just the
+        # display -- a confirmed single-edge sighting now implies BOTH edges.
         if left_fit is None and right_fit is not None:
             ra, rb, r_support, r_resid = right_fit
-            left_fit = (ra, 0.0 - ra * float(h - 1), r_support, r_resid)
+            left_fit = (ra, center_x - ra * float(h - 1), r_support, r_resid)
         elif right_fit is None and left_fit is not None:
             la, lb, l_support, l_resid = left_fit
-            right_fit = (la, float(w - 1) - la * float(h - 1), l_support, l_resid)
+            right_fit = (la, center_x - la * float(h - 1), l_support, l_resid)
         if self.display_enabled:
             self._last_display_left_fit = left_fit
             self._last_display_right_fit = right_fit
@@ -2129,6 +2144,28 @@ class RealsenseVision:
         points.sort(key=lambda p: p["forward_m"])
         return points
 
+    def _corroborated_pick(self, bands, lookahead_m, y_window_m, x_tol_m):
+        # Every band this tick is measured from the SAME single vantage point —
+        # Noah's own bottom-center position and heading, right now. A real,
+        # physical curb has to trace a smoothly consistent line across bands
+        # that share that one frame; a false detection (a shadow, a mulch/
+        # asphalt seam, a stray color match) is generally a one-off with no
+        # neighboring band agreeing on where it is. Prefer the nearest-to-
+        # lookahead candidate that has at least one corroborating neighbor;
+        # only fall back to an unverified lone reading when NOTHING this tick
+        # corroborates anything (better to trust a down-weighted lone reading
+        # than to go blind every time only one band happens to fire).
+        if not bands:
+            return None, True
+        ranked = sorted(bands, key=lambda b: abs(b["y_m"] - lookahead_m))
+        for cand in ranked:
+            for other in bands:
+                if other is cand:
+                    continue
+                if abs(other["y_m"] - cand["y_m"]) <= y_window_m and abs(other["x_m"] - cand["x_m"]) <= x_tol_m:
+                    return cand, True
+        return ranked[0], False
+
     def _compute_edge_guidance(self, walkable_mask, green_mask_roi, roi_depth, intrinsics, roi_row_start):
         # Edge-as-guiding-key: look at a single near-field band ~edge_lookahead_m ahead
         # (default 2 ft) and steer to hold the rover edge_side_offset_m (default 1.5 ft)
@@ -2272,7 +2309,14 @@ class RealsenseVision:
                     "conf": float(left_conf),
                     "ts": time.time(),
                 }
-                if closest["left"] is None or left_obs["y_m"] < closest["left"]["y_m"]:
+                # Nearest-to-lookahead, not nearest-available: "nearest available"
+                # is a discrete, threshold-triggered pick that can jump between
+                # genuinely different real edge points from tick to tick with zero
+                # sensor noise (confirmed on a figure-8/wave sim — this exact
+                # instability, not the EMA, was what first made the reported
+                # x_angle_deg jump band to band). Targeting a fixed distance keeps
+                # the per-tick reading a continuous function of Noah's state.
+                if closest["left"] is None or abs(left_obs["y_m"] - lookahead_m) < abs(closest["left"]["y_m"] - lookahead_m):
                     closest["left"] = left_obs
                 left_bands.append(left_obs)
             if right_px is not None:
@@ -2283,13 +2327,34 @@ class RealsenseVision:
                     "conf": float(right_conf),
                     "ts": time.time(),
                 }
-                if closest["right"] is None or right_obs["y_m"] < closest["right"]["y_m"]:
+                if closest["right"] is None or abs(right_obs["y_m"] - lookahead_m) < abs(closest["right"]["y_m"] - lookahead_m):
                     closest["right"] = right_obs
                 right_bands.append(right_obs)
 
             if best is None or abs(forward_m - lookahead_m) < abs(best["forward_m"] - lookahead_m):
                 best = band_info
             band_infos.append(band_info)
+
+        # Outlier check: re-derive each side's pick from the FULL set of bands
+        # collected this tick (not just the incremental nearest-to-lookahead
+        # scan above), requiring corroboration from a neighboring band before
+        # trusting it. An unverified lone reading isn't discarded -- that would
+        # trade false positives for false negatives every time only one band
+        # happens to fire -- it's kept but confidence-penalized, so a genuine
+        # but sparse detection still steers, just less assertively than a
+        # confirmed one.
+        corrob_y_window_m = float(self.config.get("edge_corroboration_y_window_m", 0.3))
+        corrob_x_tol_m = float(self.config.get("edge_corroboration_x_tol_m", 0.15))
+        uncorroborated_conf_mult = float(self.config.get("edge_uncorroborated_conf_mult", 0.5))
+        for side, bands in (("left", left_bands), ("right", right_bands)):
+            pick, verified = self._corroborated_pick(bands, lookahead_m, corrob_y_window_m, corrob_x_tol_m)
+            if pick is None:
+                closest[side] = None
+                continue
+            picked = dict(pick)
+            if not verified:
+                picked["conf"] = float(picked["conf"]) * uncorroborated_conf_mult
+            closest[side] = picked
 
         min_lat_m = float(self.config.get("edge_min_lateral_m", 0.4))
         if closest["left"]  is not None and abs(float(closest["left"].get("x_m",  0.0))) < min_lat_m:
