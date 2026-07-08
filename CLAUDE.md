@@ -191,7 +191,7 @@ realsense_vision.heading_correction_gain  0.3  blend weight for path-curve headi
 realsense_vision.correction_direction    -1   camera mount sign (flip if corrections go wrong way)
 realsense_vision.correction_gain_deg_per_meter  8
 realsense_vision.object_emergency_stop_m  1.0
-realsense_vision.edge_lookahead_m       1.0  how far ahead (m) to read the sidewalk edge. Raised from 0.6096/0.45
+realsense_vision.edge_lookahead_m       1.5  how far ahead (m) to read the sidewalk edge. Raised from 0.6096/0.45
                                           2026-07-03: the camera (D435, ~87deg horizontal FOV) is front-mounted,
                                           so if Noah's heading lags the carrot enough during a curb turn, the
                                           sidewalk swings out of frame entirely and vision guidance is lost with
@@ -205,6 +205,68 @@ realsense_vision.edge_lookahead_m       1.0  how far ahead (m) to read the sidew
                                           (mean 4.1deg, max 15.9deg). At 1.0m lookahead the same 0.5m offset
                                           computes to ~17deg of margin, and 1.0m is still within
                                           edge_distance_full_conf_m (no confidence penalty for reading farther).
+                                          CORRECTION 2026-07-08: the ~87deg/~43.5deg-half-FOV figure above was
+                                          wrong. Measured directly off this rover's live D435I color intrinsics
+                                          (640x480, fx=605.85, ppx=317.28 -- the same intrinsics
+                                          _detect_edges_hough actually uses) via half_fov_deg =
+                                          atan((width/2)/fx): real half-FOV is ~27.8deg per side (~55.7deg
+                                          total), not 43.5deg/87deg. That number is independent of
+                                          edge_lookahead_m -- a camera's angular field of view doesn't change
+                                          with distance, only the physical extent it covers at that distance
+                                          does. Recomputing the same 0.5m-offset margin check against the real
+                                          27.8deg half-FOV: at 1.0m lookahead the angle off boresight is
+                                          atan(0.5/1.0) = 26.6deg, leaving only ~1.2deg of margin -- not the
+                                          ~17deg this note originally concluded. The 2026-07-03 fix (raising
+                                          lookahead from 0.45m to 1.0m) was the right direction, it just bought
+                                          back far less headroom than believed. Do NOT lower edge_lookahead_m
+                                          back toward 0.5m -- smaller lookahead makes atan(offset/lookahead)
+                                          LARGER for the same physical offset (at 0.5m lookahead the same 0.5m
+                                          offset is already 45deg, i.e. -17.2deg margin, off-frame at zero
+                                          heading error before any curve or lag). If margin needs to grow from
+                                          here, the lever is a LARGER lookahead (e.g. 1.3-1.5m), traded against
+                                          depth noise/staleness at greater range -- not yet field-tested at the
+                                          real FOV number, so treat as a hypothesis to verify, not a done fix.
+                                          UPDATE 2026-07-08 (later same day): raised 1.0 -> 1.5 in setup.json.
+                                          Motivating field evidence, not just the formula above: reviewing
+                                          logger/2026-07-08/7/rc_edge_capture_2 (still at the old 1.0m) turned
+                                          up a real vision-loss event matching this exact failure mode --
+                                          frame_1783536742261.jpg shows the sidewalk curving right out of frame
+                                          with both edges lost (conf 0.00) as heading lagged the turn, and
+                                          speed correctly dropped (21-46) through that stretch. At 1.5m the
+                                          same 0.5m-offset margin is atan(0.5/1.5)=18.4deg off boresight, ~9.4deg
+                                          of margin against the real 27.8deg half-FOV -- bigger than the mean
+                                          observed heading error (4.1deg) but still smaller than the max
+                                          (15.9deg), so this is a partial fix, not a guarantee. Still unvalidated
+                                          in the field at this value -- next rc_edge_capture session should be
+                                          checked for whether this specific curve-loss pattern recurs before
+                                          calling it solved. If it does, the next lever is the same formula
+                                          solved for margin >= 15.9deg, which needs lookahead >= 2.37m -- a
+                                          bigger jump, with more depth-quality tradeoff, so try 1.5m first.
+realsense_vision.edge_max_lookahead_m   2.5   far bound (m) of the multi-point edge trace below. Read into
+                                          white_rabbit.realsense.vision since notip.js existed (notip.js:475)
+                                          but never actually consumed anywhere -- Python only had
+                                          edge_lookahead_m, a single point, not a range. WIRED IN 2026-07-08:
+                                          _detect_edges_hough now samples up to edge_trace_points_per_side
+                                          points per side between edge_lookahead_m and edge_max_lookahead_m
+                                          (multi_point_edge()), each with its own real (x_m, forward_m, conf)
+                                          via sample_row, then fits a confidence-weighted line across them and
+                                          reports THAT at y_m=edge_lookahead_m instead of a single row's single
+                                          depth sample. Each row's depth measurement carries independent
+                                          stereo noise even from the same fitted line, so this is real noise
+                                          reduction, not just cosmetic -- verified in a synthetic simulation
+                                          (10 points, 2cm depth noise, matching this camera's ballpark): single-
+                                          point std error ~0.0067m vs multi-point-fit ~0.0035m, ~1.9x tighter.
+                                          Falls back to the old single-point pick (line_to_obs) when fewer than
+                                          2 points survive the window (e.g. hard turn, line only on-frame a row
+                                          or two) -- never worse coverage than before, only better when there's
+                                          enough data. Gate: edge_multi_point_fit_enabled (default true).
+realsense_vision.edge_trace_points_per_side  10  max points per side sampled between edge_lookahead_m and
+                                          edge_max_lookahead_m for the fit above (see edge_max_lookahead_m).
+realsense_vision.edge_multi_point_fit_enabled  true  on/off switch for the fit above -- false reverts to the
+                                          pre-2026-07-08 single-point-per-side behavior.
 realsense_vision.edge_side_offset_m     0.4572  lateral gap (m) to hold off the edge (1.5 ft)
-realsense_vision.edge_guidance_bands    8     near-field bands scanned to find the lookahead edge
+realsense_vision.edge_guidance_bands    8     DEAD -- not read anywhere in the codebase (confirmed via repo-wide
+                                          grep 2026-07-08). Left in setup.json from a removed feature; doesn't
+                                          affect anything live. Not the same thing as edge_trace_points_per_side
+                                          above, which actually is wired in.
 ```

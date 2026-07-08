@@ -114,6 +114,13 @@ class RealsenseVision:
         # whether a live HDMI window is even possible, so a running set of real,
         # annotated frames builds up for review on a headless run too.
         self._last_capture_ts = 0.0
+        # Set by Node over stdin ("capture_session", see pixhawk_message_handler.js)
+        # on each arm/disarm so frames land next to that session's rc_edge_capture
+        # JSON log instead of one flat directory. None/None = Node hasn't taken over
+        # yet (e.g. running this script standalone for bench testing) -- fall back to
+        # the static display_capture_dir/always-on behavior in that case.
+        self._session_capture_active = None
+        self._session_capture_dir = None
         # Display now fills between the fitted Hough edge lines directly (what
         # steering actually uses) rather than the separate appearance mask, which
         # over/under-segments independently of edge accuracy -- see
@@ -233,6 +240,8 @@ class RealsenseVision:
             # position, not as floating lines with their own independent anchor.
             base = (w // 2, h - 30)
 
+            x_angle_deg = float(detection.get("x_angle_deg", 0) or 0)
+
             # Dots mark the fitted lines' ANGLE (same angle x_angle_deg/el_x/er_x come
             # from), re-anchored through the shared base point above instead of each
             # fit's own near-field anchor -- that raw anchor moves with whatever noisy
@@ -247,18 +256,34 @@ class RealsenseVision:
             if left_fit is not None or right_fit is not None:
                 r0, r1 = self._last_display_row_start, self._last_display_row_end
                 base_y_roi = min(base[1], r1 - 1) - r0
+                # Noah's actual visible half-angle from straight-ahead, at this focal
+                # length: atan((w/2)/fx). Measured live on this D435I at 640x480
+                # (fx ~606) that comes out to ~28 deg per side, not a symmetric 45 --
+                # 45 would assume a 90 deg horizontal FOV this camera doesn't have.
+                # el is held to [-half_fov, 0] and er to [0, +half_fov] -- a noisy fit
+                # can still swing the reported angle within its own half, but el/er can
+                # never cross the boresight and paint the wrong edge on the wrong side
+                # of the center path.
+                half_fov_deg = math.degrees(math.atan((w * 0.5) / max(1.0, self.last_fx)))
+                a_left = a_right = None
+                if left_fit is not None:
+                    raw_a, _, _, _ = left_fit
+                    el_angle_deg = max(-half_fov_deg, min(0.0, math.degrees(math.atan(-raw_a))))
+                    a_left = -math.tan(math.radians(el_angle_deg))
+                if right_fit is not None:
+                    raw_a, _, _, _ = right_fit
+                    er_angle_deg = max(0.0, min(half_fov_deg, math.degrees(math.atan(-raw_a))))
+                    a_right = -math.tan(math.radians(er_angle_deg))
                 for y_roi in range(0, max(0, r1 - r0)):
                     y_full = r0 + y_roi
                     if y_full < 0 or y_full >= h:
                         continue
                     x_left = None
                     x_right = None
-                    if left_fit is not None:
-                        a, _, _, _ = left_fit
-                        x_left = a * (y_roi - base_y_roi) + base[0]
-                    if right_fit is not None:
-                        a, _, _, _ = right_fit
-                        x_right = a * (y_roi - base_y_roi) + base[0]
+                    if a_left is not None:
+                        x_left = a_left * (y_roi - base_y_roi) + base[0]
+                    if a_right is not None:
+                        x_right = a_right * (y_roi - base_y_roi) + base[0]
                     if x_left is not None and x_right is not None and x_right <= x_left:
                         continue                        # crossed -- stop trusting both here
                     if x_left is not None:
@@ -283,7 +308,6 @@ class RealsenseVision:
                     blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
                     frame[mask_bool] = blended[mask_bool]
 
-            x_angle_deg = float(detection.get("x_angle_deg", 0) or 0)
             confidence = float(detection.get("confidence", 0) or 0)
             status = detection.get("status", "unknown")
             valid = bool(detection.get("edge_guidance_valid", False))
@@ -312,13 +336,17 @@ class RealsenseVision:
             # Periodic capture to disk -- deliberately independent of whether the live
             # HDMI window below succeeds, so this still works on a headless run (no X
             # server) instead of dying with it on the first namedWindow/imshow failure.
-            if bool(self.config.get("display_capture_enabled", False)):
+            # Gated on _session_capture_active only once Node has actually said
+            # something (arm/disarm, via the "capture_session" stdin message below) --
+            # while it's still None (this script run standalone, no Node driving it)
+            # display_capture_enabled alone controls capture, same as before.
+            if bool(self.config.get("display_capture_enabled", False)) and self._session_capture_active is not False:
                 capture_interval_s = float(self.config.get("display_capture_interval_s", 1.0))
                 now_ts = time.time()
                 if now_ts - self._last_capture_ts >= capture_interval_s:
                     self._last_capture_ts = now_ts
                     try:
-                        capture_dir = str(self.config.get("display_capture_dir", "./screenshots/auto_capture"))
+                        capture_dir = self._session_capture_dir or str(self.config.get("display_capture_dir", "./screenshots/auto_capture"))
                         os.makedirs(capture_dir, exist_ok=True)
                         fname = os.path.join(capture_dir, "frame_{:013d}.jpg".format(int(now_ts * 1000)))
                         cv2.imwrite(fname, frame)
@@ -670,7 +698,33 @@ class RealsenseVision:
         mean_val = int(np.mean(hsv[:, :, 2]))
         val_floor = max(light_min, max(val_min, int(mean_val * val_mean_frac)))
 
-        concrete_mask = cv2.inRange(hsv, (0, 0, val_floor), (179, sat_limit, 255))
+        # A single scene-wide floor treats a large dappled tree-shadow like a real
+        # material change: shadowed concrete reads darker than the SUNLIT majority
+        # of the ROI by more than val_floor tolerates, so the shadow's own outline
+        # gets carved out as "non-walkable" -- mask_grad then reports that outline
+        # as an edge (confirmed 2026-07-08 field test, rc_edge_capture_2 session:
+        # both edge lines locked onto a tree-canopy shadow silhouette crossing the
+        # sidewalk instead of the real grass line, x_angle correctly held near 0
+        # only because confidence also collapsed to 0.00). Shadowed concrete is
+        # still uniformly bright relative to ITS OWN neighborhood, not black, so
+        # thresholding each pixel against a wide local mean instead of the one
+        # global scene mean keeps it walkable while the hue-based tests below
+        # (grass/mulch/dark) still exclude what's actually not walkable.
+        if bool(self.config.get("simple_edge_local_adaptive_enabled", True)):
+            local_block = int(self.config.get("simple_edge_local_block_px", 101)) | 1
+            local_offset = int(self.config.get("simple_edge_local_offset", 25))
+            local_mean = cv2.GaussianBlur(hsv[:, :, 2], (local_block, local_block), 0).astype(np.int32)
+            # Deliberately NOT clipped up to light_min here: a real dappled shadow's
+            # local mean can genuinely sit below light_min, and re-imposing that
+            # absolute floor on top of the local one defeats the adaptive test right
+            # where it matters most. dark_nonwalkable below still independently
+            # excludes truly near-black pixels (V <= dark_val_max) regardless.
+            local_floor = np.clip(local_mean - local_offset, 0, 255).astype(np.uint8)
+            val_ok = hsv[:, :, 2] >= local_floor
+        else:
+            val_ok = hsv[:, :, 2] >= val_floor
+        sat_ok = hsv[:, :, 1] <= sat_limit
+        concrete_mask = (val_ok & sat_ok).astype(np.uint8) * 255
         green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
         # No upper Value bound: mulch's hue (8-32, orange/brown/tan) is what identifies
         # it, not its brightness. A Value ceiling here let SUNLIT mulch (bright enough to
@@ -698,7 +752,13 @@ class RealsenseVision:
                     clean[labels == lbl] = 255
             walkable = clean
 
-        return walkable, green_mask_roi
+        # non_walkable is a pure hue/material classification (grass hue | mulch hue |
+        # near-black) with no brightness-relative test in it anywhere -- unlike
+        # `walkable`, its boundary can't be triggered by a shadow alone (see the
+        # mask_grad comment in _detect_edges_hough, the actual caller that needs this
+        # distinction). Returned alongside walkable/green_mask_roi rather than
+        # recomputed by callers, since it shares all the HSV work already done above.
+        return walkable, green_mask_roi, non_walkable
 
     def _load_sam_model(self):
         if self.sam_load_attempted:
@@ -825,7 +885,7 @@ class RealsenseVision:
         roi_depth = depth_image[row_start:row_end, :].astype(np.float32) * 0.001
         roi_depth[roi_depth <= 0] = np.nan
 
-        walkable_mask, green_mask_roi = self._build_simple_ground_mask(roi_color)
+        walkable_mask, green_mask_roi, _nw = self._build_simple_ground_mask(roi_color)
         walkable_mask = self._select_center_component(walkable_mask)
         walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
 
@@ -1262,7 +1322,7 @@ class RealsenseVision:
         edge_img = np.zeros((h, w), dtype=np.uint8)
 
         try:
-            walkable_mask, _gm = self._build_simple_ground_mask(roi_color)
+            walkable_mask, _gm, non_walkable_mask = self._build_simple_ground_mask(roi_color)
             # Depth-based sanity check instead of a per-frame SAM pass: mulch beds are
             # rarely perfectly coplanar with the sidewalk, so this drops appearance
             # false-positives (screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png,
@@ -1283,7 +1343,18 @@ class RealsenseVision:
             if self.display_enabled:
                 self._last_display_row_start = row_start
                 self._last_display_row_end = row_end
-            mask_grad = cv2.morphologyEx(walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
+            # mask_grad traces non_walkable_mask's boundary (grass/mulch/near-black hue
+            # classes) rather than walkable_mask's -- walkable_mask also carries a
+            # brightness-relative "bright enough to be concrete" test, and a shadow
+            # boundary IS a brightness discontinuity with no hue change at all, so its
+            # boundary shows up in walkable_mask's gradient exactly like a real edge
+            # (confirmed 2026-07-08 field test, rc_edge_capture_2: both edge lines
+            # locked onto a tree-canopy shadow outline crossing the sidewalk). A
+            # boundary in non_walkable_mask means a real material actually changed
+            # (concrete->grass, concrete->mulch, concrete->near-black) -- a shadow
+            # alone, staying within the same low-saturation/non-green/non-mulch hue
+            # class the whole way through, never crosses it.
+            mask_grad = cv2.morphologyEx(non_walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
             edge_img = cv2.bitwise_or(edge_img, mask_grad)
         except Exception:
             pass
@@ -1457,6 +1528,13 @@ class RealsenseVision:
         # never the line's actual angle. Skip forward until we're far enough out that
         # the fitted angle has had room to diverge from the anchor into a real reading.
         min_report_forward_m = float(cfg.get("edge_lookahead_m", 0.6096))
+        # Far bound of the multi-point trace below. Previously read into
+        # white_rabbit.realsense.vision (notip.js:475) but never consumed anywhere --
+        # dead since whatever feature originally used it was removed. Wired in here:
+        # edge_lookahead_m..edge_max_lookahead_m is now a real window, not one point.
+        max_report_forward_m = max(min_report_forward_m + 0.1, float(cfg.get("edge_max_lookahead_m", 2.5)))
+        trace_points_per_side = max(2, int(cfg.get("edge_trace_points_per_side", 10)))
+        multi_point_enabled = bool(cfg.get("edge_multi_point_fit_enabled", True))
 
         # Two real sidewalk edges only meet at the vanishing point, which should sit
         # beyond what we're analyzing here -- if the two fitted lines cross INSIDE the
@@ -1471,6 +1549,41 @@ class RealsenseVision:
                 y_cross = (rb - lb) / (la - ra)
                 if 0 <= y_cross <= (h - 1):
                     crossing_y_px = y_cross
+
+        def sample_row(fit, y_px):
+            # Projects one caller-picked row of a fitted line into real-world (x_m,
+            # forward_m) -- lets one fitted line yield several independent points (a
+            # trace), not just a single pick. Each row re-samples DEPTH at that row's
+            # pixel, so consecutive rows carry independent stereo-depth noise even
+            # though they come from the same fitted line -- that independent noise is
+            # exactly what multi_point_edge below is averaging out.
+            if fit is None:
+                return None
+            a, b, support, residual_std = fit
+            x_px = a * float(y_px) + b
+            if x_px < 0 or x_px > (w - 1):
+                return None
+            depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
+            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
+                return None
+            full_y = row_start + y_px
+            cam_X = (x_px - ppx) * depth_m / fx
+            cam_Y = (full_y - ppy) * depth_m / fy
+            rolled_X = cr * cam_X - sr * cam_Y
+            rolled_Y = sr * cam_X + cr * cam_Y
+            forward_m = sp * rolled_Y + cp * depth_m
+            if forward_m < 0.1 or forward_m > 8.0:
+                return None
+            support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
+            fit_quality = max(0.0, 1.0 - residual_std / 40.0)
+            confidence = float(max(0.0, min(0.99, 0.45 + 0.5 * support_conf * fit_quality)))
+            return {
+                "m": round(float(-rolled_X), 4),
+                "x_m": round(float(rolled_X), 4),
+                "y_m": round(float(forward_m), 3),
+                "conf": confidence,
+                "ts": time.time(),
+            }
 
         def line_to_obs(fit):
             if fit is None:
@@ -1524,8 +1637,79 @@ class RealsenseVision:
                 "ts": time.time(),
             }
 
-        nearest_left = line_to_obs(left_fit)
-        nearest_right = line_to_obs(right_fit)
+        def multi_point_edge(fit):
+            # Up to trace_points_per_side independent points between edge_lookahead_m
+            # and edge_max_lookahead_m, each with its own real (x_m, forward_m) and
+            # confidence (sample_row) -- then a confidence-weighted line x_m = A*y_m+B
+            # across all of them, reported at y_m=min_report_forward_m. One row's depth
+            # sample can be noisy on its own; several independent rows agreeing (or
+            # not) is a materially more correct edge than trusting whichever single row
+            # happened to be first past the lookahead distance. Falls back to None
+            # (caller drops back to line_to_obs's single-point pick) when the window
+            # doesn't have enough valid rows to fit -- e.g. a hard turn where the line
+            # is only on-frame for a couple of rows.
+            if fit is None:
+                return None
+            candidates = []
+            for y_px in np.linspace(h - 1, 0, 60):
+                if crossing_y_px is not None and y_px <= crossing_y_px:
+                    break
+                obs = sample_row(fit, y_px)
+                if obs is None:
+                    continue
+                if obs["y_m"] < min_report_forward_m or obs["y_m"] > max_report_forward_m:
+                    continue
+                candidates.append(obs)
+            if len(candidates) > trace_points_per_side:
+                idx = sorted(set(np.linspace(0, len(candidates) - 1, trace_points_per_side).astype(int)))
+                candidates = [candidates[i] for i in idx]
+            if len(candidates) < 2:
+                return None
+            ys = np.array([p["y_m"] for p in candidates])
+            xs = np.array([p["x_m"] for p in candidates])
+            ws = np.array([p["conf"] for p in candidates])
+            if np.sum(ws) <= 0:
+                ws = np.ones_like(ws)
+            wsum = float(np.sum(ws))
+            y_mean = float(np.sum(ws * ys) / wsum)
+            x_mean = float(np.sum(ws * xs) / wsum)
+            denom = float(np.sum(ws * (ys - y_mean) ** 2))
+            slope = float(np.sum(ws * (ys - y_mean) * (xs - x_mean)) / denom) if denom > 1e-6 else 0.0
+            intercept = x_mean - slope * y_mean
+            x_at_near = slope * min_report_forward_m + intercept
+            residual_std = float(np.sqrt(np.sum(ws * (xs - (slope * ys + intercept)) ** 2) / wsum))
+            # Points that agree tightly (small residual_std) raise confidence beyond
+            # any single point's own; scattered points (a bad fit, or genuinely
+            # different rows disagreeing) pull it back down instead.
+            agreement = max(0.0, 1.0 - residual_std / 0.25)   # ~0.25m scatter -> floor
+            base_conf = float(np.mean(ws))
+            confidence = base_conf * (0.6 + 0.4 * agreement)
+            if min_report_forward_m <= near_full_m:
+                df = 1.0
+            elif min_report_forward_m >= far_zero_m:
+                df = 0.0
+            else:
+                df = (far_zero_m - min_report_forward_m) / (far_zero_m - near_full_m)
+            confidence *= (1.0 - dist_weight) + dist_weight * df
+            confidence = float(max(0.0, min(0.99, confidence)))
+            return {
+                "seen": True,
+                "x_distance_m": round(float(x_at_near), 4),
+                "y_distance_m": round(float(min_report_forward_m), 3),
+                "confidence": round(confidence, 2),
+                "m": round(float(-x_at_near), 4),
+                "x_m": round(float(x_at_near), 4),
+                "y_m": round(float(min_report_forward_m), 3),
+                "ts": time.time(),
+                "trace_points": len(candidates),
+            }
+
+        if multi_point_enabled:
+            nearest_left = multi_point_edge(left_fit) or line_to_obs(left_fit)
+            nearest_right = multi_point_edge(right_fit) or line_to_obs(right_fit)
+        else:
+            nearest_left = line_to_obs(left_fit)
+            nearest_right = line_to_obs(right_fit)
         # Both edges seen at a plausible sidewalk width is the strongest, most stable
         # detection — that's the centered-on-the-sidewalk case. Corroborate their
         # confidence so driving down the middle isn't flagged low just because each
@@ -1536,38 +1720,6 @@ class RealsenseVision:
                 boost = float(cfg.get("edge_both_seen_conf_boost", 0.25))
                 for obs in (nearest_left, nearest_right):
                     obs["confidence"] = round(min(0.98, max(obs["confidence"], 0.6) + boost), 2)
-
-        def sample_row(fit, y_px):
-            # Same projection as line_to_obs's chosen point, but at a caller-picked row
-            # instead of "closest valid" -- lets one fitted line yield several points at
-            # different forward distances (a trace), not just the nearest one.
-            if fit is None:
-                return None
-            a, b, support, residual_std = fit
-            x_px = a * float(y_px) + b
-            if x_px < 0 or x_px > (w - 1):
-                return None
-            depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
-            if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
-                return None
-            full_y = row_start + y_px
-            cam_X = (x_px - ppx) * depth_m / fx
-            cam_Y = (full_y - ppy) * depth_m / fy
-            rolled_X = cr * cam_X - sr * cam_Y
-            rolled_Y = sr * cam_X + cr * cam_Y
-            forward_m = sp * rolled_Y + cp * depth_m
-            if forward_m < 0.1 or forward_m > 8.0:
-                return None
-            support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
-            fit_quality = max(0.0, 1.0 - residual_std / 40.0)
-            confidence = float(max(0.0, min(0.99, 0.45 + 0.5 * support_conf * fit_quality)))
-            return {
-                "m": round(float(-rolled_X), 4),
-                "x_m": round(float(rolled_X), 4),
-                "y_m": round(float(forward_m), 3),
-                "conf": confidence,
-                "ts": time.time(),
-            }
 
         # Turn-anticipation trace: sample each fitted line at several rows (near to far),
         # not just the closest point line_to_obs already picked. Feeds path_map (the
@@ -2207,6 +2359,18 @@ def stdin_listener(vision):
                     vision.current_heading_deg = val % 360.0
             except (TypeError, ValueError):
                 pass
+        elif msg == "capture_session":
+            # Sent on every arm (active=True, dir=<session folder>) and disarm
+            # (active=False) -- see pixhawk_message_handler.js. Forcing
+            # _last_capture_ts back to 0 makes the very next tick save a frame
+            # immediately, so the session folder isn't empty for a full
+            # display_capture_interval_s after arming.
+            active = bool(payload.get("active", True))
+            dir_val = payload.get("dir")
+            vision._session_capture_active = active
+            vision._session_capture_dir = str(dir_val) if (active and dir_val) else None
+            if active:
+                vision._last_capture_ts = 0.0
 
     # The for-loop ends only when stdin hits EOF — the parent (Node) closed the pipe,
     # i.e. it exited or crashed. Stop so run() unwinds and releases the camera instead
