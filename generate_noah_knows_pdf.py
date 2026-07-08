@@ -345,94 +345,102 @@ def build_content(path):
 
     # -- Section 2 -----------------------------------------------------
     story.append(PageBreak())
-    story += section(2, 'ONE VANTAGE POINT', 'Many Witnesses, One Frame', S)
+    story += section(2, 'VERIFYING ACROSS MOTION', 'Truth Isn\'t in One Frame — It\'s in What Moves Correctly', S)
     story.append(body(
-        'Every tick, Noah scans several bands of the image at different forward '
-        'distances — near, medium, far — looking for the edge in each one. Every '
-        'single one of those bands is measured from the exact same place: Noah\'s own '
-        'position and heading, right now, this instant. That shared origin is what '
-        'makes verification possible at all. A real, physical curb has no choice but '
-        'to trace a smoothly consistent line across those bands, because they are all '
-        'measurements of the same object from the same eye. A false detection — a '
-        'shadow, a seam in the asphalt, a patch of mulch that happens to match — has '
-        'no such constraint. It is usually a one-off, agreeing with nothing around it.', S))
+        'The first version of this idea checked whether several bands of the SAME '
+        'frame — near, medium, far — agreed with each other. That has a real blind '
+        'spot: a shadow or a seam that happens to run roughly parallel to the curb for '
+        'a few feet agrees with itself across those bands just as well as a real edge '
+        'does. Same-frame agreement proves a detection looks consistent. It does not '
+        'prove it is a physical, three-dimensional thing. It was also, as it turned '
+        'out, wired into a detector path (_compute_edge_guidance) that a config flag '
+        'set elsewhere made unreachable — described in an earlier draft of this '
+        'document as live behavior it never actually was. Removed 2026-07-08, along '
+        'with the rest of that dead branch, rather than left in place pretending to run.', S))
     story.append(sp(8))
-    story.append(h3('The rule', S))
+    story.append(h3('The rule that replaced it', S))
     story.append(body(
-        'Before a candidate point is trusted, Noah checks whether at least one other '
-        'band, within a small window of forward distance and lateral position, agrees '
-        'with it. If something corroborates it, it is <b>verified</b>. If nothing does, '
-        'it is not thrown away — sparse real detections happen too, especially at the '
-        'edge of the camera\'s range — but it is trusted less: its confidence is cut in '
-        'half rather than treated as certain.', S))
+        'A real, physical edge is a fixed point in the world. Noah always knows how '
+        'much his own heading has changed since the last tick — the compass reports '
+        'it, the same way it already reports pitch and roll. So instead of asking '
+        '"do nearby pixels in this one glance agree," Noah asks a stronger question: '
+        '"if that edge point is real, and I know exactly how much I just turned, does '
+        'it reappear exactly where physics says it must?" A shadow does not obey that '
+        'rotation — its position and contrast depend on the sun angle relative to the '
+        'camera, not on depth. A real curb has no choice but to match the prediction.', S))
     story.append(sp(6))
-    story.append(ruled_table([
-        ['Config key', 'Value', 'What it governs'],
-        ['edge_corroboration_y_window_m', '0.3 m', 'How close in forward distance a second witness must be'],
-        ['edge_corroboration_x_tol_m', '0.15 m', 'How close in lateral position that witness must agree'],
-        ['edge_uncorroborated_conf_mult', '0.5', 'Confidence penalty when nothing corroborates a lone reading'],
-    ], [2.3*inch, 0.8*inch, 3.4*inch], mono_col=0))
+    story.append(code(
+        '# theta = how much heading changed since the point was last accepted\n'
+        'pred_x = cos(theta) * prev_x - sin(theta) * prev_y\n'
+        'pred_y = sin(theta) * prev_x + cos(theta) * prev_y\n'
+        'residual = distance(this_tick_x_y, (pred_x, pred_y))\n'
+        'confidence *= max(0.4, 1 - residual / edge_residual_scale_m)   # never raises it', S))
+    story.append(sp(4))
+    story.append(Paragraph(
+        'realsense_vision.py, _predict_and_score — only evaluated when heading has '
+        'changed by at least edge_residual_min_dtheta_deg (3°): with near-zero heading '
+        'change there is no way to also separate out forward travel from a pure '
+        'rotation model, so the check stays inert on ordinary straight-line driving '
+        'rather than risk marking a real edge down for no reason.', S['caption']))
     story.append(sp(8))
     story.append(body(
-        'This was proven before it was shipped, not assumed. A test frame was built '
-        'where the true edge briefly failed to register at the exact distance Noah '
-        'looks first, and a plausible-looking outlier was placed there instead. Picking '
-        'whichever point was simply nearest to that distance was fooled immediately. '
-        'Requiring a witness rejected the outlier and fell through to the next real, '
-        'agreeing point — automatically, with no new sensor and no new assumption '
-        'beyond the one Scott named: everything comes from a single point of view, '
-        'so a true edge should look like it.', S))
+        'This was Scott\'s framing, not an incremental patch on the old one: '
+        '"we can yaw Noah... look for shadows changing the contrast on the sidewalk... '
+        'I want truth." A deliberate verification yaw is the same test with a wider, '
+        'more decisive baseline — the natural next step once this is proven on the '
+        'ordinary steering corrections Noah already makes.', S))
 
     # -- Section 3 -----------------------------------------------------
     story.append(PageBreak())
-    story += section(3, 'RECOGNIZING CHANGE', 'A Real Jump Is Not the Same as Noise', S)
+    story += section(3, 'RECOGNIZING CHANGE', 'A Real Jump Is Not the Same as Noise — Still Open', S)
     story.append(body(
         'Noah smooths the edge position tick to tick, so that ordinary camera jitter '
-        'does not make him twitch the wheel. That smoothing has a cost: it cannot '
-        'natively tell the difference between noise and a real event. When the '
-        'sidewalk itself curves — a wave bend, a corner, a reversal — the true edge '
-        'position genuinely jumps by a real amount in a single tick. A normal average '
-        'cannot tell that apart from jitter, so for several ticks afterward it keeps '
-        'blending in the <i>old</i>, now-wrong position, and the steering angle it '
-        'produces swings and briefly reverses sign for no reason connected to where '
-        'Noah actually is. That misfire was traced exactly, tick by tick, in simulation: '
-        'a commanded turn that went from thirty-four degrees to fifteen to negative '
-        'fifteen to negative forty-nine across four ticks, purely because the smoothed '
-        'value had not caught up to a curve that had already happened.', S))
+        'does not make him twitch the wheel. That smoothing has a cost: a plain average '
+        'cannot natively tell noise apart from a real event. When the sidewalk curves '
+        'while Noah is still driving straight into it — before he has turned at all — '
+        'the true edge position genuinely jumps in a single tick, and the smoothed '
+        'value lags behind it for several ticks afterward. That misfire was traced '
+        'exactly, tick by tick, in simulation: a commanded turn that went from '
+        'thirty-four degrees to fifteen to negative fifteen to negative forty-nine '
+        'across four ticks, purely because the average had not caught up to a curve '
+        'that had already happened.', S))
     story.append(sp(8))
-    story.append(h3('The rule', S))
+    story.append(h3('Honestly: not yet re-solved', S))
     story.append(body(
-        'If a fresh reading differs from the current smoothed value by more than a '
-        'threshold — a jump too large to be jitter — Noah stops blending and snaps '
-        'straight to the new reading. Ordinary noise still gets smoothed normally. '
-        'Only a change large enough to represent something real is allowed to bypass '
-        'the average.', S))
-    story.append(sp(6))
-    story.append(code(
-        'if abs(new_reading - smoothed_value) >= edge_ema_reset_jump_m:\n'
-        '    smoothed_value = new_reading        # trust it -- this is signal\n'
-        'else:\n'
-        '    smoothed_value = blend(new_reading, smoothed_value)  # this is noise', S))
-    story.append(sp(4))
-    story.append(Paragraph('edge_ema_reset_jump_m = 0.3 m', S['caption']))
+        'A jump-reset rule for exactly this existed once (edge_ema_reset_jump_m: '
+        'snap to a fresh reading instead of blending it, when the jump is too large to '
+        'be jitter) — but it lived in _smooth_guidance_obs, part of the same dead '
+        'branch removed 2026-07-08. It is gone now, and the live smoothing function '
+        '(_smooth_obs) still has no jump escape. The motion-verification check in '
+        'Section 2 does not cover this case either — it only activates when Noah\'s '
+        'own heading changes, and this failure mode is specifically about a curve '
+        'arriving before he has started turning at all. This page is left in the '
+        'document as an open item, not deleted, so the concern it raised does not '
+        'quietly disappear along with the code that once addressed it.', S))
 
     # -- Section 4 -----------------------------------------------------
     story.append(PageBreak())
-    story += section(4, 'LOOKING IN THE RIGHT PLACE', 'Continuity of Judgment', S)
+    story += section(4, 'LOOKING IN THE RIGHT PLACE', 'What The Live Detector Actually Scans For', S)
     story.append(body(
-        'Noah does not simply trust whichever band happens to have any detection at '
-        'all, nearest to him. That sounds safe but is not: it is a decision that can '
-        'flip between two genuinely different real edge points from one tick to the '
-        'next, for no reason except which band happened to register something. A '
-        'steering signal built on that foundation is unstable even with a perfectly '
-        'noiseless camera, before any false edge ever enters the picture.', S))
+        'An earlier draft of this document described Noah scanning for the band '
+        'nearest a fixed lookahead distance, the same distance every tick, as a '
+        'deliberate fix for a detector that used to grab whichever point was simply '
+        'closest and available. That fix is real, but it lives in _compute_edge_guidance '
+        '— the branch removed 2026-07-08 alongside the same-frame witness check. It was '
+        'never reachable under the config this rover actually ships with.', S))
     story.append(sp(8))
-    story.append(h3('The rule', S))
+    story.append(h3('What actually runs: _detect_edges_hough / line_to_obs', S))
     story.append(body(
-        'Noah looks for the band nearest to a fixed, chosen lookahead distance — the '
-        'same distance every tick — rather than whichever one is simply closest and '
-        'available. This makes the reading a continuous function of where Noah actually '
-        'is, instead of a discrete pick that can jump around by chance.', S))
+        'The live detector fits one line per side from the whole ROI, then scans that '
+        'line from the bottom of the frame upward and reports the FIRST row past a '
+        'minimum forward distance (edge_lookahead_m) with valid depth — nearest-'
+        'available beyond a floor, not nearest-to-a-fixed-target. Because the line '
+        'itself is fit from every valid segment in the ROI, not just the reported '
+        'point, a single noisy row can\'t swing the whole reading the way a raw '
+        'nearest-pixel pick could — the stability the old fix was reaching for comes '
+        'from the whole-line fit, by a different route than originally documented here.', S))
+
+    # -- (moved) note on the dead corroboration branch now lives above; Section 5 unchanged --
 
     # -- Section 5 -----------------------------------------------------
     story.append(PageBreak())
@@ -452,15 +460,15 @@ def build_content(path):
     story.append(PageBreak())
     story += section(6, 'WHAT NOAH DOES WHEN HE IS NOT SURE', 'Confidence, Not Certainty', S)
     story.append(body(
-        'None of the four rules above ever produce a flat yes or no. Every one of them '
-        'produces a number between doubt and certainty, and that number is what steers '
-        '— not a verdict. A verified edge, seen by two agreeing witnesses, steers with '
-        'full confidence. A lone, uncorroborated reading still steers, just at half '
-        'weight. A reading that just survived a real jump is trusted immediately, at '
-        'full strength, because the jump itself was the evidence. Nothing is thrown '
-        'away merely for being uncertain — Noah cannot afford to go blind every time a '
-        'single band is sparse or a single frame is ambiguous — but nothing is trusted '
-        'more than the evidence actually earns, either.', S))
+        'What actually shapes confidence on the live path today is smaller than a '
+        'younger draft of this document claimed, and every part of it produces a '
+        'number, never a flat yes or no. Distance weighting trusts a close reading '
+        'more than a far one. Seeing both edges at a plausible sidewalk width boosts '
+        'both sides at once — the strongest, most stable case. The missing-edge mirror '
+        '(Section 5) is anchored at Noah\'s own position, so an inferred edge is never '
+        'worse-grounded than it has to be. And now, whenever heading has genuinely '
+        'changed, the motion check in Section 2 can only ever push confidence down, '
+        'never up — a real edge survives it; a shadow does not.', S))
     story.append(sp(10))
     story.append(quote(
         '"Since all edges are calculated from a single point of view — the bottom '
@@ -468,12 +476,15 @@ def build_content(path):
         '— Scott Christopher Wilson', S))
     story.append(sp(6))
     story.append(body(
-        'That single sentence is the whole epistemology. One vantage point, one '
-        'instant, many witnesses drawn from it. Agreement is how truth is recognized. '
-        'A real change is how the world announces itself. And when nothing agrees and '
-        'nothing has changed enough to be sure, Noah does not pretend to know — he '
-        'steers anyway, carefully, at less than full confidence, exactly as much as '
-        'the evidence supports.', S))
+        'That sentence started this document, and it took a wrong turn before it '
+        'reached its own answer: the first attempt looked for outliers within a single '
+        'frame, which is one vantage point but one instant only. The corrected answer '
+        'is one vantage point across CHANGE — Noah verifies a candidate edge against '
+        'what his own known motion says must be true of it, not against its neighbors '
+        'in the same glance. When nothing has moved enough to test, and nothing '
+        'corroborates further than distance and both-sides-seen already account for, '
+        'Noah does not pretend to know — he steers anyway, at exactly the confidence '
+        'the evidence earns, and no more.', S))
 
     # -- Section 7: one edge missing, inner vs outer ----------------------
     story.append(PageBreak())
@@ -539,25 +550,132 @@ def build_content(path):
         'monotonic in heading error once the heading points nearly straight at the '
         'curb -- a small extra rotation there can flip which way it tells him to turn.', S))
 
-    # -- Section 8: reference table --------------------------------------
+    # -- Section 8: the carrot angle ---------------------------------------
     story.append(PageBreak())
-    story += section(8, 'REFERENCE', 'The Four Changes, in One Place', S)
+    story += section(8, 'THE CARROT ANGLE', 'From What Noah Sees to What He Does', S)
+    story.append(body(
+        'Every rule so far answers where the edge is. None of them, by themselves, is a '
+        'steering command. The one number that actually turns Noah\'s wheels is '
+        '<b>x_angle_deg</b> — the carrot angle — and it is built from two different kinds '
+        'of knowledge at once: what the camera saw this instant, and where Noah\'s own '
+        'body is pointed and tilted right now.', S))
+
+    story.append(sp(8))
+    story.append(h3('Heading is baked in before the angle exists', S))
+    story.append(body(
+        'The camera reports a pixel. Before that pixel becomes a real-world distance, '
+        'Noah rotates it by his own current pitch and roll — read from the flight '
+        'controller, not assumed level — so a rover cresting a driveway lip or leaning '
+        'on a cross-slope still measures the true forward and lateral distance to the '
+        'edge, not a foreshortened or skewed one.', S))
+    story.append(sp(4))
+    story.append(code(
+        'rolled_X  = cr * cam_X - sr * cam_Y      # roll-compensated lateral offset\n'
+        'rolled_Y  = sr * cam_X + cr * cam_Y\n'
+        'forward_m = sp * rolled_Y + cp * depth_m  # pitch-compensated forward distance', S))
+    story.append(Paragraph(
+        'cr/sr = cos/sin(current_roll_rad)  ·  cp/sp = cos/sin(current_pitch_rad)',
+        S['caption']))
+
+    story.append(sp(6))
+    story.append(h3('Then knowledge of the sidewalk itself', S))
+    story.append(body(
+        'Which edge to steer off is not just whichever fired this frame. The left / '
+        'right / center choice passes through a hysteresis check so a borderline '
+        'confidence a few percent from the switch point cannot flicker the decision '
+        'every tick. And the standoff distance used when only one edge is visible is not '
+        'a fixed guess — it is half of last_path_width_meters, the sidewalk width Noah '
+        'last measured directly, the last time both edges were actually in view '
+        'together. That is knowledge carried forward from a previous tick, not a number '
+        'invented for this one.', S))
+    story.append(sp(4))
+    story.append(code(
+        'target_offset = chosen_edge_m -/+ side_offset   # side_offset = last_path_width_m / 2\n'
+        'x_angle_deg   = atan2(-target_offset, forward_m)', S))
+
+    story.append(sp(6))
+    story.append(h3('From boresight-relative to a number Noah can act on', S))
+    story.append(body(
+        'x_angle_deg says nothing about compass direction — zero means "drive straight '
+        'ahead from wherever the camera is currently pointed," not north. carrot.js turns '
+        'it into an actual steering command in four steps: flip it to match the chassis '
+        'convention (correction_direction), zero it below edge_steer_deadband_deg so '
+        'camera noise cannot twitch the wheel, rescale it from the camera\'s working angle '
+        'range onto the servo\'s real steering range, and finally ease toward that target '
+        'over steering_time_constant_s of real wall-clock time rather than snapping to it '
+        '— because the camera itself only reports 7-15 times a second depending on how '
+        'busy the Pi is, so a fixed per-tick step would turn Noah at a different '
+        'real-world rate depending on system load.', S))
+    story.append(sp(4))
+    story.append(code(
+        'raw     = (edge_guidance_valid ? x_angle_deg : map_angle_deg) * correction_direction\n'
+        'raw     = 0 if abs(raw) < edge_steer_deadband_deg else raw\n'
+        'clamped = clamp(raw, -sidewalk_steer_input_max_deg, +sidewalk_steer_input_max_deg)\n'
+        'target  = (clamped / sidewalk_steer_input_max_deg) * sidewalk_steer_max_deg\n\n'
+        'alpha = min(1, elapsed_seconds / steering_time_constant_s)\n'
+        'steering_angle_deg += alpha * (target - steering_angle_deg)', S))
+    story.append(Paragraph('lib/yellow_brick_road/carrot.js', S['caption']))
+
+    story.append(sp(6))
+    story.append(h3('Where heading re-enters: the fallback memory', S))
+    story.append(body(
+        'One more step happens back in follow_the_yellow_brick_road.js: the carrot '
+        'angle, still boresight-relative, is meant to be added to Noah\'s current '
+        'compass heading to produce an absolute target heading, remembered every tick as '
+        'last_known_carrot_target_hdg. The whole point is a fallback — if the camera '
+        'loses the edge completely, Noah should be able to yaw back toward roughly where '
+        'the sidewalk last was using the compass instead of going in blind.', S))
+    story.append(sp(6))
+    story.append(quote(
+        'This is where the document\'s own rule had to apply to itself. That line used to '
+        'read white_rabbit.motor.carrot_heading_deg — a field nothing in the codebase '
+        'ever set. The carrot angle actually lives in motor.steering_angle_deg. '
+        'heading + undefined was NaN, every tick, so last_known_carrot_target_hdg was not '
+        'yet the memory it was written to be. Not a false edge this time — a false '
+        'witness in the wiring between two files. Caught while writing this section, '
+        'fixed the same day (2026-07-08): the line now reads '
+        'motor.steering_angle_deg, the field carrot.js actually writes.', S))
+    story.append(sp(6))
+    story.append(body(
+        'Everything on this page — the pitch/roll-compensated projection, the '
+        'hysteresis-gated edge choice, the learned side offset, the deadband, rescale, '
+        'time-constant smoothing, and now the compass-heading fallback memory — is live '
+        'and correct on Noah today.', S))
+
+    # -- Section 9: reference table --------------------------------------
+    story.append(PageBreak())
+    story += section(9, 'REFERENCE', 'Status of Every Decision in This Document', S)
     story.append(ruled_table([
-        ['Decision', 'Where', 'What changed'],
+        ['Decision', 'Where', 'Status, as of 2026-07-08'],
         ['Anchor to self, not the frame',
          '_detect_edges_hough',
-         'Missing-edge mirror now anchors at bottom-center instead of the frame corner.'],
-        ['Look in the right place',
-         '_compute_edge_guidance',
-         'Band picked nearest to a fixed lookahead distance, not nearest-available.'],
-        ['Recognize when the world changed',
+         'LIVE. Missing-edge mirror anchors at bottom-center, not the frame corner.'],
+        ['Verify across motion',
+         '_predict_and_score (new)',
+         'LIVE. Heading-compensated reprojection residual; can only lower confidence, never raise it.'],
+        ['Same-frame band corroboration',
+         '_corroborated_pick, _compute_edge_guidance',
+         'REMOVED. Unreachable under any shipped config; superseded by the motion check above.'],
+        ['Jump-vs-noise EMA reset',
          '_smooth_guidance_obs',
-         'A jump past edge_ema_reset_jump_m snaps the smoothed value instead of blending.'],
-        ['Require a witness',
-         '_corroborated_pick (new)',
-         'A pick must be corroborated by a neighboring band, or its confidence is halved.'],
-    ], [1.5*inch, 1.5*inch, 3.5*inch], mono_col=1))
-    story.append(sp(14))
+         'REMOVED along with the above. STILL OPEN on the live path -- see Section 3.'],
+        ['"Look in the right place" (fixed lookahead band)',
+         '_compute_edge_guidance',
+         'REMOVED. Live detector uses a different, also-stable route -- see Section 4.'],
+        ['carrot_heading_deg fallback memory',
+         'follow_the_yellow_brick_road.js',
+         'FIXED. Read a field nothing set; now reads motor.steering_angle_deg. See Section 8.'],
+    ], [1.9*inch, 1.7*inch, 2.9*inch], mono_col=1))
+    story.append(sp(10))
+    story.append(body(
+        'Nothing in this table is aspirational. Every LIVE row is code that runs on '
+        'Noah today; every REMOVED row is code that no longer exists rather than code '
+        'left pretending to run; every OPEN row is a real, named gap, not a solved '
+        'problem. An earlier draft of this document described three of these rows as '
+        'live when they were not — caught and corrected the same day, in the same '
+        'spirit the document itself argues for: a claim that cannot be checked against '
+        'the actual running code is not yet knowledge.', S))
+    story.append(sp(10))
     story.append(HRFlowable(width='100%', thickness=0.8, color=RULE_GOLD, spaceAfter=12))
     story.append(Paragraph(
         'Noah  ·  notip  ·  rover/notip  ·  realsense_ai branch  ·  '
