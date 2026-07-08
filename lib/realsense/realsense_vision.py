@@ -226,16 +226,27 @@ class RealsenseVision:
             frame = color_image.copy()
             h, w = frame.shape[:2]
 
-            # Dots mark the raw fitted lines themselves (same lines x_angle_deg/el_x/er_x
-            # come from), so a bad fit is visible even where the fill below refuses it.
-            # Two real sidewalk edges only meet at the vanishing point, which should sit
-            # beyond what we're analyzing here -- if the fitted lines cross INSIDE the
-            # ROI, at least one fit has gone bad. Stop drawing both dots at that row
-            # rather than let them visibly swap sides on screen.
+            # Single vantage point for the whole overlay (noah_knows.pdf: "all edges
+            # are calculated from a single point of view -- the bottom center of the
+            # screen"). The carrot is already drawn from here; the edge rays below are
+            # pinned to the same point so they read as two sightlines from Noah's own
+            # position, not as floating lines with their own independent anchor.
+            base = (w // 2, h - 30)
+
+            # Dots mark the fitted lines' ANGLE (same angle x_angle_deg/el_x/er_x come
+            # from), re-anchored through the shared base point above instead of each
+            # fit's own near-field anchor -- that raw anchor moves with whatever noisy
+            # segment was closest this tick, which swung the whole line's position
+            # (not just its angle) and read as the lines jumping around. Two real
+            # sidewalk edges only meet at the vanishing point, which should sit beyond
+            # what we're analyzing here -- if the fitted lines cross INSIDE the ROI, at
+            # least one fit has gone bad. Stop drawing both dots at that row rather than
+            # let them visibly swap sides on screen.
             left_fit = self._last_display_left_fit
             right_fit = self._last_display_right_fit
             if left_fit is not None or right_fit is not None:
                 r0, r1 = self._last_display_row_start, self._last_display_row_end
+                base_y_roi = min(base[1], r1 - 1) - r0
                 for y_roi in range(0, max(0, r1 - r0)):
                     y_full = r0 + y_roi
                     if y_full < 0 or y_full >= h:
@@ -243,11 +254,11 @@ class RealsenseVision:
                     x_left = None
                     x_right = None
                     if left_fit is not None:
-                        a, b, _, _ = left_fit
-                        x_left = a * y_roi + b
+                        a, _, _, _ = left_fit
+                        x_left = a * (y_roi - base_y_roi) + base[0]
                     if right_fit is not None:
-                        a, b, _, _ = right_fit
-                        x_right = a * y_roi + b
+                        a, _, _, _ = right_fit
+                        x_right = a * (y_roi - base_y_roi) + base[0]
                     if x_left is not None and x_right is not None and x_right <= x_left:
                         continue                        # crossed -- stop trusting both here
                     if x_left is not None:
@@ -284,7 +295,6 @@ class RealsenseVision:
             else:
                 status_color = (60, 60, 220)    # red: no signal
 
-            base = (w // 2, h - 30)
             length = int(min(h, w) * 0.28)
             # Clamp only how far the CARROT is drawn, not the underlying angle value --
             # a 70 degree steering angle should still visibly point hard to one side
