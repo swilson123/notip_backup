@@ -131,6 +131,13 @@ class RealsenseVision:
         # in _detect_edges_hough. Populated only when both fits exist AND stay a
         # plausible, non-crossing real-world width apart at that row.
         self._last_display_fill_rows = []
+        # The selected-blob color mask (2026-07-09) -- set only when it was actually
+        # used as the edge source that tick (use_mask_source in _detect_edges_hough),
+        # so the green overlay shows exactly the same classification driving the edge
+        # lines, not a separately-idealized corridor. None when the Hough fallback ran
+        # instead, in which case _last_display_fill_rows below is still the display
+        # source (the original over/under-segmentation concern still applies there).
+        self._last_display_center_mask = None
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGUSR1, self._toggle_display)
@@ -256,10 +263,10 @@ class RealsenseVision:
                 half_fov_deg = math.degrees(math.atan((w * 0.5) / max(1.0, self.last_fx)))
                 a_left = a_right = None
                 if el_x_m is not None and el_y_m:
-                    el_angle_deg = max(-half_fov_deg, min(0.0, math.degrees(math.atan2(-el_x_m, el_y_m))))
+                    el_angle_deg = max(-half_fov_deg, min(0.0, math.degrees(math.atan2(el_x_m, el_y_m))))
                     a_left = -math.tan(math.radians(el_angle_deg))
                 if er_x_m is not None and er_y_m:
-                    er_angle_deg = max(0.0, min(half_fov_deg, math.degrees(math.atan2(-er_x_m, er_y_m))))
+                    er_angle_deg = max(0.0, min(half_fov_deg, math.degrees(math.atan2(er_x_m, er_y_m))))
                     a_right = -math.tan(math.radians(er_angle_deg))
                 for y_roi in range(0, max(0, r1 - r0)):
                     y_full = r0 + y_roi
@@ -278,22 +285,44 @@ class RealsenseVision:
                     if x_right is not None:
                         cv2.circle(frame, (int(np.clip(x_right, 0, w - 1)), y_full), 1, (0, 80, 255), -1)  # orange: right edge
 
-            # Fill only rows where left/right project to a plausible, non-crossing
-            # real-world width (computed in _detect_edges_hough, where depth/intrinsics
-            # are already in scope) -- a curve shows up as the whole corridor bending
-            # together, not as the two lines pinching into a triangle at a bad fit.
-            fill_rows = self._last_display_fill_rows
-            if fill_rows:
-                fill_mask = np.zeros((h, w), dtype=np.uint8)
-                for y_full, x_left, x_right in fill_rows:
-                    if 0 <= y_full < h:
-                        fill_mask[y_full, max(0, x_left):min(w, x_right)] = 255
-                mask_bool = fill_mask > 0
+            # Green overlay: the actual color-mask blob the edges were read from this
+            # tick, when it was the source (_last_display_center_mask, set in
+            # _detect_edges_hough only when use_mask_source was true) -- so what's
+            # painted on screen IS the classification driving the edge lines, not a
+            # separately-idealized shape. Falls back to the old fitted-line corridor
+            # (_last_display_fill_rows) only on ticks where the Hough fallback ran
+            # instead, since there the raw appearance mask can over/under-segment
+            # independently of what actually produced the edges that tick.
+            center_mask_disp = self._last_display_center_mask
+            if center_mask_disp is not None and cv2.countNonZero(center_mask_disp) > 0:
+                r0 = self._last_display_row_start
+                mh = center_mask_disp.shape[0]
+                mask_bool = np.zeros((h, w), dtype=bool)
+                r_end = min(h, r0 + mh)
+                if r_end > r0:
+                    mask_bool[r0:r_end, :] = center_mask_disp[:r_end - r0, :] > 0
                 if np.any(mask_bool):
                     tint = np.zeros_like(frame)
                     tint[:] = (0, 200, 0)  # BGR green
                     blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
                     frame[mask_bool] = blended[mask_bool]
+            else:
+                # Fill only rows where left/right project to a plausible, non-crossing
+                # real-world width (computed in _detect_edges_hough, where depth/intrinsics
+                # are already in scope) -- a curve shows up as the whole corridor bending
+                # together, not as the two lines pinching into a triangle at a bad fit.
+                fill_rows = self._last_display_fill_rows
+                if fill_rows:
+                    fill_mask = np.zeros((h, w), dtype=np.uint8)
+                    for y_full, x_left, x_right in fill_rows:
+                        if 0 <= y_full < h:
+                            fill_mask[y_full, max(0, x_left):min(w, x_right)] = 255
+                    mask_bool = fill_mask > 0
+                    if np.any(mask_bool):
+                        tint = np.zeros_like(frame)
+                        tint[:] = (0, 200, 0)  # BGR green
+                        blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
+                        frame[mask_bool] = blended[mask_bool]
 
             confidence = float(detection.get("confidence", 0) or 0)
             status = detection.get("status", "unknown")
@@ -711,6 +740,41 @@ class RealsenseVision:
             val_ok = hsv[:, :, 2] >= val_floor
         sat_ok = hsv[:, :, 1] <= sat_limit
         concrete_mask = (val_ok & sat_ok).astype(np.uint8) * 255
+
+        # Sample the real sidewalk color directly beneath the rover -- bottom-center
+        # of the ROI is always ground (Noah's own position, the same single-vantage
+        # point _render_display anchors the carrot/edge rays to) -- and widen
+        # concrete_mask to match it. The fixed brightness+low-saturation test above
+        # assumes grey concrete; a warmer/redder aggregate or a different house's
+        # sidewalk can be saturated enough to fail sat_ok outright and vanish from
+        # BOTH walkable and non_walkable (neither bright-grey nor grass/mulch/dark),
+        # so the edge simply never gets classified at all. This is additive only
+        # (OR'd into concrete_mask): it can widen what counts as walkable to match
+        # today's actual sidewalk color, never narrow the existing grey-concrete case.
+        if bool(self.config.get("simple_edge_seed_adaptive_enabled", True)):
+            hh, ww = hsv.shape[:2]
+            seed_row_frac = float(self.config.get("simple_edge_seed_row_frac", 0.94))
+            half_w = int(self.config.get("simple_edge_seed_patch_half_w_px", 20))
+            half_h = int(self.config.get("simple_edge_seed_patch_half_h_px", 12))
+            if hh > 2 * half_h and ww > 2 * half_w:
+                sy = int(np.clip(hh * seed_row_frac, half_h, hh - 1 - half_h))
+                sx = ww // 2
+                patch = hsv[sy - half_h:sy + half_h + 1, sx - half_w:sx + half_w + 1]
+                seed_h, seed_s, seed_v = (float(np.median(patch[:, :, c])) for c in range(3))
+                # A shadow or a stray leaf sitting exactly in the seed patch would
+                # otherwise get treated as "the sidewalk's real color" for the whole
+                # frame -- only trust the seed when it's plausibly ground already
+                # (bright enough, not saturated like grass/mulch already exclude).
+                if seed_v >= light_min * 0.6 and seed_s <= sat_limit + 30:
+                    hue_tol = float(self.config.get("simple_edge_seed_hue_tol", 12))
+                    sat_tol = float(self.config.get("simple_edge_seed_sat_tol", 40))
+                    hue = hsv[:, :, 0].astype(np.int16)
+                    hue_diff = np.minimum(np.abs(hue - int(seed_h)), 180 - np.abs(hue - int(seed_h)))
+                    seed_ok = (hue_diff <= hue_tol) & \
+                              (np.abs(hsv[:, :, 1].astype(np.int16) - int(seed_s)) <= sat_tol) & \
+                              val_ok
+                    concrete_mask = cv2.bitwise_or(concrete_mask, (seed_ok.astype(np.uint8) * 255))
+
         green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
         # No upper Value bound: mulch's hue (8-32, orange/brown/tan) is what identifies
         # it, not its brightness. A Value ceiling here let SUNLIT mulch (bright enough to
@@ -1215,14 +1279,27 @@ class RealsenseVision:
         min_slope = float(cfg.get("edge_line_min_abs_slope", 0.25))
         depth_jump_m = float(cfg.get("dropoff_min_depth_jump_m", 0.15))
 
-        # --- 1. Candidate edge pixels: color-class boundary | depth drop-off
-        # Deliberately NO raw Canny here: Canny fires on walls, furniture, shadows, and
-        # any other sharp gradient in the ROI — those non-ground features dominate the
-        # Hough fit and prevent the detector from tracking ground-level edges (tape, curbs,
-        # grass lines). mask_grad and depth_mask are semantically constrained to ground-level
-        # transitions, so the fit tracks what we actually care about.
+        # --- 1. Primary edge source: the color-mask blob's own boundary.
+        # _build_simple_ground_mask already separates concrete (bright, low-saturation)
+        # from mulch/grass/near-black by hue, and _select_center_component (used
+        # elsewhere, e.g. _detect_path_from_lines) already isolates the single connected
+        # blob nearest image-center -- the actual patch of sidewalk the rover is
+        # standing on. This detector used to skip both and run a global Hough line
+        # search over the whole ROI, sorting whatever segments came back into left/right
+        # purely by which side of image-center they fell on, with no rule tying a
+        # candidate back to the walkable blob under the rover. A long, clean transition
+        # far in the background (a driveway line, the curb across the street) could
+        # out-compete the real, near, one-color sidewalk edge just by being a
+        # longer/straighter Hough segment (confirmed 2026-07-09,
+        # logger/2026-07-09/3/rc_edge_capture_3/frame_1783617414730.jpg: left edge
+        # reported 2.9m left / 4.6m ahead -- the far curb across the street -- while the
+        # real edge sat inches from the wheels). Reading the selected blob's own
+        # leftmost/rightmost column per row can never pick a boundary that isn't part
+        # of that blob.
         edge_img = np.zeros((h, w), dtype=np.uint8)
-
+        walkable_mask = None
+        non_walkable_mask = None
+        center_mask = None
         try:
             walkable_mask, _gm, non_walkable_mask = self._build_simple_ground_mask(roi_color)
             # Depth-based sanity check: mulch beds are rarely perfectly coplanar with
@@ -1230,60 +1307,106 @@ class RealsenseVision:
             # (screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png, 2.45.15 PM.png) at
             # zero added latency.
             walkable_mask = self._apply_ground_grid_filter(walkable_mask, roi_depth, intrinsics, row_start)
+            center_mask = self._select_center_component(walkable_mask)
             if self.display_enabled:
                 self._last_display_row_start = row_start
                 self._last_display_row_end = row_end
-            # mask_grad traces non_walkable_mask's boundary (grass/mulch/near-black hue
-            # classes) rather than walkable_mask's -- walkable_mask also carries a
-            # brightness-relative "bright enough to be concrete" test, and a shadow
-            # boundary IS a brightness discontinuity with no hue change at all, so its
-            # boundary shows up in walkable_mask's gradient exactly like a real edge
-            # (confirmed 2026-07-08 field test, rc_edge_capture_2: both edge lines
-            # locked onto a tree-canopy shadow outline crossing the sidewalk). A
-            # boundary in non_walkable_mask means a real material actually changed
-            # (concrete->grass, concrete->mulch, concrete->near-black) -- a shadow
-            # alone, staying within the same low-saturation/non-green/non-mulch hue
-            # class the whole way through, never crosses it.
-            mask_grad = cv2.morphologyEx(non_walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
-            edge_img = cv2.bitwise_or(edge_img, mask_grad)
         except Exception:
             pass
 
-        # depth drop-off (curb / grass step): a big horizontal depth jump is an edge pixel
-        valid_d = ~np.isnan(roi_depth)
-        d_filled = np.where(valid_d, roi_depth, 0.0).astype(np.float32)
-        dd = np.abs(np.diff(d_filled, axis=1))
-        depth_mask = np.zeros((h, w), dtype=np.uint8)
-        depth_mask[:, 1:][dd > depth_jump_m] = 255
-        depth_mask[~valid_d] = 0
-        edge_img = cv2.bitwise_or(edge_img, depth_mask)
-
-        # --- 2. Hough line segments
-        segments = cv2.HoughLinesP(edge_img, 1, math.pi / 180.0, hough_thr,
-                                   minLineLength=min_len, maxLineGap=max_gap)
-        if segments is None or len(segments) == 0:
-            return self._assemble_edge_result(None, None)
-
-        # --- 3. Fit ONE line per side, independently (x = a*y + b, weighted by length)
+        mask_min_row_w = int(cfg.get("edge_mask_min_row_width_px", 8))
+        mask_min_rows = int(cfg.get("edge_mask_min_rows", 6))
+        mask_boundary_enabled = bool(cfg.get("edge_mask_boundary_enabled", True))
+        # fit_side (below) feeds every (y, x) pair through _sample_depth_at, a per-point
+        # depth median -- fine for a couple dozen Hough segment endpoints, too much for
+        # every one of ~300-400 ROI rows at a 250ms tick budget. Scan every row for the
+        # boundary itself (cheap: one np.nonzero per row) but cap how many rows actually
+        # go on to depth sampling, spread evenly top-to-bottom so the near-field window
+        # inside fit_side still has real far-side context to anchor against.
+        mask_max_fit_points = int(cfg.get("edge_mask_max_fit_points", 80))
         sides = {"left": {"ys": [], "xs": [], "wts": [], "len": 0.0},
                  "right": {"ys": [], "xs": [], "wts": [], "len": 0.0}}
-        for seg in segments:
-            x1, y1, x2, y2 = (float(v) for v in seg[0])
-            dx = x2 - x1
-            dy = y2 - y1
-            seg_len = math.hypot(dx, dy)
-            steep = abs(dy) / max(abs(dx), 1e-6)   # vertical -> large, horizontal -> ~0
-            if steep < min_slope:
-                continue                           # drop near-horizontal clutter (horizon, cracks)
-            # The nearest (largest-y) endpoint decides the side: a left edge sits left of
-            # image center at the bottom of the ROI, a right edge to the right.
-            x_bottom = x1 if y1 >= y2 else x2
-            side = "left" if x_bottom < center_x else "right"
-            s = sides[side]
-            s["ys"].extend([y1, y2])
-            s["xs"].extend([x1, x2])
-            s["wts"].extend([seg_len, seg_len])
-            s["len"] += seg_len
+        if mask_boundary_enabled and center_mask is not None and cv2.countNonZero(center_mask) > 0:
+            row_ys, row_left, row_right = [], [], []
+            for y in range(h):
+                cols = np.nonzero(center_mask[y])[0]
+                if cols.size == 0:
+                    continue
+                x_left_px, x_right_px = float(cols[0]), float(cols[-1])
+                if (x_right_px - x_left_px) < mask_min_row_w:
+                    continue                        # too thin a slice at this row to trust as the real width
+                row_ys.append(float(y)); row_left.append(x_left_px); row_right.append(x_right_px)
+            if len(row_ys) > mask_max_fit_points:
+                keep_idx = np.linspace(0, len(row_ys) - 1, mask_max_fit_points).round().astype(int)
+                row_ys = [row_ys[i] for i in keep_idx]
+                row_left = [row_left[i] for i in keep_idx]
+                row_right = [row_right[i] for i in keep_idx]
+            sides["left"]["ys"] = list(row_ys); sides["left"]["xs"] = list(row_left)
+            sides["left"]["wts"] = [1.0] * len(row_ys); sides["left"]["len"] = float(len(row_ys))
+            sides["right"]["ys"] = list(row_ys); sides["right"]["xs"] = list(row_right)
+            sides["right"]["wts"] = [1.0] * len(row_ys); sides["right"]["len"] = float(len(row_ys))
+
+        use_mask_source = (len(sides["left"]["ys"]) >= mask_min_rows and
+                            len(sides["right"]["ys"]) >= mask_min_rows)
+        if self.display_enabled:
+            # Shown by _render_display as the green overlay -- exactly the blob this
+            # tick's edges were actually read from, not a separately-computed corridor.
+            self._last_display_center_mask = center_mask if use_mask_source else None
+
+        if not use_mask_source:
+            # Fallback only: the color mask under the rover was too broken to trace
+            # (glare, deep shadow, wet concrete splitting the blob) -- run the previous
+            # color-boundary-gradient + depth-dropoff + Hough fit instead.
+            sides = {"left": {"ys": [], "xs": [], "wts": [], "len": 0.0},
+                     "right": {"ys": [], "xs": [], "wts": [], "len": 0.0}}
+            if non_walkable_mask is not None:
+                # mask_grad traces non_walkable_mask's boundary (grass/mulch/near-black hue
+                # classes) rather than walkable_mask's -- walkable_mask also carries a
+                # brightness-relative "bright enough to be concrete" test, and a shadow
+                # boundary IS a brightness discontinuity with no hue change at all, so its
+                # boundary shows up in walkable_mask's gradient exactly like a real edge
+                # (confirmed 2026-07-08 field test, rc_edge_capture_2: both edge lines
+                # locked onto a tree-canopy shadow outline crossing the sidewalk). A
+                # boundary in non_walkable_mask means a real material actually changed
+                # (concrete->grass, concrete->mulch, concrete->near-black) -- a shadow
+                # alone, staying within the same low-saturation/non-green/non-mulch hue
+                # class the whole way through, never crosses it.
+                mask_grad = cv2.morphologyEx(non_walkable_mask, cv2.MORPH_GRADIENT, np.ones((3, 3), np.uint8))
+                edge_img = cv2.bitwise_or(edge_img, mask_grad)
+
+            # depth drop-off (curb / grass step): a big horizontal depth jump is an edge pixel
+            valid_d = ~np.isnan(roi_depth)
+            d_filled = np.where(valid_d, roi_depth, 0.0).astype(np.float32)
+            dd = np.abs(np.diff(d_filled, axis=1))
+            depth_mask = np.zeros((h, w), dtype=np.uint8)
+            depth_mask[:, 1:][dd > depth_jump_m] = 255
+            depth_mask[~valid_d] = 0
+            edge_img = cv2.bitwise_or(edge_img, depth_mask)
+
+            # --- 2. Hough line segments
+            segments = cv2.HoughLinesP(edge_img, 1, math.pi / 180.0, hough_thr,
+                                       minLineLength=min_len, maxLineGap=max_gap)
+            if segments is None or len(segments) == 0:
+                return self._assemble_edge_result(None, None)
+
+            # --- 3. Fit ONE line per side, independently (x = a*y + b, weighted by length)
+            for seg in segments:
+                x1, y1, x2, y2 = (float(v) for v in seg[0])
+                dx = x2 - x1
+                dy = y2 - y1
+                seg_len = math.hypot(dx, dy)
+                steep = abs(dy) / max(abs(dx), 1e-6)   # vertical -> large, horizontal -> ~0
+                if steep < min_slope:
+                    continue                           # drop near-horizontal clutter (horizon, cracks)
+                # The nearest (largest-y) endpoint decides the side: a left edge sits left of
+                # image center at the bottom of the ROI, a right edge to the right.
+                x_bottom = x1 if y1 >= y2 else x2
+                side = "left" if x_bottom < center_x else "right"
+                s = sides[side]
+                s["ys"].extend([y1, y2])
+                s["xs"].extend([x1, x2])
+                s["wts"].extend([seg_len, seg_len])
+                s["len"] += seg_len
 
         # Needed inside fit_side below to turn pixel points into real-world forward
         # distance, so the near-field cluster window is a real distance (inches),
