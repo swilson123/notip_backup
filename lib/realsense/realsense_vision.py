@@ -251,9 +251,11 @@ class RealsenseVision:
             # what we're analyzing here -- if the fitted lines cross INSIDE the ROI, at
             # least one fit has gone bad. Stop drawing both dots at that row rather than
             # let them visibly swap sides on screen.
-            left_fit = self._last_display_left_fit
-            right_fit = self._last_display_right_fit
-            if left_fit is not None or right_fit is not None:
+            el_x_m = detection.get("edge_left_x_m")
+            el_y_m = detection.get("edge_left_y_m")
+            er_x_m = detection.get("edge_right_x_m")
+            er_y_m = detection.get("edge_right_y_m")
+            if el_x_m is not None or er_x_m is not None:
                 r0, r1 = self._last_display_row_start, self._last_display_row_end
                 base_y_roi = min(base[1], r1 - 1) - r0
                 # Noah's actual visible half-angle from straight-ahead, at this focal
@@ -263,16 +265,19 @@ class RealsenseVision:
                 # el is held to [-half_fov, 0] and er to [0, +half_fov] -- a noisy fit
                 # can still swing the reported angle within its own half, but el/er can
                 # never cross the boresight and paint the wrong edge on the wrong side
-                # of the center path.
+                # of the center path. Angle comes from edge_left_x_m/y_m and
+                # edge_right_x_m/y_m -- the SAME EMA-smoothed, TTL-latched point
+                # actually reported as el_x/el_y, er_x/er_y (LCD screen3, steering) --
+                # not the raw per-tick Hough line fit, which carries zero temporal
+                # smoothing and is why this line visibly bounced every frame while the
+                # reported edge point itself stayed stable.
                 half_fov_deg = math.degrees(math.atan((w * 0.5) / max(1.0, self.last_fx)))
                 a_left = a_right = None
-                if left_fit is not None:
-                    raw_a, _, _, _ = left_fit
-                    el_angle_deg = max(-half_fov_deg, min(0.0, math.degrees(math.atan(-raw_a))))
+                if el_x_m is not None and el_y_m:
+                    el_angle_deg = max(-half_fov_deg, min(0.0, math.degrees(math.atan2(-el_x_m, el_y_m))))
                     a_left = -math.tan(math.radians(el_angle_deg))
-                if right_fit is not None:
-                    raw_a, _, _, _ = right_fit
-                    er_angle_deg = max(0.0, min(half_fov_deg, math.degrees(math.atan(-raw_a))))
+                if er_x_m is not None and er_y_m:
+                    er_angle_deg = max(0.0, min(half_fov_deg, math.degrees(math.atan2(-er_x_m, er_y_m))))
                     a_right = -math.tan(math.radians(er_angle_deg))
                 for y_roi in range(0, max(0, r1 - r0)):
                     y_full = r0 + y_roi
@@ -1528,10 +1533,8 @@ class RealsenseVision:
         # never the line's actual angle. Skip forward until we're far enough out that
         # the fitted angle has had room to diverge from the anchor into a real reading.
         min_report_forward_m = float(cfg.get("edge_lookahead_m", 0.6096))
-        # Far bound of the multi-point trace below. Previously read into
-        # white_rabbit.realsense.vision (notip.js:475) but never consumed anywhere --
-        # dead since whatever feature originally used it was removed. Wired in here:
-        # edge_lookahead_m..edge_max_lookahead_m is now a real window, not one point.
+        # Far bound of the multi-point trace below -- edge_lookahead_m..edge_max_lookahead_m
+        # is the real window multi_point_edge scans for independent points.
         max_report_forward_m = max(min_report_forward_m + 0.1, float(cfg.get("edge_max_lookahead_m", 2.5)))
         trace_points_per_side = max(2, int(cfg.get("edge_trace_points_per_side", 10)))
         multi_point_enabled = bool(cfg.get("edge_multi_point_fit_enabled", True))
@@ -1553,10 +1556,7 @@ class RealsenseVision:
         def sample_row(fit, y_px):
             # Projects one caller-picked row of a fitted line into real-world (x_m,
             # forward_m) -- lets one fitted line yield several independent points (a
-            # trace), not just a single pick. Each row re-samples DEPTH at that row's
-            # pixel, so consecutive rows carry independent stereo-depth noise even
-            # though they come from the same fitted line -- that independent noise is
-            # exactly what multi_point_edge below is averaging out.
+            # trace), not just a single pick.
             if fit is None:
                 return None
             a, b, support, residual_std = fit
@@ -1566,6 +1566,27 @@ class RealsenseVision:
             depth_m = self._sample_depth_at(roi_depth, int(round(x_px)), int(y_px))
             if not depth_m or np.isnan(depth_m) or depth_m < 0.15 or depth_m > 8.0:
                 return None
+            # Real per-point confidence: how consistent the depth reads right around
+            # THIS pixel, not the fit's own overall support/residual_std (which is the
+            # same number for every row on a side and can't tell a clean read from a
+            # noisy one). A flat sidewalk surface reads within a couple cm of local
+            # scatter; a stereo dropout/occlusion right at a real edge -- common,
+            # since an edge is exactly where the two IR views stop agreeing -- spikes
+            # local_std_m well past that. A patch that's mostly NaN (sparse coverage)
+            # means there wasn't much real depth here to trust either way. Both pull
+            # this point's own confidence down independently of every other point.
+            patch_radius = 3
+            xi, yi = int(round(x_px)), int(y_px)
+            y0, y1 = max(0, yi - patch_radius), min(roi_depth.shape[0], yi + patch_radius + 1)
+            x0, x1 = max(0, xi - patch_radius), min(roi_depth.shape[1], xi + patch_radius + 1)
+            patch = roi_depth[y0:y1, x0:x1]
+            valid_patch = patch[np.isfinite(patch) & (patch > 0)]
+            if valid_patch.size < 3:
+                return None
+            coverage = valid_patch.size / float(patch.size)
+            local_std_m = float(np.std(valid_patch))
+            local_quality = max(0.0, 1.0 - local_std_m / 0.05)   # ~5cm local scatter -> floor
+            confidence = float(max(0.0, min(0.99, local_quality * coverage)))
             full_y = row_start + y_px
             cam_X = (x_px - ppx) * depth_m / fx
             cam_Y = (full_y - ppy) * depth_m / fy
@@ -1574,9 +1595,6 @@ class RealsenseVision:
             forward_m = sp * rolled_Y + cp * depth_m
             if forward_m < 0.1 or forward_m > 8.0:
                 return None
-            support_conf = min(1.0, float(support) / max(1.0, float(h) * 2.0))
-            fit_quality = max(0.0, 1.0 - residual_std / 40.0)
-            confidence = float(max(0.0, min(0.99, 0.45 + 0.5 * support_conf * fit_quality)))
             return {
                 "m": round(float(-rolled_X), 4),
                 "x_m": round(float(rolled_X), 4),
@@ -1638,20 +1656,20 @@ class RealsenseVision:
             }
 
         def multi_point_edge(fit):
-            # Up to trace_points_per_side independent points between edge_lookahead_m
-            # and edge_max_lookahead_m, each with its own real (x_m, forward_m) and
-            # confidence (sample_row) -- then a confidence-weighted line x_m = A*y_m+B
-            # across all of them, reported at y_m=min_report_forward_m. One row's depth
-            # sample can be noisy on its own; several independent rows agreeing (or
-            # not) is a materially more correct edge than trusting whichever single row
-            # happened to be first past the lookahead distance. Falls back to None
-            # (caller drops back to line_to_obs's single-point pick) when the window
-            # doesn't have enough valid rows to fit -- e.g. a hard turn where the line
-            # is only on-frame for a couple of rows.
+            # 1. Gather every independent point between edge_lookahead_m and
+            # edge_max_lookahead_m -- each is its own depth read (sample_row), with
+            # its own real per-point confidence, not just a fixed lookahead sample.
+            # edge_trace_scan_rows is the SCAN pool (how many pixel-rows across the
+            # whole ROI get examined at all) -- it must be well above
+            # edge_trace_points_per_side (the KEEP count below), since the window
+            # filter right after this already throws most scanned rows away (only
+            # rows whose real-world y_m lands inside edge_lookahead_m..
+            # edge_max_lookahead_m survive) before ranking ever sees them.
             if fit is None:
                 return None
+            scan_rows = max(10, int(cfg.get("edge_trace_scan_rows", 60)))
             candidates = []
-            for y_px in np.linspace(h - 1, 0, 60):
+            for y_px in np.linspace(h - 1, 0, scan_rows):
                 if crossing_y_px is not None and y_px <= crossing_y_px:
                     break
                 obs = sample_row(fit, y_px)
@@ -1660,30 +1678,55 @@ class RealsenseVision:
                 if obs["y_m"] < min_report_forward_m or obs["y_m"] > max_report_forward_m:
                     continue
                 candidates.append(obs)
-            if len(candidates) > trace_points_per_side:
-                idx = sorted(set(np.linspace(0, len(candidates) - 1, trace_points_per_side).astype(int)))
-                candidates = [candidates[i] for i in idx]
-            if len(candidates) < 2:
+            if len(candidates) < 3:
+                return None                            # not enough independent reads to trust a trace
+
+            # 2. Trust the cleanest reads, not an even spread of rows regardless of
+            # how noisy each one was -- keep only the highest-confidence points.
+            candidates.sort(key=lambda p: p["conf"], reverse=True)
+            trusted = candidates[:trace_points_per_side]
+            if len(trusted) < 3:
                 return None
-            ys = np.array([p["y_m"] for p in candidates])
-            xs = np.array([p["x_m"] for p in candidates])
-            ws = np.array([p["conf"] for p in candidates])
-            if np.sum(ws) <= 0:
-                ws = np.ones_like(ws)
-            wsum = float(np.sum(ws))
-            y_mean = float(np.sum(ws * ys) / wsum)
-            x_mean = float(np.sum(ws * xs) / wsum)
-            denom = float(np.sum(ws * (ys - y_mean) ** 2))
-            slope = float(np.sum(ws * (ys - y_mean) * (xs - x_mean)) / denom) if denom > 1e-6 else 0.0
-            intercept = x_mean - slope * y_mean
+            trusted.sort(key=lambda p: p["y_m"])       # back to near->far for the checks below
+
+            # 3. Residual-based rejection that allows a real BEND (the sidewalk
+            # curving as it recedes) but not a WAVE (noise making the edge zigzag
+            # row to row -- no real edge reverses direction over ~1m of forward
+            # distance). Net direction is nearest-trusted-point to farthest; a step
+            # that runs opposite that direction by more than the tolerance is a
+            # reversal, not a bend, and gets dropped.
+            reject_tol_m = float(cfg.get("edge_wave_reject_tol_m", 0.05))
+            xs0 = [p["x_m"] for p in trusted]
+            net_dx = xs0[-1] - xs0[0]
+            trend_sign = 1.0 if net_dx > 0 else (-1.0 if net_dx < 0 else 0.0)
+            inliers = [trusted[0]]
+            for i in range(1, len(trusted)):
+                step = trusted[i]["x_m"] - inliers[-1]["x_m"]
+                if trend_sign != 0.0 and (step * trend_sign) < -reject_tol_m:
+                    continue                           # reversal against the established trend -- wave, not bend
+                inliers.append(trusted[i])
+            if len(inliers) < 2:
+                return None
+
+            # 4. Robust center through the survivors: Theil-Sen (median of all
+            # pairwise slopes, then median intercept) instead of a mean-based fit --
+            # a leftover noisy point can't drag a median the way it drags a mean.
+            ys = np.array([p["y_m"] for p in inliers])
+            xs = np.array([p["x_m"] for p in inliers])
+            n = len(inliers)
+            slopes = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    dy = ys[j] - ys[i]
+                    if abs(dy) > 1e-6:
+                        slopes.append((xs[j] - xs[i]) / dy)
+            slope = float(np.median(slopes)) if slopes else 0.0
+            intercept = float(np.median(xs - slope * ys))
             x_at_near = slope * min_report_forward_m + intercept
-            residual_std = float(np.sqrt(np.sum(ws * (xs - (slope * ys + intercept)) ** 2) / wsum))
-            # Points that agree tightly (small residual_std) raise confidence beyond
-            # any single point's own; scattered points (a bad fit, or genuinely
-            # different rows disagreeing) pull it back down instead.
-            agreement = max(0.0, 1.0 - residual_std / 0.25)   # ~0.25m scatter -> floor
-            base_conf = float(np.mean(ws))
-            confidence = base_conf * (0.6 + 0.4 * agreement)
+
+            mean_conf = float(np.mean([p["conf"] for p in inliers]))
+            agreement = len(inliers) / float(len(trusted))
+            confidence = mean_conf * (0.5 + 0.5 * agreement)
             if min_report_forward_m <= near_full_m:
                 df = 1.0
             elif min_report_forward_m >= far_zero_m:
@@ -1701,7 +1744,7 @@ class RealsenseVision:
                 "x_m": round(float(x_at_near), 4),
                 "y_m": round(float(min_report_forward_m), 3),
                 "ts": time.time(),
-                "trace_points": len(candidates),
+                "trace_points": len(inliers),
             }
 
         if multi_point_enabled:
