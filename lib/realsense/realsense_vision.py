@@ -127,22 +127,12 @@ class RealsenseVision:
         # the static display_capture_dir/always-on behavior in that case.
         self._session_capture_active = None
         self._session_capture_dir = None
-        # Display now fills between the fitted Hough edge lines directly (what
-        # steering actually uses) rather than the separate appearance mask, which
-        # over/under-segments independently of edge accuracy -- see
-        # screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png onward.
-        self._last_display_left_fit = None
-        self._last_display_right_fit = None
-        # Width-validated (y_full, x_left, x_right) rows -- see the fill-rows comment
-        # in _detect_edges_hough. Populated only when both fits exist AND stay a
-        # plausible, non-crossing real-world width apart at that row.
-        self._last_display_fill_rows = []
         # The selected-blob color mask (2026-07-09) -- set only when it was actually
         # used as the edge source that tick (use_mask_source in _detect_edges_hough),
         # so the green overlay shows exactly the same classification driving the edge
         # lines, not a separately-idealized corridor. None when the Hough fallback ran
-        # instead, in which case _last_display_fill_rows below is still the display
-        # source (the original over/under-segmentation concern still applies there).
+        # instead -- green means the real sidewalk mask, or nothing at all, no
+        # fallback shape.
         self._last_display_center_mask = None
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
@@ -291,14 +281,13 @@ class RealsenseVision:
                     if x_right is not None:
                         cv2.circle(frame, (int(np.clip(x_right, 0, w - 1)), y_full), 1, (0, 80, 255), -1)  # orange: right edge
 
-            # Green overlay: the actual color-mask blob the edges were read from this
-            # tick, when it was the source (_last_display_center_mask, set in
-            # _detect_edges_hough only when use_mask_source was true) -- so what's
-            # painted on screen IS the classification driving the edge lines, not a
-            # separately-idealized shape. Falls back to the old fitted-line corridor
-            # (_last_display_fill_rows) only on ticks where the Hough fallback ran
-            # instead, since there the raw appearance mask can over/under-segment
-            # independently of what actually produced the edges that tick.
+            # Green overlay: ONLY the actual sidewalk color-mask blob the edges were
+            # read from this tick (_last_display_center_mask, set in
+            # _detect_edges_hough only when use_mask_source was true) -- what's
+            # painted on screen IS the classification driving the edge lines, never a
+            # separately-idealized corridor. No fallback shape when the mask wasn't
+            # the source that tick (Hough fallback ran instead) -- green means the
+            # real sidewalk mask, or it means nothing at all.
             center_mask_disp = self._last_display_center_mask
             if center_mask_disp is not None and cv2.countNonZero(center_mask_disp) > 0:
                 r0 = self._last_display_row_start
@@ -312,23 +301,6 @@ class RealsenseVision:
                     tint[:] = (0, 200, 0)  # BGR green
                     blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
                     frame[mask_bool] = blended[mask_bool]
-            else:
-                # Fill only rows where left/right project to a plausible, non-crossing
-                # real-world width (computed in _detect_edges_hough, where depth/intrinsics
-                # are already in scope) -- a curve shows up as the whole corridor bending
-                # together, not as the two lines pinching into a triangle at a bad fit.
-                fill_rows = self._last_display_fill_rows
-                if fill_rows:
-                    fill_mask = np.zeros((h, w), dtype=np.uint8)
-                    for y_full, x_left, x_right in fill_rows:
-                        if 0 <= y_full < h:
-                            fill_mask[y_full, max(0, x_left):min(w, x_right)] = 255
-                    mask_bool = fill_mask > 0
-                    if np.any(mask_bool):
-                        tint = np.zeros_like(frame)
-                        tint[:] = (0, 200, 0)  # BGR green
-                        blended = cv2.addWeighted(frame, 0.55, tint, 0.45, 0)
-                        frame[mask_bool] = blended[mask_bool]
 
             confidence = float(detection.get("confidence", 0) or 0)
             status = detection.get("status", "unknown")
@@ -687,6 +659,7 @@ class RealsenseVision:
             "edge_target_offset_m": result.get("edge_target_offset_m"),
             "edge_forward_m": result.get("edge_forward_m"),
             "edge_guidance_valid": result.get("edge_guidance_valid", False),
+            "edge_mask_source": result.get("edge_mask_source"),
             "cpu_percent": round(cpu_percent, 1),
             "fps_current": round(self.measured_fps, 1),
             "fps_target": self.current_fps_target,
@@ -767,9 +740,34 @@ class RealsenseVision:
                 sat_tol = float(self.config.get("simple_edge_seed_sat_tol", 40))
                 hue = hsv[:, :, 0].astype(np.int16)
                 hue_diff = np.minimum(np.abs(hue - int(seed_h)), 180 - np.abs(hue - int(seed_h)))
-                color_ok = (hue_diff <= hue_tol) & \
-                           (np.abs(hsv[:, :, 1].astype(np.int16) - int(seed_s)) <= sat_tol)
-                sidewalk_mask = (color_ok & val_ok).astype(np.uint8) * 255
+                chromatic_ok = (hue_diff <= hue_tol) & \
+                               (np.abs(hsv[:, :, 1].astype(np.int16) - int(seed_s)) <= sat_tol)
+                # KNOWN GAP, not yet fixed: hue is meaningless on a fully desaturated
+                # pixel (OpenCV just reports 0), and dappled tree shade on concrete can
+                # knock saturation all the way to 0 while staying reasonably bright --
+                # confirmed on a real capture
+                # (logger/2026-07-09/5/rc_edge_capture_1/frame_1783624555840.jpg):
+                # sunlit sidewalk measured HSV(13, 7, 191), the SAME slab in shade a few
+                # feet away measured HSV(0, 0, 172). That fragments the sidewalk into
+                # disconnected sunlit-only islands under dappled shade -- confirmed as a
+                # real driver of low confidence that session (mean confidence 0.14, 44%
+                # width anomalies even on ticks where the mask WAS the source). Tried an
+                # achromatic exception (any sat-below-floor pixel counts as sidewalk
+                # regardless of hue) two ways and rejected both against real data before
+                # they shipped: unconditional -- reopened the shaded-grass gap this same
+                # session, lawn under a bush measured HSV(110, 9, 76), sat=9, indistinguishable
+                # from the concrete shadow by color alone; and dilation-bridged off a
+                # denoised chromatic anchor -- the anchor itself was too sparse under
+                # this much dappled shade (individual sunlit gaps between shadows often
+                # under 100px) for a size filter to both drop lawn noise AND keep enough
+                # anchor to bridge, collapsing back to a single ~300px fragment after
+                # the full mask pipeline ran. Left as pure hue/sat distance (safe,
+                # verified not to leak onto grass/lawn on two separate real photos) until
+                # there's a fix that survives verification -- the depth-based
+                # _apply_ground_grid_filter downstream is the more promising lever (real
+                # geometry instead of more color heuristics) but untested here since
+                # these captures have no paired depth to replay offline.
+                sidewalk_mask = (chromatic_ok & val_ok).astype(np.uint8) * 255
 
         walkable = sidewalk_mask
         walkable = cv2.medianBlur(walkable, 5)
@@ -1155,6 +1153,7 @@ class RealsenseVision:
             "edge_target_offset_m": round(float(target_offset), 4) if valid else None,
             "edge_forward_m": round(float(edge_forward_m), 3) if edge_forward_m is not None else None,
             "edge_guidance_valid": bool(valid),
+            "edge_mask_source": None,  # _detect_path_from_lines doesn't distinguish a mask/hough source
             "ground_grid_removed_frac": self._last_ground_removed_frac,
             "nearest_seen_left_edge": left_k if left_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
             "nearest_seen_right_edge": right_k if right_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
@@ -1204,7 +1203,7 @@ class RealsenseVision:
         return scored
 
     def _assemble_edge_result(self, nearest_left, nearest_right,
-                               left_bands=None, right_bands=None, centerline=None):
+                               left_bands=None, right_bands=None, centerline=None, edge_source=None):
         # Shared output contract for the edge detectors: per-side TTL cache, known()
         # state, edge selection, target offset, steering angle. Identical dict shape to
         # _detect_path_from_lines so the LCD / message handler / steering are unchanged.
@@ -1332,6 +1331,13 @@ class RealsenseVision:
             "edge_target_offset_m": round(float(target_offset), 4) if valid else None,
             "edge_forward_m": round(float(edge_forward_m), 3) if edge_forward_m is not None else None,
             "edge_guidance_valid": bool(valid),
+            # "mask" | "hough" | None -- which candidate-generation path actually ran
+            # this tick in _detect_edges_hough (None from _detect_path_from_lines,
+            # which doesn't distinguish). Exists so a session can be audited
+            # tick-by-tick afterward instead of inferring it from how the display
+            # overlay looks (the mask-vs-corridor green fill is a good visual cue,
+            # not a substitute for the real value).
+            "edge_mask_source": edge_source,
             "ground_grid_removed_frac": self._last_ground_removed_frac,
             "nearest_seen_left_edge": left_k if left_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
             "nearest_seen_right_edge": right_k if right_ok else {"seen": False, "x_distance_m": None, "y_distance_m": None, "confidence": 0.0},
@@ -1473,7 +1479,7 @@ class RealsenseVision:
             segments = cv2.HoughLinesP(edge_img, 1, math.pi / 180.0, hough_thr,
                                        minLineLength=min_len, maxLineGap=max_gap)
             if segments is None or len(segments) == 0:
-                return self._assemble_edge_result(None, None)
+                return self._assemble_edge_result(None, None, edge_source="hough")
 
             # --- 3. Fit ONE line per side, independently (x = a*y + b, weighted by length)
             for seg in segments:
@@ -1572,10 +1578,6 @@ class RealsenseVision:
         elif right_fit is None and left_fit is not None:
             la, lb, l_support, l_resid = left_fit
             right_fit = (la, center_x - la * float(h - 1), l_support, l_resid)
-        if self.display_enabled:
-            self._last_display_left_fit = left_fit
-            self._last_display_right_fit = right_fit
-
         # --- 4. Per side, take the CLOSEST edge point. Scan from the BOTTOM of the ROI
         # upward (nearest ground first) and use the first row where the fitted line is
         # in-frame with valid depth. This emits exactly the two points we care about —
@@ -1584,38 +1586,6 @@ class RealsenseVision:
         # point is the nearest one.) ppx/ppy/fx/fy/cp/sp/cr/sr were already set up above,
         # before fit_side, for the near-field-window real-distance filtering.
 
-        # Two independently-fit lines have no constraint that they stay a plausible
-        # sidewalk width apart -- a noisy segment on one side can skew that side's slope
-        # until the lines pinch or cross, which the display then draws as a triangle. A
-        # real sidewalk can curve, but its WIDTH stays roughly constant, so validate width
-        # in real-world meters (not pixels, which shrink with perspective regardless) at
-        # every row and only trust rows where it's plausible. Feeds the display fill so
-        # it draws a clean equal-width corridor instead of the raw, unconstrained lines.
-        if self.display_enabled and left_fit is not None and right_fit is not None:
-            min_width_m = float(cfg.get("edge_min_lateral_m", 0.4)) * 2.0
-            max_width_m = float(cfg.get("edge_distance_zero_conf_m", 3.0))
-            la, lb, _, _ = left_fit
-            ra, rb, _, _ = right_fit
-            fill_rows = []
-            for y_roi in range(h):
-                x_left = la * y_roi + lb
-                x_right = ra * y_roi + rb
-                if x_left < 0 or x_left > (w - 1) or x_right < 0 or x_right > (w - 1):
-                    continue
-                if x_right <= x_left:
-                    continue                            # crossed -- never trust
-                d_left = self._sample_depth_at(roi_depth, int(round(x_left)), y_roi)
-                d_right = self._sample_depth_at(roi_depth, int(round(x_right)), y_roi)
-                if not d_left or not d_right or np.isnan(d_left) or np.isnan(d_right):
-                    continue
-                lat_left = cr * ((x_left - ppx) * d_left / fx) - sr * ((row_start + y_roi - ppy) * d_left / fy)
-                lat_right = cr * ((x_right - ppx) * d_right / fx) - sr * ((row_start + y_roi - ppy) * d_right / fy)
-                width_m = lat_right - lat_left
-                if min_width_m <= width_m <= max_width_m:
-                    fill_rows.append((row_start + y_roi, int(round(x_left)), int(round(x_right))))
-            self._last_display_fill_rows = fill_rows
-        elif self.display_enabled:
-            self._last_display_fill_rows = []
         # Distance weighting of confidence: a closer edge is geometrically more reliable,
         # so weight it up and far ones down. edge_distance_conf_weight = how much (0 = off).
         near_full_m = float(cfg.get("edge_distance_full_conf_m", 1.0))
@@ -1883,7 +1853,8 @@ class RealsenseVision:
         return self._assemble_edge_result(nearest_left, nearest_right,
                                            left_bands=self._trace_bands(left_bands),
                                            right_bands=self._trace_bands(right_bands),
-                                           centerline=self._centerline_from_band_infos(band_infos))
+                                           centerline=self._centerline_from_band_infos(band_infos),
+                                           edge_source="mask" if use_mask_source else "hough")
 
     def detect_path(self, color_image, depth_image, intrinsics):
         # edge_hough_detector: true (the live default, setup.json + setup_example.json) ->
