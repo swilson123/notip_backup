@@ -86,12 +86,6 @@
         "segmentation_input_width": 512,
         "segmentation_input_height": 256,
         "appearance_mode": "blend",
-        "appearance_seed_y_frac": 0.92,
-        "appearance_seed_ttl_ms": 2000,
-        "sam_enabled": true,
-        "sam_encoder_path": "./lib/realsense/mobilesam/mobile_sam_encoder.onnx",
-        "sam_decoder_path": "./lib/realsense/mobilesam/mobile_sam_decoder.onnx",
-        "sam_onnx_min_area_frac": 0.02,
         "edge_max_lookahead_m": 2.5,
         "dropoff_min_depth_jump_m": 0.08,
         "edge_stop_clearance_m": -0.05,
@@ -164,10 +158,7 @@
         "gps_jump_speed_multiplier": 3,
         "gps_jump_floor_m": 0.5,
         "funnel_warp_enabled": true,
-        "funnel_warp_gamma": 2,
-        "sam_clahe_enabled": true,
-        "sam_clahe_clip": 2,
-        "sam_clahe_tile_size": 8
+        "funnel_warp_gamma": 2
     },
     "imu": {
         "enable_imu": true,
