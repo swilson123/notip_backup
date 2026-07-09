@@ -99,6 +99,12 @@ class RealsenseVision:
         # Prevents frame-to-frame measurement noise from causing steering jitter.
         self._edge_smooth = {"left": None, "right": None}
         self._guidance_smooth = {"left": None, "right": None}
+        # Stable reference color for the seed-adaptive ground mask (see
+        # _stable_ground_seed) -- the sidewalk's own color shouldn't change tick to
+        # tick, so this is a slow EMA, not a fresh re-sample every frame. None until
+        # the first frame bootstraps it.
+        self._ground_seed_ref = None
+        self._ground_seed_pending = None
         # HDMI screen preview: OFF by default (display_enabled in setup.json), toggled
         # live via SIGUSR1 so it can be flipped on/off without restarting the mission --
         # this process already owns the exclusive RealSense camera handle, so the
@@ -705,94 +711,85 @@ class RealsenseVision:
 
         hsv = cv2.cvtColor(roi_color_eq, cv2.COLOR_BGR2HSV)
         sat_limit = int(self.config.get("simple_edge_saturation_limit", 100))
-        val_min = int(self.config.get("simple_edge_value_min", 55))
         light_min = int(self.config.get("simple_edge_light_min", 55))
         min_area = int(self.config.get("simple_edge_component_min_area", 250))
-        val_mean_frac = float(self.config.get("simple_edge_val_mean_frac", 0.40))
 
-        mean_val = int(np.mean(hsv[:, :, 2]))
-        val_floor = max(light_min, max(val_min, int(mean_val * val_mean_frac)))
-
-        # A single scene-wide floor treats a large dappled tree-shadow like a real
-        # material change: shadowed concrete reads darker than the SUNLIT majority
-        # of the ROI by more than val_floor tolerates, so the shadow's own outline
-        # gets carved out as "non-walkable" -- mask_grad then reports that outline
-        # as an edge (confirmed 2026-07-08 field test, rc_edge_capture_2 session:
-        # both edge lines locked onto a tree-canopy shadow silhouette crossing the
-        # sidewalk instead of the real grass line, x_angle correctly held near 0
-        # only because confidence also collapsed to 0.00). Shadowed concrete is
-        # still uniformly bright relative to ITS OWN neighborhood, not black, so
-        # thresholding each pixel against a wide local mean instead of the one
-        # global scene mean keeps it walkable while the hue-based tests below
-        # (grass/mulch/dark) still exclude what's actually not walkable.
+        # Brightness gate: NOT a classifier, just a numerical-stability floor. Hue and
+        # saturation are meaningless noise on a near-black pixel (a shadow void, a gap
+        # between joints, deep mulch), so those pixels are excluded regardless of how
+        # close their (unstable) hue happens to land to the sidewalk's. Local-adaptive
+        # so a large dappled tree-shadow crossing the SAME sidewalk isn't excluded just
+        # for reading darker than the sunlit majority of the ROI (confirmed 2026-07-08
+        # field test, rc_edge_capture_2: a shadow's own outline got traced as a false
+        # edge when this was a single scene-wide floor instead).
         if bool(self.config.get("simple_edge_local_adaptive_enabled", True)):
             local_block = int(self.config.get("simple_edge_local_block_px", 101)) | 1
             local_offset = int(self.config.get("simple_edge_local_offset", 25))
             local_mean = cv2.GaussianBlur(hsv[:, :, 2], (local_block, local_block), 0).astype(np.int32)
-            # Deliberately NOT clipped up to light_min here: a real dappled shadow's
-            # local mean can genuinely sit below light_min, and re-imposing that
-            # absolute floor on top of the local one defeats the adaptive test right
-            # where it matters most. dark_nonwalkable below still independently
-            # excludes truly near-black pixels (V <= dark_val_max) regardless.
             local_floor = np.clip(local_mean - local_offset, 0, 255).astype(np.uint8)
             val_ok = hsv[:, :, 2] >= local_floor
         else:
-            val_ok = hsv[:, :, 2] >= val_floor
-        sat_ok = hsv[:, :, 1] <= sat_limit
-        concrete_mask = (val_ok & sat_ok).astype(np.uint8) * 255
+            val_ok = hsv[:, :, 2] >= light_min
 
-        # Sample the real sidewalk color directly beneath the rover -- bottom-center
-        # of the ROI is always ground (Noah's own position, the same single-vantage
-        # point _render_display anchors the carrot/edge rays to) -- and widen
-        # concrete_mask to match it. The fixed brightness+low-saturation test above
-        # assumes grey concrete; a warmer/redder aggregate or a different house's
-        # sidewalk can be saturated enough to fail sat_ok outright and vanish from
-        # BOTH walkable and non_walkable (neither bright-grey nor grass/mulch/dark),
-        # so the edge simply never gets classified at all. This is additive only
-        # (OR'd into concrete_mask): it can widen what counts as walkable to match
-        # today's actual sidewalk color, never narrow the existing grey-concrete case.
-        if bool(self.config.get("simple_edge_seed_adaptive_enabled", True)):
-            hh, ww = hsv.shape[:2]
-            seed_row_frac = float(self.config.get("simple_edge_seed_row_frac", 0.94))
-            half_w = int(self.config.get("simple_edge_seed_patch_half_w_px", 20))
-            half_h = int(self.config.get("simple_edge_seed_patch_half_h_px", 12))
-            if hh > 2 * half_h and ww > 2 * half_w:
-                sy = int(np.clip(hh * seed_row_frac, half_h, hh - 1 - half_h))
-                sx = ww // 2
-                patch = hsv[sy - half_h:sy + half_h + 1, sx - half_w:sx + half_w + 1]
-                seed_h, seed_s, seed_v = (float(np.median(patch[:, :, c])) for c in range(3))
-                # A shadow or a stray leaf sitting exactly in the seed patch would
-                # otherwise get treated as "the sidewalk's real color" for the whole
-                # frame -- only trust the seed when it's plausibly ground already
-                # (bright enough, not saturated like grass/mulch already exclude).
-                if seed_v >= light_min * 0.6 and seed_s <= sat_limit + 30:
-                    hue_tol = float(self.config.get("simple_edge_seed_hue_tol", 12))
-                    sat_tol = float(self.config.get("simple_edge_seed_sat_tol", 40))
-                    hue = hsv[:, :, 0].astype(np.int16)
-                    hue_diff = np.minimum(np.abs(hue - int(seed_h)), 180 - np.abs(hue - int(seed_h)))
-                    seed_ok = (hue_diff <= hue_tol) & \
-                              (np.abs(hsv[:, :, 1].astype(np.int16) - int(seed_s)) <= sat_tol) & \
-                              val_ok
-                    concrete_mask = cv2.bitwise_or(concrete_mask, (seed_ok.astype(np.uint8) * 255))
+        # The sidewalk mask: not "bright and grey, minus a list of known-not-sidewalk
+        # hues" (grass/mulch/near-black) -- that approach has coverage gaps by
+        # construction, e.g. shaded grass desaturates below the grass-hue test's own
+        # saturation floor and silently stops being excluded (confirmed on
+        # screenshots/Screenshot 2026-06-30 at 10.42.14 AM.png: grass in tree shade
+        # measured HSV (83, 28, 41) -- hue correctly in the grass band, but sat=28 is
+        # under that test's sat>=40 requirement, so it read as "concrete"). Sample the
+        # real sidewalk color directly beneath the rover instead -- bottom-center of
+        # the ROI is always ground (Noah's own position, the same single-vantage point
+        # _render_display anchors the carrot/edge rays to) -- and classify by distance
+        # to THAT color. Grass fails on hue alone regardless of its saturation, which
+        # is what actually fixes the shaded-grass case above.
+        hh, ww = hsv.shape[:2]
+        seed_row_frac = float(self.config.get("simple_edge_seed_row_frac", 0.94))
+        half_w = int(self.config.get("simple_edge_seed_patch_half_w_px", 20))
+        half_h = int(self.config.get("simple_edge_seed_patch_half_h_px", 12))
+        sidewalk_mask = np.zeros((hh, ww), dtype=np.uint8)
+        if hh > 2 * half_h and ww > 2 * half_w:
+            sy = int(np.clip(hh * seed_row_frac, half_h, hh - 1 - half_h))
+            sx = ww // 2
+            patch = hsv[sy - half_h:sy + half_h + 1, sx - half_w:sx + half_w + 1]
+            raw_h, raw_s, raw_v = (float(np.median(patch[:, :, c])) for c in range(3))
+            # A shadow, a wet leaf, or an oil stain sitting exactly in the seed patch
+            # this one tick isn't "the sidewalk" -- an implausible raw sample never
+            # reaches the stabilizer at all, and classification for this frame just
+            # falls back to the last known-good reference instead of losing
+            # color-based classification entirely for one bad tick.
+            plausible = raw_v >= light_min * 0.6 and raw_s <= sat_limit + 30
+            seed_hsv = self._stable_ground_seed(raw_h, raw_s, raw_v) if plausible \
+                else self._ground_seed_ref
+            if seed_hsv is not None:
+                seed_h, seed_s, seed_v = seed_hsv
+                hue_tol = float(self.config.get("simple_edge_seed_hue_tol", 12))
+                sat_tol = float(self.config.get("simple_edge_seed_sat_tol", 40))
+                hue = hsv[:, :, 0].astype(np.int16)
+                hue_diff = np.minimum(np.abs(hue - int(seed_h)), 180 - np.abs(hue - int(seed_h)))
+                color_ok = (hue_diff <= hue_tol) & \
+                           (np.abs(hsv[:, :, 1].astype(np.int16) - int(seed_s)) <= sat_tol)
+                sidewalk_mask = (color_ok & val_ok).astype(np.uint8) * 255
 
-        green_mask_roi = cv2.inRange(hsv, (35, 40, 25), (95, 255, 255))
-        # No upper Value bound: mulch's hue (8-32, orange/brown/tan) is what identifies
-        # it, not its brightness. A Value ceiling here let SUNLIT mulch (bright enough to
-        # cross the cap) fall through this exclusion and get counted as "concrete" by the
-        # broad brightness+low-saturation test above -- exactly the green-into-mulch
-        # bleed seen in screenshots/Screenshot 2026-07-07 at 2.27.13 PM.png.
-        mulch_val_max = int(self.config.get("simple_edge_mulch_val_max", 255))
-        mulch_mask = cv2.inRange(hsv, (8, 40, 20), (32, 255, mulch_val_max))
-        # Very dark pixels (nearly black) are non-walkable regardless of hue/saturation.
-        # Catches jet-black or low-saturation mulch that falls outside the HSV mulch range.
-        dark_val_max = int(self.config.get("simple_edge_dark_val_max", 30))
-        dark_nonwalkable = cv2.inRange(hsv, (0, 0, 0), (179, 255, dark_val_max))
-
-        non_walkable = cv2.bitwise_or(cv2.bitwise_or(green_mask_roi, mulch_mask), dark_nonwalkable)
-        walkable = cv2.bitwise_and(concrete_mask, cv2.bitwise_not(non_walkable))
+        walkable = sidewalk_mask
         walkable = cv2.medianBlur(walkable, 5)
         walkable = cv2.morphologyEx(walkable, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
         walkable = cv2.morphologyEx(walkable, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
+        # Expansion/control joints between sidewalk slabs run the FULL width of the
+        # sidewalk, so they touch the real grass/mulch edge at both ends -- that makes
+        # them topologically one connected piece with the true exterior background,
+        # NOT an enclosed hole (_fill_enclosed_regions below correctly leaves them
+        # alone; confirmed by testing a synthetic joint, it stays one background
+        # component with the surrounding grass). A tall, thin vertical closing kernel
+        # bridges a short vertical break WITHIN A COLUMN regardless of what's on
+        # either side of it -- since it's only 1px wide, it can't smear the left/right
+        # edges sideways the way a wider kernel would, it only reconnects walkable
+        # pixels above and below a joint-width gap in the same column.
+        if bool(self.config.get("simple_edge_joint_bridge_enabled", True)):
+            joint_bridge_px = int(self.config.get("simple_edge_joint_bridge_px", 40))
+            walkable = cv2.morphologyEx(walkable, cv2.MORPH_CLOSE, np.ones((joint_bridge_px, 1), np.uint8))
+        if bool(self.config.get("simple_edge_fill_enclosed_holes_enabled", True)):
+            walkable = self._fill_enclosed_regions(walkable)
 
         if min_area > 0 and cv2.countNonZero(walkable) > 0:
             n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(walkable, connectivity=8)
@@ -802,13 +799,102 @@ class RealsenseVision:
                     clean[labels == lbl] = 255
             walkable = clean
 
-        # non_walkable is a pure hue/material classification (grass hue | mulch hue |
-        # near-black) with no brightness-relative test in it anywhere -- unlike
-        # `walkable`, its boundary can't be triggered by a shadow alone (see the
-        # mask_grad comment in _detect_edges_hough, the actual caller that needs this
-        # distinction). Returned alongside walkable/green_mask_roi rather than
-        # recomputed by callers, since it shares all the HSV work already done above.
-        return walkable, green_mask_roi, non_walkable
+        # non_walkable is just the logical complement now -- there's no separate
+        # grass/mulch/dark hue classification anymore, walkable IS the sidewalk-color
+        # test. mask_grad (the caller that needs this, in _detect_edges_hough's Hough
+        # fallback) traces a boundary either way; tracing NOT(walkable) instead of a
+        # separately-computed exclusion mask gives the identical boundary here.
+        # green_mask_roi is returned as None -- only _validate_perspective_narrowing
+        # (the non-live _detect_path_from_lines path) ever consumed it, and it
+        # already treats None as "no green signal available."
+        non_walkable = cv2.bitwise_not(walkable)
+        return walkable, None, non_walkable
+
+    def _fill_enclosed_regions(self, mask):
+        # Expansion/control joints between sidewalk slabs, and small stains, patched
+        # repairs, sun-bleached spots, leaves, or debris sitting on an otherwise
+        # continuous sidewalk, all cut a dark or oddly-colored gap INTO the walkable
+        # mask -- but none of them is a real edge. A real edge only ever borders the
+        # mask from the side; anything fully enclosed by walkable pixels on every side
+        # is just surface variation on the same slab. Left unfilled, a joint line
+        # running the full width of the sidewalk would split what's visually one
+        # continuous path into as many disconnected components as it has slabs --
+        # _select_center_component can only pick ONE of those, so the row-boundary
+        # trace would only ever see the single nearest slab instead of the whole
+        # sidewalk ahead.
+        #
+        # Standard flood-fill-from-the-border hole fill: anything reachable from a
+        # corner of the frame is real exterior background (grass/mulch); anything
+        # that ISN'T reachable but also isn't already walkable is an enclosed hole --
+        # fold it into walkable.
+        h, w = mask.shape[:2]
+        flood = mask.copy()
+        filled_any = False
+        for sx, sy in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+            if flood[sy, sx] == 0:
+                ff_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+                cv2.floodFill(flood, ff_mask, (sx, sy), 255)
+                filled_any = True
+        if not filled_any:
+            return mask                          # every corner is already walkable -- nothing exterior to compare against
+        holes = cv2.bitwise_not(flood)           # 255 only where a real hole was never reached from any corner
+        return cv2.bitwise_or(mask, holes)
+
+    def _stable_ground_seed(self, raw_h, raw_s, raw_v):
+        # The sidewalk under the rover doesn't change tick to tick, so the reference
+        # color shouldn't either -- a single frame's raw sample can land on a crack's
+        # shadow, a wet leaf, or an oil stain, none of which is "the sidewalk," just
+        # whatever happened to be under the rover this tick. A reading that disagrees
+        # with the current reference is held as a PENDING candidate rather than
+        # accepted immediately; only once the same divergence persists across several
+        # consecutive frames -- a real regime change, e.g. rain soaking in, or moving
+        # onto a different house's sidewalk -- does it get accepted as the new
+        # reference. A one-off divergent tick never moves the reference at all.
+        if self._ground_seed_ref is None:
+            self._ground_seed_ref = (raw_h, raw_s, raw_v)
+            self._ground_seed_pending = None
+            return self._ground_seed_ref
+
+        ref_h, ref_s, ref_v = self._ground_seed_ref
+        hue_diff = min(abs(raw_h - ref_h), 180 - abs(raw_h - ref_h))
+        sat_diff = abs(raw_s - ref_s)
+        val_diff = abs(raw_v - ref_v)
+        # Wider than the per-pixel classification tolerance below -- this gate decides
+        # whether the WHOLE-FRAME sample still looks like the established sidewalk,
+        # not whether one pixel is close enough to count as walkable.
+        hue_tol = float(self.config.get("simple_edge_seed_hue_tol", 12)) * 1.5
+        sat_tol = float(self.config.get("simple_edge_seed_sat_tol", 40)) * 1.5
+        val_tol = float(self.config.get("simple_edge_seed_val_tol", 45))
+        if hue_diff <= hue_tol and sat_diff <= sat_tol and val_diff <= val_tol:
+            self._ground_seed_pending = None
+            alpha = float(self.config.get("simple_edge_seed_ema_alpha", 0.08))
+            delta = raw_h - ref_h
+            if delta > 90:
+                delta -= 180
+            elif delta < -90:
+                delta += 180
+            self._ground_seed_ref = (
+                (ref_h + alpha * delta) % 180.0,
+                ref_s + alpha * (raw_s - ref_s),
+                ref_v + alpha * (raw_v - ref_v),
+            )
+            return self._ground_seed_ref
+
+        pending = self._ground_seed_pending
+        persist_needed = int(self.config.get("simple_edge_seed_persist_frames", 8))
+        if pending is not None and \
+                min(abs(raw_h - pending["h"]), 180 - abs(raw_h - pending["h"])) <= hue_tol and \
+                abs(raw_s - pending["s"]) <= sat_tol and abs(raw_v - pending["v"]) <= val_tol:
+            pending["count"] += 1
+        else:
+            pending = {"h": raw_h, "s": raw_s, "v": raw_v, "count": 1}
+        self._ground_seed_pending = pending
+
+        if pending["count"] >= persist_needed:
+            self._ground_seed_ref = (raw_h, raw_s, raw_v)
+            self._ground_seed_pending = None
+
+        return self._ground_seed_ref
 
     def _select_center_component(self, walkable_mask):
         if cv2.countNonZero(walkable_mask) == 0:
