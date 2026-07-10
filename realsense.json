@@ -1,0 +1,15 @@
+{
+    "realsense_vision": {
+        "realsense_comName": "/dev/ttyAMA2", // path to the Realsense camera
+        "enabled": true, // enable or disable the Realsense vision system
+        "script_path": "./lib/realsense/realsense_vision.py", // path to the Realsense vision script
+        "screen_width": 1280, // width of the display screen
+        "screen_height": 720, // height of the display screen
+        "fps_normal": 6, // normal frames per second for the Realsense camera
+        "segmentation_model_path": "./lib/realsense/sidewalk_model.onnx", // path to the segmentation model
+        "edge_lookahead_m": 1.5, // lookahead distance for edge detection in meters
+        "camera_height_m": 0.6731, // height of the camera in meters
+        "camera_mount_pitch_deg": 33, // pitch angle of the camera mount in degrees
+    }
+    
+}

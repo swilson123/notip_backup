@@ -10,6 +10,7 @@
     "throttle_percentage": 15,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
+    "ldr_comName": null,
     "realsense_comName": "/dev/ttyAMA2",
     "nav_tuning": {
         "two_wheel_steering_gain": 0.4,
