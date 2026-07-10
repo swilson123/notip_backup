@@ -20,7 +20,8 @@
         "side_invert": false,
         "display_enabled": false,
         "display_port": 8090,
-        "display_browser_path": "chromium-browser"
+        "display_browser_path": "/usr/bin/chromium",
+        "display_broadcast_interval_ms": 100
     },
     "nav_tuning": {
         "two_wheel_steering_gain": 0.4,

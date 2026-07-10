@@ -10,18 +10,19 @@
     "throttle_percentage": 15,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
-    "ldr_comName": null,
+    "ldr_comName": "/dev/ttyUSB0",
     "realsense_comName": "/dev/ttyAMA2",
     "ldr": {
-        "enabled": true,
+        "enabled": false,
         "mount_height_mm": 609.6,
         "edge_delta_threshold_mm": 100,
         "edge_min_theta_deg": 5,
         "edge_max_theta_deg": 85,
         "side_invert": false,
-        "display_enabled": false,
+        "display_enabled": true,
         "display_port": 8090,
-        "display_browser_path": "chromium-browser"
+        "display_browser_path": "/usr/bin/chromium",
+        "display_broadcast_interval_ms": 100
     },
     "nav_tuning": {
         "two_wheel_steering_gain": 0.4,
@@ -70,7 +71,7 @@
     "realsense_vision": {
         "enabled": true,
         "follow_sidewalk_enabled": true,
-        "display_enabled": true,
+        "display_enabled": false,
         "display_capture_enabled": true,
         "display_capture_interval_s": 1,
         "display_capture_dir": "./screenshots/auto_capture",
