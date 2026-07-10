@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Noah — LDR Edge Scan</title>
+<style>
+    html, body {
+        margin: 0;
+        background: #111;
+        color: #eee;
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+    }
+    #readout {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        font-size: 18px;
+        line-height: 1.5;
+    }
+    #readout .left  { color: #4fd1ff; }
+    #readout .right { color: #ff8a4f; }
+    #status {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        font-size: 14px;
+        color: #888;
+    }
+</style>
+</head>
+<body>
+<canvas id="plot"></canvas>
+<div id="readout">
+    <div class="left">Left edge: <span id="left_val">--</span> mm</div>
+    <div class="right">Right edge: <span id="right_val">--</span> mm</div>
+</div>
+<div id="status">connecting...</div>
+<script>
+    // 0 deg = straight down (bottom of plot), 180 deg = straight up (top of plot),
+    // matching the LDR's physical vertical mount on the front of the rover.
+    const MAX_RANGE_MM = 3000;
+    const RANGE_STEP_MM = 500;
+
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+    const status_el = document.getElementById('status');
+    const left_val = document.getElementById('left_val');
+    const right_val = document.getElementById('right_val');
+
+    let cx, cy, plot_radius;
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        cx = canvas.width / 2;
+        cy = canvas.height / 2;
+        plot_radius = Math.min(canvas.width, canvas.height) * 0.42;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function polar_to_xy(angle_deg, distance_mm) {
+        const rad = angle_deg * Math.PI / 180;
+        const r = Math.min(distance_mm / MAX_RANGE_MM, 1) * plot_radius;
+        return { x: cx + r * Math.sin(rad), y: cy + r * Math.cos(rad) };
+    }
+
+    function draw_rings() {
+        ctx.strokeStyle = '#333';
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        for (let mm = RANGE_STEP_MM; mm <= MAX_RANGE_MM; mm += RANGE_STEP_MM) {
+            const r = (mm / MAX_RANGE_MM) * plot_radius;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillText(mm + 'mm', cx + 4, cy - r - 2);
+        }
+
+        // Down/up axis (0/180) and horizontal axis (90/270)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - plot_radius);
+        ctx.lineTo(cx, cy + plot_radius);
+        ctx.moveTo(cx - plot_radius, cy);
+        ctx.lineTo(cx + plot_radius, cy);
+        ctx.stroke();
+
+        ctx.fillStyle = '#999';
+        ctx.fillText('0° (down)', cx - 30, cy + plot_radius + 16);
+        ctx.fillText('180° (up)', cx - 30, cy - plot_radius - 6);
+        ctx.fillText('90°', cx + plot_radius + 4, cy + 4);
+        ctx.fillText('270°', cx - plot_radius - 30, cy + 4);
+    }
+
+    function draw(payload) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        draw_rings();
+
+        ctx.fillStyle = '#4fd1ff';
+        payload.points.forEach(function (pt) {
+            const p = polar_to_xy(pt.angle_deg, pt.distance_mm);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Sensor mount point
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        left_val.textContent = payload.edge_left_distance_mm != null ? payload.edge_left_distance_mm : '--';
+        right_val.textContent = payload.edge_right_distance_mm != null ? payload.edge_right_distance_mm : '--';
+    }
+
+    function connect() {
+        const port = new URLSearchParams(location.search).get('port') || 8090;
+        const socket = new WebSocket('ws://localhost:' + port);
+
+        socket.onopen = function () { status_el.textContent = 'connected'; };
+        socket.onclose = function () {
+            status_el.textContent = 'disconnected — retrying...';
+            setTimeout(connect, 2000);
+        };
+        socket.onerror = function () { socket.close(); };
+        socket.onmessage = function (event) {
+            try {
+                draw(JSON.parse(event.data));
+            } catch (e) {
+                // ignore malformed frame
+            }
+        };
+    }
+
+    connect();
+</script>
+</body>
+</html>

@@ -11,6 +11,17 @@
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
     "ldr_comName": "/dev/ttyUSB0",
+    "ldr": {
+        "enabled": true,
+        "mount_height_mm": 609.6,
+        "edge_delta_threshold_mm": 100,
+        "edge_min_theta_deg": 5,
+        "edge_max_theta_deg": 85,
+        "side_invert": false,
+        "display_enabled": false,
+        "display_port": 8090,
+        "display_browser_path": "chromium-browser"
+    },
     "nav_tuning": {
         "two_wheel_steering_gain": 0.4,
         "two_wheel_steering_deadband_deg": 2,
