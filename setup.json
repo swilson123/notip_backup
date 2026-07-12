@@ -82,13 +82,13 @@
         "screen_height": 720,
         "fps_normal": 6,
         "segmentation_model_path": "./lib/sidewalk_vision/models/fastscnn_sidewalk.onnx",
-        "camera_height_m": 0.6731,
+        "camera_height_m": 0.825,
         "camera_mount_pitch_deg": 33
     },
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": -68.75,
+        "compass_offset_deg": -59.76,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
