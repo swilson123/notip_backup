@@ -528,8 +528,8 @@ class RealsenseVision:
     def start(self):
         self._reset_camera()
 
-        width = int(self.config.get("width", 640))
-        height = int(self.config.get("height", 480))
+        width = int(self.config.get("screen_width", 640))
+        height = int(self.config.get("screen_height", 480))
         fps = int(self.config.get("fps_normal", 15))
 
         self.pipeline = rs.pipeline()
