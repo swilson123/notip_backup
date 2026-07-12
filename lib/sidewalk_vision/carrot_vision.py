@@ -267,7 +267,7 @@ class CarrotVision:
         # Arrow from bottom-centre to carrot
         if carrot_pt is not None:
             cv2.arrowedLine(out, (W // 2, H - 1), carrot_pt,
-                            (0, 200, 255), 2, cv2.LINE_AA, tipLength=0.12)
+                            (57, 255, 20), 2, cv2.LINE_AA, tipLength=0.12)
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(out, 'CARROT VISION', (8, 22), font, 0.62,
