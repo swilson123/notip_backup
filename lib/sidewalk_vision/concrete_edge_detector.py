@@ -24,6 +24,7 @@ Rejection chain
 - Bad polygons       — interior concrete-ratio < 55 % → rejected
 """
 
+import sys
 import cv2
 import numpy as np
 from collections import deque
@@ -271,9 +272,9 @@ class ConcreteEdgeDetector:
             from fastscnn_detector import FastSCNNDetector
             self._zero_shot     = FastSCNNDetector(model_path=segmentation_model_path)
             self._use_zero_shot = True
-            print("ConcreteEdgeDetector: segmentation = fastscnn", flush=True)
+            print("ConcreteEdgeDetector: segmentation = fastscnn", file=sys.stderr, flush=True)
         except Exception as exc:
-            print(f"ConcreteEdgeDetector: FastSCNN unavailable ({exc}), using rule-based", flush=True)
+            print(f"ConcreteEdgeDetector: FastSCNN unavailable ({exc}), using rule-based", file=sys.stderr, flush=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # PUBLIC ENTRY POINT
@@ -377,7 +378,7 @@ class ConcreteEdgeDetector:
             # Print only when something is not working normally
             if left_status != 'RANSAC' or right_status != 'RANSAC':
                 print(f'[CED] L:{left_status}({len(left_pts)}pts) '
-                      f'R:{right_status}({len(right_pts)}pts)', flush=True)
+                      f'R:{right_status}({len(right_pts)}pts)', file=sys.stderr, flush=True)
 
             # ── Update component-centre (used for anchor fallback) ────────
             left_measured  = (left_line  is not None)
@@ -431,7 +432,7 @@ class ConcreteEdgeDetector:
                 geo_mask = self._ground_plane_mask(
                     depth_z16, intrinsics, pitch_rad, roll_rad)
             except Exception as ge:
-                print(f"CED geometry filter error: {ge}", flush=True)
+                print(f"CED geometry filter error: {ge}", file=sys.stderr, flush=True)
 
         # ── Zero-shot material mask (async CLIPSeg, cached) ────────────────
         zs_mask = None
@@ -447,7 +448,7 @@ class ConcreteEdgeDetector:
                     print(f"[CED geo-filter] material:{n_before}px → "
                           f"material+ground:{n_after}px  "
                           f"(removed {n_before - n_after}px walls/vehicles)",
-                          flush=True)
+                          file=sys.stderr, flush=True)
                 else:
                     zs_mask = zs_raw
 
@@ -473,7 +474,7 @@ class ConcreteEdgeDetector:
             if zs_roi.shape[:2] == mask.shape[:2]:
                 mask = cv2.bitwise_and(mask, zs_roi)
                 n_after = int(np.count_nonzero(mask))
-                print(f"[CED] selected ∩ zs_mask → {n_after}px", flush=True)
+                print(f"[CED] selected ∩ zs_mask → {n_after}px", file=sys.stderr, flush=True)
 
         self._last_mask = mask
 
@@ -488,7 +489,7 @@ class ConcreteEdgeDetector:
                     abs(centroid_y - self._last_centroid_y) > self._CENTROID_RESET_PX):
                 print(f"[CED] camera angle change detected "
                       f"(centroid shift {centroid_y - self._last_centroid_y:+.0f}px) "
-                      f"— resetting polynomial history", flush=True)
+                      f"— resetting polynomial history", file=sys.stderr, flush=True)
                 self._left_hist.clear()
                 self._right_hist.clear()
                 self._left_poly  = None
@@ -685,7 +686,7 @@ class ConcreteEdgeDetector:
         # ── Shape audit (printed once per candidate loop) ─────────────────
         print(f"[CED shapes] roi_bgr={roi_bgr.shape}  prob_map={prob_map.shape}  "
               f"mask={mask.shape}  labels={labels.shape}  "
-              f"S_c={S_c.shape}  speckle={speckle.shape}", flush=True)
+              f"S_c={S_c.shape}  speckle={speckle.shape}", file=sys.stderr, flush=True)
 
         # Crop all arrays to the exact same (h, w) as labels so boolean indexing
         # is always safe even if sizes drifted by one pixel
@@ -979,19 +980,19 @@ class ConcreteEdgeDetector:
         roi_h = re - rs
 
         if zs_raw is None:
-            print('[CED] no mask from FastSCNN yet', flush=True)
+            print('[CED] no mask from FastSCNN yet', file=sys.stderr, flush=True)
             return None, [], [], False
 
         roi_mask = zs_raw[rs:re]
         px = int(np.count_nonzero(roi_mask))
         if px < MIN_MASK_PIXELS:
-            print(f'[CED] sparse mask: {px}px < {MIN_MASK_PIXELS}', flush=True)
+            print(f'[CED] sparse mask: {px}px < {MIN_MASK_PIXELS}', file=sys.stderr, flush=True)
             return None, [], [], False
 
         sel_roi, fallback = self._select_anchor_component(
             roi_mask, roi_h, W, last_component_cx)
         if sel_roi is None:
-            print(f'[CED] no component selected (px={px})', flush=True)
+            print(f'[CED] no component selected (px={px})', file=sys.stderr, flush=True)
             return None, [], [], False
 
         # Embed the selected ROI component into a full-image mask for debug/return
@@ -1048,7 +1049,7 @@ class ConcreteEdgeDetector:
             self._last_right_run_cx = float(right_pts_rev[-1][1])
         else:
             print(f'[CED] tracking collected 0 rows (px={px}, fallback={fallback})',
-                  flush=True)
+                  file=sys.stderr, flush=True)
 
         # Reverse to top→bottom order
         return sel_mask, left_pts_rev[::-1], right_pts_rev[::-1], fallback

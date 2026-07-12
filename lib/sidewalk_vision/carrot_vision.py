@@ -275,7 +275,7 @@ class CarrotVision:
 
         if path_valid and angle is not None:
             cv2.putText(out, f'angle : {angle:+.1f}', (8, 48), font, 0.55,
-                        (0, 255, 255), 1, cv2.LINE_AA)
+                        (57, 255, 20), 1, cv2.LINE_AA)
             if raw_angle is not None and abs(raw_angle - angle) > 0.05:
                 cv2.putText(out, f'raw   : {raw_angle:+.1f}', (8, 68), font, 0.50,
                             (120, 210, 120), 1, cv2.LINE_AA)
