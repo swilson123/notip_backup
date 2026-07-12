@@ -238,7 +238,8 @@ def _smooth_raw_pts(pts):
 
 class ConcreteEdgeDetector:
 
-    def __init__(self, device="cpu"):
+    def __init__(self, device="cpu", camera_height_m=0.406, segmentation_model_path=None):
+        self.camera_height_m = camera_height_m
         self._left_hist   = deque(maxlen=SMOOTH_HISTORY)
         self._right_hist  = deque(maxlen=SMOOTH_HISTORY)
         self._left_poly   = None
@@ -268,7 +269,7 @@ class ConcreteEdgeDetector:
         self._use_zero_shot = False
         try:
             from fastscnn_detector import FastSCNNDetector
-            self._zero_shot     = FastSCNNDetector()
+            self._zero_shot     = FastSCNNDetector(model_path=segmentation_model_path)
             self._use_zero_shot = True
             print("ConcreteEdgeDetector: segmentation = fastscnn", flush=True)
         except Exception as exc:
@@ -296,7 +297,7 @@ class ConcreteEdgeDetector:
         """
         import math
         H, W     = depth_z16.shape
-        CAM_H    = 0.406    # camera height above ground (m)
+        CAM_H    = self.camera_height_m    # camera height above ground (m)
         MIN_Y    = -0.08    # below ground — likely measurement noise
         MAX_Y    =  0.12    # max height above ground still walkable
         MIN_Z    =  0.15    # min forward depth
@@ -1304,13 +1305,13 @@ class ConcreteEdgeDetector:
                         (8, rs + 68), cv2.FONT_HERSHEY_SIMPLEX, 0.38,
                         (255, 100, 100), 1, cv2.LINE_AA)
 
-        # ── Panel 4: selected component (green) + rejected (red) ──────────
+        # ── Panel 4: selected component (yellow) + rejected (red) ──────────
         img4 = base.copy()
         px_final = int(np.count_nonzero(mask)) if mask is not None else 0
         if mask is not None:
             roi_h_m  = mask.shape[0]
             layer    = img4[rs:rs + roi_h_m].copy()
-            layer[mask > 0] = (40, 200, 40)   # selected = green
+            layer[mask > 0] = (0, 180, 255)   # selected = golden yellow (BGR) -- follow_the_yellow_brick_road.js
             if zs_candidate_mask is not None:
                 cand_roi = (zs_candidate_mask[rs:rs + roi_h_m]
                             if zs_candidate_mask.shape[0] >= rs + roi_h_m

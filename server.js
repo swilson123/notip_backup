@@ -15,7 +15,7 @@ const { execSync, spawn } = require('child_process');
 try {
 	execSync(
 		"pgrep -f '[n]ode.*[/ ]server\\.js' | grep -vx " + process.pid + " | xargs -r kill 2>/dev/null; " +
-		"pkill -f ultra_simple 2>/dev/null; pkill -f realsense_vision.py 2>/dev/null; true",
+		"pkill -f ultra_simple 2>/dev/null; pkill -f sidewalk_vision.py 2>/dev/null; true",
 		{ stdio: 'ignore' }
 	);
 } catch (e) { /* nothing else running, or pgrep/pkill unavailable */ }
@@ -51,14 +51,14 @@ try {
 // register process.once('SIGINT') listeners that only flush and never exit —
 // and registering ANY SIGINT listener overrides Node's default exit-on-SIGINT.
 // Combined with the always-on timers, open serial ports, and spawned children
-// (ultra_simple, realsense_vision.py, gpioset), the event loop stays alive
+// (ultra_simple, sidewalk_vision.py, gpioset), the event loop stays alive
 // forever. This handler kills the children and force-exits so one Ctrl+C stops it.
 var shutting_down = false;
 function shutdown(signal) {
 	if (shutting_down) return;
 	shutting_down = true;
 	console.log('\nReceived ' + signal + ' — shutting down notip...');
-	['ultra_simple', 'realsense_vision.py', 'gpioset'].forEach(function (pat) {
+	['ultra_simple', 'sidewalk_vision.py', 'gpioset'].forEach(function (pat) {
 		try { spawn('pkill', ['-f', pat], { stdio: 'ignore' }); } catch (e) {}
 	});
 	// Let the once('exit')/flush handlers run, then hard-exit rather than waiting
