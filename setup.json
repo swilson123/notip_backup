@@ -7,7 +7,7 @@
     "motor_driver1_comName": "/dev/ttySC0",
     "motor_driver2_comName": "/dev/ttySC1",
     "motor_steering": "servo_steering",
-    "throttle_percentage": 30,
+    "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
     "ldr_comName": "/dev/ttyUSB0",
@@ -89,7 +89,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 38.55,
+        "compass_offset_deg": 33.19,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
