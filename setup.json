@@ -7,7 +7,7 @@
     "motor_driver1_comName": "/dev/ttySC0",
     "motor_driver2_comName": "/dev/ttySC1",
     "motor_steering": "servo_steering",
-    "throttle_percentage": 15,
+    "throttle_percentage": 30,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
     "ldr_comName": "/dev/ttyUSB0",
@@ -83,12 +83,13 @@
         "fps_normal": 6,
         "segmentation_model_path": "./lib/sidewalk_vision/models/fastscnn_sidewalk.onnx",
         "camera_height_m": 0.825,
-        "camera_mount_pitch_deg": 33
+        "camera_mount_pitch_deg": 33,
+        "confidence_ema_alpha": 0.25
     },
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": -59.76,
+        "compass_offset_deg": 38.55,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {

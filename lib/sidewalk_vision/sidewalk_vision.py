@@ -52,6 +52,15 @@ def parse_config():
         return {}
 
 
+def _x_display_available():
+    display = os.environ.get("DISPLAY")
+    if not display:
+        return False
+    # DISPLAY=":N" or "host:N" -> the server's Unix socket is /tmp/.X11-unix/XN
+    socket_num = display.rsplit(":", 1)[-1].split(".")[0]
+    return os.path.exists("/tmp/.X11-unix/X" + socket_num)
+
+
 class SidewalkVision:
     def __init__(self, config):
         self.config = config or {}
@@ -63,6 +72,17 @@ class SidewalkVision:
         self.fps_target = int(self.config.get("fps_normal", 6))
         self.last_processed_at = 0.0
 
+        # ConcreteEdgeDetector's confidence is a fresh per-frame material-segmentation
+        # score with no temporal smoothing of its own (unlike carrot x, which already
+        # gets CarrotVision's EMA + hold). A single bad frame -- e.g. one frame of
+        # shadow across the sidewalk -- swings it from ~0.9 to 0.0 and back the very
+        # next frame, and follow_the_yellow_brick_road.js feeds confidence straight
+        # into motor_speed_cmd, so that one-frame dip became a full-stop motor spike.
+        # Same EMA treatment as carrot_ema_alpha, applied here since confidence has no
+        # other smoothing owner.
+        self.confidence_ema_alpha = float(self.config.get("confidence_ema_alpha", 0.25))
+        self._confidence_smooth = None
+
         # Static camera mount tilt -- positive config value means the camera is
         # pitched forward/nose-down, the opposite sign of the nose-up-positive
         # body-pitch convention, so it's subtracted the same way the old
@@ -72,7 +92,18 @@ class SidewalkVision:
         self.current_roll_rad = 0.0
         self.current_heading_deg = None
 
-        self.display_enabled = bool(self.config.get("display_enabled", False))
+        # cv2.imshow's Qt/xcb backend calls qFatal() and aborts the whole process
+        # (not a catchable Python exception) when no X display is reachable --
+        # under systemd at boot there's no DISPLAY, so this crashed the vision
+        # subprocess on every frame attempt, forever (5s respawn loop in
+        # connect_to_realsense.js), and it never stabilized until someone
+        # manually ran the script from an X-enabled SSH/desktop session.
+        # Checking the DISPLAY env var alone isn't enough once notip.service sets
+        # it explicitly (see notip.service) -- if the desktop session (lightdm/
+        # labwc + XWayland) hasn't come up yet when this subprocess spawns, the
+        # var would be set but nothing would be listening, and cv2.imshow would
+        # still qFatal(). Confirm the X11 socket itself exists first.
+        self.display_enabled = bool(self.config.get("display_enabled", False)) and _x_display_available()
         self.display_capture_enabled = bool(self.config.get("display_capture_enabled", False))
         self.display_capture_interval_s = float(self.config.get("display_capture_interval_s", 1))
         self.display_capture_dir = self.config.get("display_capture_dir", "./screenshots/auto_capture")
@@ -166,7 +197,16 @@ class SidewalkVision:
         # (0.0-1.0, from ANCHOR/RANSAC fit quality) -- zeroed out when CarrotVision
         # couldn't turn the edges into a valid steering angle this frame.
         x_angle_deg = result["carrot_angle_deg"] if result["path_valid"] else 0.0
-        confidence = edges.get("confidence", 0.0) if result["path_valid"] else 0.0
+
+        raw_confidence = edges.get("confidence", 0.0) if result["path_valid"] else 0.0
+        if self._confidence_smooth is None:
+            self._confidence_smooth = raw_confidence
+        else:
+            self._confidence_smooth = (
+                self.confidence_ema_alpha * raw_confidence
+                + (1.0 - self.confidence_ema_alpha) * self._confidence_smooth
+            )
+        confidence = self._confidence_smooth
 
         self._maybe_capture(color_bgr, edges, result)
 
