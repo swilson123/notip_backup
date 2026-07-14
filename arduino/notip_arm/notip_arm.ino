@@ -1,17 +1,10 @@
 #include <Servo.h>
 #include <ArduinoJson.h>
 #include <AccelStepper.h>
-#include <SoftwareSerial.h>
 
-// Companion-computer / Pixhawk link.
-// Moved OFF the hardware UART (pins 0/1) so USB flashing no longer collides
-// with this link. RX = 12 (was pin 0), TX = 13 (was pin 1).
-// NOTE: SoftwareSerial blocks interrupts while sending/receiving, which can
-// delay the Hall ISR (pin 2) and AccelStepper.run() timing. 38400 is the
-// reliable SoftwareSerial max here; must match the companion side (notip.js).
-int pixhawk_rx_pin = 12;   // was hardware Serial RX (pin 0)
-int pixhawk_tx_pin = 13;   // was hardware Serial TX (pin 1)
-SoftwareSerial companion(pixhawk_rx_pin, pixhawk_tx_pin);
+// Companion-computer link — the companion computer (notip.js) connects over
+// USB, which is wired to the hardware UART (pins 0/1). Baud rate must match
+// the companion side (notip.js).
 
 //Servos.................................................................................
 Servo arm;
@@ -121,7 +114,7 @@ void setup() {
   pinMode(telescope_pin_hall_2, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(telescope_pin_hall_1), hall_1_isr, CHANGE);
 
-  companion.begin(38400);   // SoftwareSerial on 16 MHz AVR — 38400 is the reliable max
+  Serial.begin(38400);
   arm.attach(arm_pin);
   arm.write(arm_retract_value);   // move to stowed position on boot so the arm doesn't raise
   arm_state = "close";
@@ -139,11 +132,9 @@ void loop() {
 
 
 //Serial..................................................................................
-// serialEvent() only auto-fires for the hardware UART. The companion link is now
-// on SoftwareSerial (pins 12/13), so we poll it explicitly from loop().
 void read_companion() {
-  while (companion.available()) {
-    char inChar = (char)companion.read();
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
     if (inChar == '\n') {
       message_received(inputString);
       inputString = "";
@@ -225,8 +216,8 @@ void message_received(String json) {
     }
   }
   else {
-    companion.print("unknown message: ");
-    companion.println(message);
+    Serial.print("unknown message: ");
+    Serial.println(message);
   }
 }
 
@@ -271,33 +262,33 @@ void stow_arm() {
 
 //Send Current delivery states to companion computer................................................
 void send_current_state() {
-  companion.print("{'belt_state':'");
-  companion.print(belt_state);
-  companion.print("','arm_state':'");
-  companion.print(arm_state);
-  companion.print("','telescope_state':'");
-  companion.print(telescope_state);
-  companion.print("','telescope_position':'");
-  companion.print(telescope_position);
-  companion.print("','hook_switch_state':'");
-  companion.print(hook_switch_state);
-  companion.print("','belt_extend_switch_state':'");
-  companion.print(belt_extend_switch_state);
-  companion.print("','belt_retract_switch_state':'");
-  companion.print(belt_retract_switch_state);
-  companion.print("','auto_delivery':'");
-  companion.print(auto_delivery);
-  companion.print("','package_dropped':'");
-  companion.print(package_dropped);
-  companion.print("','stow_arm_active':'");
-  companion.print(stow_arm_active);
-  companion.print("','stowed':'");
-  companion.print(stowed);
-  companion.print("','telescope_stall':'");
-  companion.print(telescope_stall);
-  companion.print("','telescope_hall_age_ms':'");
-  companion.print(last_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_hall_pulse_ms) : -1);
-  companion.println("'}");
+  Serial.print("{'belt_state':'");
+  Serial.print(belt_state);
+  Serial.print("','arm_state':'");
+  Serial.print(arm_state);
+  Serial.print("','telescope_state':'");
+  Serial.print(telescope_state);
+  Serial.print("','telescope_position':'");
+  Serial.print(telescope_position);
+  Serial.print("','hook_switch_state':'");
+  Serial.print(hook_switch_state);
+  Serial.print("','belt_extend_switch_state':'");
+  Serial.print(belt_extend_switch_state);
+  Serial.print("','belt_retract_switch_state':'");
+  Serial.print(belt_retract_switch_state);
+  Serial.print("','auto_delivery':'");
+  Serial.print(auto_delivery);
+  Serial.print("','package_dropped':'");
+  Serial.print(package_dropped);
+  Serial.print("','stow_arm_active':'");
+  Serial.print(stow_arm_active);
+  Serial.print("','stowed':'");
+  Serial.print(stowed);
+  Serial.print("','telescope_stall':'");
+  Serial.print(telescope_stall);
+  Serial.print("','telescope_hall_age_ms':'");
+  Serial.print(last_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_hall_pulse_ms) : -1);
+  Serial.println("'}");
 }
 
 
