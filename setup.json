@@ -9,7 +9,7 @@
     "motor_steering": "servo_steering",
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
-    "arduino_comName": "/dev/ttyAMA2",
+    "arduino_comName": "/dev/ttyACM0",
     "ldr_comName": "/dev/ttyUSB0",
     "realsense_comName": "/dev/ttyAMA2",
     "ldr": {
@@ -66,11 +66,12 @@
         "arrival_radius_waypoint_m": 0.5,
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
-        "gps_forward_offset_m": 0.3556
+        "gps_forward_offset_m": 0.3556,
+        "steering_trim_deg": 7
     },
     "realsense_vision": {
         "enabled": true,
-        "follow_sidewalk_enabled": true,
+        "follow_sidewalk_enabled": false,
         "display_enabled": true,
         "display_capture_enabled": true,
         "display_capture_interval_s": 1,
@@ -89,7 +90,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 33.19,
+        "compass_offset_deg": 36.29,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
