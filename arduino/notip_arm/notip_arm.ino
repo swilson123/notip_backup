@@ -82,6 +82,7 @@ int belt_retract_timeout = 25000;
 //Extend and Retract values.................................................................
 int arm_extend_value = 200;
 int arm_retract_value = 25;
+int arm_delivery_value = 0;
 
 int telescope_extend_value = 200;
 int telescope_retract_value = 200;
@@ -382,7 +383,7 @@ void heartbeat() {
     // A released hook during an active delivery means the package has dropped.
     // Latch it so the companion computer can start the return trip immediately;
     // the auto-delivery retract/stow sequence is left running untouched.
-    if (auto_delivery) {
+    if (auto_delivery && arm_state == "retract") {
       package_dropped = true;
     }
     if (hook_switch_state == false && (arm_state == "close" || arm_state == "retract")) {
@@ -450,6 +451,12 @@ void retract_arm() {
   arm_time_stamp = millis();
 }
 
+void delivery_arm() {
+  arm.write(arm_delivery_value);
+  arm_state = "retract";
+  arm_time_stamp = millis();
+}
+
 void open_arm() {
   arm_state = "open";
   if (auto_delivery) {
@@ -460,6 +467,7 @@ void open_arm() {
 void close_arm() {
   arm_state = "close";
   if (auto_delivery) {
+
     extend_arm();
     retract_telescope();
   }
@@ -533,7 +541,7 @@ void retract_belt() {
 void open_belt() {
   belt_state = "open";
   if (auto_delivery) {
-    retract_arm();
+    delivery_arm();
     extend_telescope();
     digitalWrite(belt_enable_pin, LOW);
     actuator.stop();

@@ -78,9 +78,9 @@
         "display_capture_max_frames": 200,
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "script_path": "./lib/sidewalk_vision/sidewalk_vision.py",
-        "screen_width": 1280,
-        "screen_height": 720,
-        "fps_normal": 6,
+        "screen_width": 640,
+        "screen_height": 480,
+        "fps_normal": 15,
         "segmentation_model_path": "./lib/sidewalk_vision/models/fastscnn_sidewalk.onnx",
         "camera_height_m": 0.8,
         "camera_mount_pitch_deg": 24.5,
@@ -89,7 +89,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 36.29,
+        "compass_offset_deg": -63.14,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {

@@ -46,7 +46,7 @@
         "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000,
         "delivery_timeout_ms": 45000,
-        "sidewalk_gate_always_open": true,
+        "sidewalk_gate_always_open": false,
         "sidewalk_gate_turn_deg": 90,
         "sidewalk_gate_pair_distance_m": 1,
         "edge_trail_enabled": true,
@@ -67,11 +67,11 @@
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
-        "steering_trim_deg": 7
+        "steering_trim_deg": 9
     },
     "realsense_vision": {
         "enabled": true,
-        "follow_sidewalk_enabled": false,
+        "follow_sidewalk_enabled": true,
         "display_enabled": true,
         "display_capture_enabled": true,
         "display_capture_interval_s": 1,
@@ -83,14 +83,14 @@
         "screen_height": 720,
         "fps_normal": 6,
         "segmentation_model_path": "./lib/sidewalk_vision/models/fastscnn_sidewalk.onnx",
-        "camera_height_m": 0.825,
+        "camera_height_m": 0.73,
         "camera_mount_pitch_deg": 33,
         "confidence_ema_alpha": 0.25
     },
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion",
-        "compass_offset_deg": 36.29,
+        "compass_offset_deg": -63.14,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
