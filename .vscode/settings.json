@@ -1,0 +1,9 @@
+{
+  // librealsense/ is a vendored clone of Intel's public SDK (github.com/IntelRealSense/librealsense),
+  // patched locally for Apple-Silicon builds. Its upstream is Intel's repo, so it can never be pushed
+  // to and shouldn't be casually pulled. Hide it from Source Control so it stops prompting to "sync".
+  "git.ignoredRepositories": [
+    "librealsense",
+    "/Users/swilson123/rover/notip/librealsense"
+  ]
+}
