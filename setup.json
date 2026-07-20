@@ -10,8 +10,9 @@
     "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0",
-    "ldr_comName": "/dev/ttyUSB0",
+    "ldr_comName": null,
     "realsense_comName": "/dev/ttyAMA2",
+    "witmotion_hwt905_comName": "/dev/ttyUSB0",
     "ldr": {
         "enabled": false,
         "mount_height_mm": 609.6,
@@ -46,7 +47,7 @@
         "rs_block_persistence_ticks": 3,
         "avoidance_timeout_ms": 30000,
         "delivery_timeout_ms": 45000,
-        "sidewalk_gate_always_open": false,
+        "sidewalk_gate_always_open": true,
         "sidewalk_gate_turn_deg": 90,
         "sidewalk_gate_pair_distance_m": 1,
         "edge_trail_enabled": true,
@@ -67,7 +68,7 @@
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
-        "steering_trim_deg": 9
+        "steering_trim_deg": 0
     },
     "realsense_vision": {
         "enabled": true,
@@ -89,8 +90,8 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_type": "witmotion",
-        "compass_offset_deg": 42.1,
+        "compass_type": "witmotion_hwt905",
+        "compass_offset_deg": 13.17,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
@@ -99,6 +100,13 @@
             "swap_roll_pitch": true,
             "invert_roll": false,
             "invert_pitch": true
+        },
+        "witmotion_hwt905": {
+            "baud_rate": 9600,
+            "heading_invert": true,
+            "swap_roll_pitch": true,
+            "invert_roll": false,
+            "invert_pitch": false
         }
     },
     "memory": {

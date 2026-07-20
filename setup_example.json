@@ -11,6 +11,7 @@
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyAMA2",
     "ldr_comName": "/dev/ttyUSB0",
+    "witmotion_hwt905_comName": "/dev/ttyUSB1",
     "ldr": {
         "enabled": true,
         "mount_height_mm": 609.6,
@@ -88,12 +89,19 @@
     },
     "imu": {
         "enable_imu": true,
-        "compass_type": "witmotion",
-        "compass_offset_deg": 42.1,
+        "compass_type": "witmotion_hwt905",
+        "compass_offset_deg": 13.17,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {
             "i2c_address": 80,
+            "heading_invert": true,
+            "swap_roll_pitch": false,
+            "invert_roll": false,
+            "invert_pitch": false
+        },
+        "witmotion_hwt905": {
+            "baud_rate": 9600,
             "heading_invert": true,
             "swap_roll_pitch": false,
             "invert_roll": false,
