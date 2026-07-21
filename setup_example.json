@@ -67,7 +67,8 @@
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
-        "steering_trim_deg": 7
+        "steering_trim_deg": 7,
+        "manual_dock_required": true
     },
     "realsense_vision": {
         "enabled": true,
