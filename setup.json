@@ -65,6 +65,7 @@
         "arrival_radius_delivery_m": 0.5,
         "arrival_radius_waypoint_m": 0.5,
         "overshoot_capture_m": 1,
+        "dock_arrival_overrun_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
         "steering_trim_deg": 0,
@@ -91,7 +92,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": -60.12,
+        "compass_offset_deg": -12.29,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
@@ -138,7 +139,7 @@
         "ramp_detect_delta": 0.12,
         "level_tolerance": 0.07,
         "post_ramp_drive_ms": 2500,
-        "post_ramp_drive_distance_m": 2,
+        "post_ramp_drive_distance_m": 1,
         "pre_search_drive_m": 0,
         "steer_gain": 1.2,
         "steer_invert": true,

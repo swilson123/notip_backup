@@ -1,6 +1,84 @@
 {
   "history": [
     {
+      "session_id": "1784749815125",
+      "generated_at": "2026-07-22T19:50:15.125Z",
+      "situation": "stuck_detected",
+      "context_snapshot": {
+        "situation": "stuck_detected",
+        "lat": 39.3376144,
+        "lng": -84.2877655,
+        "heading_deg": 137.23221956517705,
+        "yaw_to_waypoint_deg": 6.195702464455053,
+        "mission_seq": 3,
+        "mission_count": 5,
+        "package_delivered": true,
+        "vision_confidence": 0.305,
+        "vision_offset_m": 0,
+        "vision_enabled": true,
+        "avoidance_active": false,
+        "blocked_ms": null,
+        "speed_cmd": 60,
+        "learning_speed_mul": 0.5999999999999999,
+        "heart_intent": "recover"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": true,
+          "tried_at": "2026-07-22T19:50:23.124Z",
+          "outcome": "success",
+          "outcome_at": "2026-07-22T19:50:23.124Z",
+          "outcome_notes": "condition cleared for >=5s",
+          "id": "p_1784749815125_2080",
+          "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
+          "parameters": {
+            "nav_tuning.mission_yaw_start_deg": 85
+          },
+          "priority": 0.82,
+          "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events",
+          "historical_trials": 1,
+          "historical_success_rate": 1,
+          "priority_blended": 0.874
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1784749815125_7327",
+          "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
+          "parameters": {
+            "nav_tuning.two_wheel_steering_gain": 0.30000000000000004
+          },
+          "priority": 0.7,
+          "priority_reason": "Over-responsive steering produces S-curve wobble that memory watchdog classifies as stuck",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.7
+        },
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1784749815126_2913",
+          "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
+          "parameters": {
+            "nav_tuning.mission_yaw_max_speed": 23
+          },
+          "priority": 0.6,
+          "priority_reason": "A slow, precise yaw correction avoids the repeated overshoot pattern that looks like looping stuck",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.6
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
       "session_id": "1784666347438",
       "generated_at": "2026-07-21T20:39:07.438Z",
       "situation": "stuck_detected",
@@ -2619,45 +2697,45 @@
     }
   ],
   "latest": {
-    "session_id": "1784666347438",
-    "generated_at": "2026-07-21T20:39:07.438Z",
+    "session_id": "1784749815125",
+    "generated_at": "2026-07-22T19:50:15.125Z",
     "situation": "stuck_detected",
     "context_snapshot": {
       "situation": "stuck_detected",
-      "lat": 39.3375973,
-      "lng": -84.2875926,
-      "heading_deg": 271.2772119140625,
-      "yaw_to_waypoint_deg": 3.5390071779065124,
-      "mission_seq": 2,
-      "mission_count": 6,
-      "package_delivered": null,
-      "vision_confidence": 0,
+      "lat": 39.3376144,
+      "lng": -84.2877655,
+      "heading_deg": 137.23221956517705,
+      "yaw_to_waypoint_deg": 6.195702464455053,
+      "mission_seq": 3,
+      "mission_count": 5,
+      "package_delivered": true,
+      "vision_confidence": 0.305,
       "vision_offset_m": 0,
       "vision_enabled": true,
       "avoidance_active": false,
       "blocked_ms": null,
       "speed_cmd": 60,
-      "learning_speed_mul": 0.5,
+      "learning_speed_mul": 0.5999999999999999,
       "heart_intent": "recover"
     },
     "source": "local",
     "perspectives": [
       {
         "tried": true,
-        "tried_at": "2026-07-21T20:39:13.606Z",
+        "tried_at": "2026-07-22T19:50:23.124Z",
         "outcome": "success",
-        "outcome_at": "2026-07-21T20:39:13.606Z",
+        "outcome_at": "2026-07-22T19:50:23.124Z",
         "outcome_notes": "condition cleared for >=5s",
-        "id": "p_1784666347439_1336",
+        "id": "p_1784749815125_2080",
         "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
         "parameters": {
           "nav_tuning.mission_yaw_start_deg": 85
         },
         "priority": 0.82,
         "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events",
-        "historical_trials": 0,
-        "historical_success_rate": null,
-        "priority_blended": 0.82
+        "historical_trials": 1,
+        "historical_success_rate": 1,
+        "priority_blended": 0.874
       },
       {
         "tried": false,
@@ -2665,7 +2743,7 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1784666347439_9966",
+        "id": "p_1784749815125_7327",
         "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
         "parameters": {
           "nav_tuning.two_wheel_steering_gain": 0.30000000000000004
@@ -2682,7 +2760,7 @@
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1784666347439_3370",
+        "id": "p_1784749815126_2913",
         "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
         "parameters": {
           "nav_tuning.mission_yaw_max_speed": 23
