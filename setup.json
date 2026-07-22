@@ -48,7 +48,6 @@
         "avoidance_timeout_ms": 30000,
         "delivery_timeout_ms": 45000,
         "sidewalk_gate_always_open": false,
-        "sidewalk_gate_turn_deg": 90,
         "sidewalk_gate_pair_distance_m": 1,
         "edge_trail_enabled": true,
         "edge_trail_sample_dist_m": 0.1,
