@@ -62,6 +62,8 @@ def _x_display_available():
 
 
 class SidewalkVision:
+    WINDOW_NAME = "Noah Vision"
+
     def __init__(self, config):
         self.config = config or {}
         self.running = True
@@ -104,6 +106,12 @@ class SidewalkVision:
         # var would be set but nothing would be listening, and cv2.imshow would
         # still qFatal(). Confirm the X11 socket itself exists first.
         self.display_enabled = bool(self.config.get("display_enabled", False)) and _x_display_available()
+        # window chrome is drawn by hand (see _draw_window_controls) because a
+        # fullscreen cv2/Qt HighGUI window has no title bar of its own to put
+        # close/minimize/resize buttons on.
+        self._window_ready = False
+        self._window_state = "fullscreen"
+        self._btn_rects = {}
         self.display_capture_enabled = bool(self.config.get("display_capture_enabled", False))
         self.display_capture_interval_s = float(self.config.get("display_capture_interval_s", 1))
         self.display_capture_dir = self.config.get("display_capture_dir", "./screenshots/auto_capture")
@@ -234,7 +242,10 @@ class SidewalkVision:
 
         if self.display_enabled:
             try:
-                cv2.imshow("Noah Vision", annotated)
+                self._ensure_window(cv2)
+                display_frame = annotated.copy() if self.display_capture_enabled else annotated
+                self._draw_window_controls(cv2, display_frame)
+                cv2.imshow(self.WINDOW_NAME, display_frame)
                 cv2.waitKey(1)
             except Exception:
                 self.display_enabled = False  # headless box -- stop retrying every frame
@@ -251,6 +262,73 @@ class SidewalkVision:
                     cv2.imwrite(os.path.join(self.display_capture_dir, "frame_%d.jpg" % int(now * 1000)), annotated)
                 except Exception:
                     pass
+
+    def _ensure_window(self, cv2):
+        if self._window_ready:
+            return
+        cv2.namedWindow(self.WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.setMouseCallback(self.WINDOW_NAME, self._on_mouse)
+        self._window_state = "fullscreen"
+        self._window_ready = True
+
+    # Fullscreen strips the window manager's own title bar, so there is nowhere
+    # to put real close/minimize/resize buttons -- draw them into the corner of
+    # the frame itself and hit-test clicks against the same rects in _on_mouse.
+    def _draw_window_controls(self, cv2, frame):
+        h, w = frame.shape[:2]
+        margin, size, gap = 10, 32, 8
+        y1, y2 = margin, margin + size
+        close_x1, close_x2 = w - margin - size, w - margin
+        resize_x1, resize_x2 = close_x1 - gap - size, close_x1 - gap
+        min_x1, min_x2 = resize_x1 - gap - size, resize_x1 - gap
+
+        self._btn_rects = {
+            "minimize": (min_x1, y1, min_x2, y2),
+            "resize":   (resize_x1, y1, resize_x2, y2),
+            "close":    (close_x1, y1, close_x2, y2),
+        }
+
+        for name, (x1, ry1, x2, ry2) in self._btn_rects.items():
+            cv2.rectangle(frame, (x1, ry1), (x2, ry2), (50, 50, 50), -1)
+            cv2.rectangle(frame, (x1, ry1), (x2, ry2), (180, 180, 180), 1)
+            if name == "close":
+                cv2.line(frame, (x1 + 8, ry1 + 8), (x2 - 8, ry2 - 8), (220, 220, 220), 2)
+                cv2.line(frame, (x2 - 8, ry1 + 8), (x1 + 8, ry2 - 8), (220, 220, 220), 2)
+            elif name == "resize":
+                cv2.rectangle(frame, (x1 + 7, ry1 + 7), (x2 - 7, ry2 - 7), (220, 220, 220), 2)
+            elif name == "minimize":
+                cv2.line(frame, (x1 + 7, ry2 - 9), (x2 - 7, ry2 - 9), (220, 220, 220), 2)
+
+    def _on_mouse(self, event, x, y, flags, param):
+        import cv2
+        if event != cv2.EVENT_LBUTTONDOWN:
+            return
+        for name, (x1, ry1, x2, ry2) in self._btn_rects.items():
+            if x1 <= x <= x2 and ry1 <= y <= ry2:
+                self._handle_window_button(cv2, name)
+                return
+
+    def _handle_window_button(self, cv2, name):
+        if name == "close":
+            try:
+                cv2.destroyWindow(self.WINDOW_NAME)
+            except Exception:
+                pass
+            self.display_enabled = False
+            self._window_ready = False
+        elif name == "minimize":
+            cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(self.WINDOW_NAME, 240, 135)
+            self._window_state = "minimized"
+        elif name == "resize":
+            if self._window_state == "fullscreen":
+                cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+                cv2.resizeWindow(self.WINDOW_NAME, 960, 540)
+                self._window_state = "normal"
+            else:
+                cv2.setWindowProperty(self.WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                self._window_state = "fullscreen"
 
     def run(self):
         try:
