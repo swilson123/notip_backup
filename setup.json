@@ -68,6 +68,7 @@
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
         "steering_trim_deg": 0,
+        "rc_yaw_deadband_pwm": 150,
         "manual_dock_required": true
     },
     "realsense_vision": {
