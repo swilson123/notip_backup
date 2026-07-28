@@ -1,6 +1,50 @@
 {
   "history": [
     {
+      "session_id": "1785196250214",
+      "generated_at": "2026-07-27T23:50:50.214Z",
+      "situation": "path_blocked",
+      "context_snapshot": {
+        "situation": "path_blocked",
+        "lat": 0,
+        "lng": 0,
+        "heading_deg": 329.7193359375,
+        "yaw_to_waypoint_deg": null,
+        "mission_seq": 1,
+        "mission_count": 4,
+        "package_delivered": true,
+        "vision_confidence": 0,
+        "vision_offset_m": 0,
+        "vision_enabled": true,
+        "avoidance_active": false,
+        "blocked_ms": null,
+        "speed_cmd": 0,
+        "learning_speed_mul": 0.7,
+        "heart_intent": "docking"
+      },
+      "source": "local",
+      "perspectives": [
+        {
+          "tried": false,
+          "tried_at": null,
+          "outcome": null,
+          "outcome_at": null,
+          "outcome_notes": null,
+          "id": "p_1785196250219_9618",
+          "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
+          "parameters": {
+            "nav_tuning.rs_block_timeout_ms": 15000
+          },
+          "priority": 0.8,
+          "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery",
+          "historical_trials": 0,
+          "historical_success_rate": null,
+          "priority_blended": 0.8
+        }
+      ],
+      "parameter_edits_applied": []
+    },
+    {
       "session_id": "1784749815125",
       "generated_at": "2026-07-22T19:50:15.125Z",
       "situation": "stuck_detected",
@@ -2697,79 +2741,45 @@
     }
   ],
   "latest": {
-    "session_id": "1784749815125",
-    "generated_at": "2026-07-22T19:50:15.125Z",
-    "situation": "stuck_detected",
+    "session_id": "1785196250214",
+    "generated_at": "2026-07-27T23:50:50.214Z",
+    "situation": "path_blocked",
     "context_snapshot": {
-      "situation": "stuck_detected",
-      "lat": 39.3376144,
-      "lng": -84.2877655,
-      "heading_deg": 137.23221956517705,
-      "yaw_to_waypoint_deg": 6.195702464455053,
-      "mission_seq": 3,
-      "mission_count": 5,
+      "situation": "path_blocked",
+      "lat": 0,
+      "lng": 0,
+      "heading_deg": 329.7193359375,
+      "yaw_to_waypoint_deg": null,
+      "mission_seq": 1,
+      "mission_count": 4,
       "package_delivered": true,
-      "vision_confidence": 0.305,
+      "vision_confidence": 0,
       "vision_offset_m": 0,
       "vision_enabled": true,
       "avoidance_active": false,
       "blocked_ms": null,
-      "speed_cmd": 60,
-      "learning_speed_mul": 0.5999999999999999,
-      "heart_intent": "recover"
+      "speed_cmd": 0,
+      "learning_speed_mul": 0.7,
+      "heart_intent": "docking"
     },
     "source": "local",
     "perspectives": [
       {
-        "tried": true,
-        "tried_at": "2026-07-22T19:50:23.124Z",
-        "outcome": "success",
-        "outcome_at": "2026-07-22T19:50:23.124Z",
-        "outcome_notes": "condition cleared for >=5s",
-        "id": "p_1784749815125_2080",
-        "description": "Lower the yaw threshold so spin-in-place recovery triggers before momentum compounds the stuck",
-        "parameters": {
-          "nav_tuning.mission_yaw_start_deg": 85
-        },
-        "priority": 0.82,
-        "priority_reason": "Triggering 4-wheel yaw correction sooner prevents small heading errors becoming large stuck events",
-        "historical_trials": 1,
-        "historical_success_rate": 1,
-        "priority_blended": 0.874
-      },
-      {
         "tried": false,
         "tried_at": null,
         "outcome": null,
         "outcome_at": null,
         "outcome_notes": null,
-        "id": "p_1784749815125_7327",
-        "description": "Reduce two-wheel steering gain to dampen oscillations that cause apparent stuck",
+        "id": "p_1785196250219_9618",
+        "description": "Extend the blocked-path timeout — give the obstacle more time to clear",
         "parameters": {
-          "nav_tuning.two_wheel_steering_gain": 0.30000000000000004
+          "nav_tuning.rs_block_timeout_ms": 15000
         },
-        "priority": 0.7,
-        "priority_reason": "Over-responsive steering produces S-curve wobble that memory watchdog classifies as stuck",
+        "priority": 0.8,
+        "priority_reason": "Obstacle may be transient (pedestrian, traffic, animal) — waiting costs less than a fallback delivery",
         "historical_trials": 0,
         "historical_success_rate": null,
-        "priority_blended": 0.7
-      },
-      {
-        "tried": false,
-        "tried_at": null,
-        "outcome": null,
-        "outcome_at": null,
-        "outcome_notes": null,
-        "id": "p_1784749815126_2913",
-        "description": "Reduce max yaw spin speed to prevent overshooting the target heading and re-triggering",
-        "parameters": {
-          "nav_tuning.mission_yaw_max_speed": 23
-        },
-        "priority": 0.6,
-        "priority_reason": "A slow, precise yaw correction avoids the repeated overshoot pattern that looks like looping stuck",
-        "historical_trials": 0,
-        "historical_success_rate": null,
-        "priority_blended": 0.6
+        "priority_blended": 0.8
       }
     ],
     "parameter_edits_applied": []

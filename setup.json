@@ -7,7 +7,7 @@
     "motor_driver1_comName": "/dev/ttySC0",
     "motor_driver2_comName": "/dev/ttySC1",
     "motor_steering": "servo_steering",
-    "throttle_percentage": 35,
+    "throttle_percentage": 25,
     "waveshare_comName": "/dev/ttySC0",
     "arduino_comName": "/dev/ttyACM0",
     "ldr_comName": null,
@@ -36,7 +36,7 @@
         "two_wheel_speed_limit_low": 130,
         "two_wheel_speed_limit_medium": 95,
         "two_wheel_speed_limit_high": 70,
-        "mission_yaw_start_deg": 30,
+        "mission_yaw_start_deg": 60,
         "mission_yaw_stop_deg": 6,
         "mission_yaw_stable_cycles": 3,
         "mission_yaw_gain": 1.1,
@@ -92,7 +92,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": -50.29,
+        "compass_offset_deg": -5.1,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
