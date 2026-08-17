@@ -69,8 +69,8 @@ int arm_retract_timeout = 5000;
 int telescope_extend_timeout = 20000;   // safety backup if Hall signal is lost
 int telescope_retract_timeout = 20000;
 
-int belt_extend_timeout = 25000;
-int belt_retract_timeout = 25000;
+int belt_extend_timeout = 30000;
+int belt_retract_timeout = 30000;
 
 //Extend and Retract values.................................................................
 int arm_extend_value = 200;
