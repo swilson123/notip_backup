@@ -1,0 +1,52 @@
+# Camera configuration for the Intel RealSense D435i.
+# Parsed by vision_docking.config.load_camera_config() into a CameraConfig.
+# All units are SI (metres, seconds) unless otherwise noted.
+
+camera:
+  # Camera model identifier -- selects the driver backend in camera.py.
+  # Currently only "realsense_d435i" is planned; kept as a string (not
+  # an enum) so a future camera model needs no config schema change.
+  model: "realsense_d435i"
+
+  # Serial number of the specific physical device. Leave blank ("") to
+  # auto-select the first connected RealSense device -- convenient for a
+  # single-camera dev setup, but should be set explicitly once more than
+  # one RealSense unit may be attached to the same host.
+  serial_number: ""
+
+  # Requested color stream resolution, in pixels. Must be a resolution
+  # the D435i's color sensor actually supports at the requested fps.
+  width: 1280
+  height: 720
+
+  # Requested capture frame rate, in frames per second.
+  fps: 30
+
+  # Whether to enable the depth stream alongside color. AprilTag
+  # detection only needs the color stream; depth is reserved for future
+  # range-assisted docking refinements, so this defaults to true but can
+  # be disabled to save bandwidth/CPU while that work doesn't exist yet.
+  enable_depth: true
+
+  # Path to a saved intrinsics file (see calibration.py's
+  # save_intrinsics()/load_intrinsics()), relative to the repo root.
+  # NOTE: not yet read at runtime -- RealSenseCamera always reports the
+  # RealSense SDK's *active* stream intrinsics (see camera.py), and
+  # calibration.py's load_intrinsics() is not implemented yet. This field
+  # is parsed and carried on CameraConfig for forward-compatibility, but
+  # has no effect until both of those exist.
+  intrinsics_file: null
+
+  # Auto-exposure toggle. AprilTag detection accuracy benefits from
+  # consistent exposure, so disabling this and setting manual_exposure
+  # below is recommended once lighting conditions are known.
+  auto_exposure: true
+
+  # Manual exposure value, in the RealSense SDK's own units. Only read
+  # when auto_exposure is false.
+  manual_exposure: 150
+
+  # How long RealSenseCamera.read() waits for a frame before raising
+  # FrameCaptureError, in milliseconds. Optional -- defaults to 5000 if
+  # omitted.
+  frame_timeout_ms: 5000

@@ -1,0 +1,33 @@
+# ROVER -> STAGING curved-approach tuning.
+#
+# Parsed by vision_docking.config.load_approach_path_config() into an
+# ApproachPathConfig, consumed by vision_docking.visualization's
+# build_navigation_path() (via its own visualization.py-local
+# ApproachPathParams -- see that module's "Navigation HUD" section
+# comment) to generate the white dashed cubic-Bezier curve from the
+# rover to the staging point, and to place the debug LOOKAHEAD marker
+# along it.
+#
+# This file carries no ramp/staging geometry of its own (that comes
+# from config/staging.yaml and the reconstructed ramp centerline) and
+# has no bearing on steering, which is not implemented yet -- every
+# value below is a prototype visualization/tuning constant.
+approach_path:
+  # Fraction of the straight-line rover-to-staging distance used as the
+  # cubic Bezier's control-handle length (both ends share the same
+  # length) -- larger means a wider, more sweeping curve.
+  handle_fraction: 0.35
+
+  # Handle length is clamped to [min_handle_m, max_handle_m] so a very
+  # close or very far rover still produces a reasonable-looking curve.
+  min_handle_m: 0.20
+  max_handle_m: 1.00
+
+  # Number of points the curve is sampled into, including both
+  # endpoints (rover and staging).
+  sample_count: 30
+
+  # Distance, metres, forward along the sampled curve at which the
+  # debug LOOKAHEAD marker is placed. Geometry/visualization only --
+  # never used to issue a steering command in this milestone.
+  lookahead_m: 0.30

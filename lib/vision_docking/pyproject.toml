@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vision-docking"
+version = "0.1.0"
+description = "Precision visual docking guidance using AprilTags and an Intel RealSense camera (integration handoff package)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",
+    "PyYAML>=6.0",
+]
+
+# Runtime-only core dependencies stay minimal. AprilTag detection/pose
+# estimation and RealSense acquisition are optional extras so importing
+# this package never requires a camera driver or tag-detection library
+# you might not need in your integration mode -- see REQUIREMENTS.md and
+# INTEGRATION.md, "Python/runtime dependencies".
+#
+# NOTE: the base "opencv-python-headless" dependency above and running
+# scripts/test_ramp_geometry.py's live cv2.imshow() debug viewer don't
+# mix -- headless OpenCV has no GUI backend. If you need that viewer,
+# `pip uninstall opencv-python-headless` first and install plain
+# `opencv-python>=4.8` instead (do not install both at once -- they
+# both provide the `cv2` module and will conflict). The core
+# `VisionDockingPipeline` API never needs a GUI either way.
+[project.optional-dependencies]
+apriltag = ["pupil-apriltags>=1.0"]
+realsense = ["pyrealsense2>=2.54"]
+
+[tool.setuptools]
+packages = ["vision_docking"]

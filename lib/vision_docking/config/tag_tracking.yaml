@@ -1,0 +1,22 @@
+# Temporal tag-pose hold-layer tuning.
+#
+# Parsed by vision_docking.config.load_tag_tracking_config() into a
+# TagTrackingConfig, used by vision_docking.tag_tracking's
+# TagPoseTracker -- see that module's docstring for the full
+# LIVE/HELD/LOST state machine this single value tunes.
+#
+# This exists because real detections sometimes flicker frame-to-frame
+# for a physically stationary tag (the middle/top ramp-centerline tags
+# especially, being farther from the camera). Without this layer, a
+# 1-2 frame dropout looks identical to "the tag actually left view" to
+# both tag_fusion.py's ramp reconstruction and guidance.py's staging
+# hierarchy.
+tag_tracking:
+  # How long (seconds) a tag's last observed pose is temporarily reused
+  # after it stops being directly detected, before that tag is reported
+  # LOST and stops contributing a pose at all. Kept short and
+  # prototype-sized on purpose -- long enough to bridge a genuine 1-2
+  # frame detection flicker (at a typical ~15-30 fps this is a handful
+  # of frames), nowhere near long enough to paper over a real
+  # multi-second occlusion or the tag actually having moved out of view.
+  hold_timeout_s: 0.20

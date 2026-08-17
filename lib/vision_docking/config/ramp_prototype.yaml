@@ -1,0 +1,49 @@
+# Prototype (minimal) ramp calibration.
+#
+# Parsed by vision_docking.config.load_ramp_prototype_config() into a
+# RampPrototypeConfig, used by vision_docking.tag_fusion's three-tag
+# centerline model (estimate_ramp_from_three_tags() /
+# ThreeTagRampEstimator) -- see that module's docstring, "Three-tag
+# centerline model" section.
+#
+# This is a *simplified, additive* calibration path: it exists to
+# validate that the reconstructed ramp looks correct before investing
+# time in the full per-tag mounting-transform calibration in
+# config/ramp.yaml (RampConfig/load_ramp_config(), completely untouched
+# and unaffected by this file).
+#
+# Physical layout this model assumes (fixed, not configurable here --
+# see tag_fusion.py's module docstring):
+#   id 0 = entrance-center -> entrance_center = tag 0 itself
+#   id 1 = middle-center   -> middle_center   = tag 1 itself
+#   id 2 = top-center      -> top_center      = tag 2 itself
+# All three tags sit directly on the physical ramp centerline -- there
+# are no more left/right tag pairs, and no midpoint reconstruction.
+ramp:
+  # Overall rail-to-rail ramp width, metres. null until measured -- this
+  # simplified model has no edge landmarks to reconstruct it from, so it
+  # is reported as-is (or 0.0 if null) rather than derived, unlike
+  # config/ramp.yaml's width_m.
+  ramp_width_m: 0.5334   # 21in (measured)
+
+  # Distance (metres) to shift the reconstructed entrance/top point
+  # along the entrance-to-top centerline direction, beyond tag 0/tag 2's
+  # own position -- for the case where a tag's center is mounted some
+  # fixed distance from the true physical entrance/top point (e.g. tag 0
+  # is not literally at ground level -- see tag_fusion.py's module
+  # docstring, "Entrance"/"Top" sections). 0.0 (no-op) until measured;
+  # see tag_fusion.py's estimate_ramp_from_three_tags() for the sign
+  # convention to verify once these become nonzero.
+  entrance_offset_m: 0.0
+  top_offset_m: 0.0
+
+  # Nominal horizontal distance, metres, from the entrance to the top,
+  # along the ramp centerline -- used *only* to reconstruct whichever of
+  # entrance/top is not currently visible (from the other endpoint, or
+  # from tag 1/middle alone with half this distance), and only as a
+  # PROVISIONAL estimate; see tag_fusion.py's module docstring,
+  # "Geometry authority" section, for the full visibility-case
+  # hierarchy. null until measured -- without it, a missing endpoint is
+  # left None rather than fabricated, even when enough other tags are
+  # visible to estimate a direction.
+  nominal_entrance_to_top_horizontal_m: null

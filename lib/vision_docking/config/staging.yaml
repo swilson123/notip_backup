@@ -1,0 +1,56 @@
+# Staging-point calibration.
+#
+# Parsed by vision_docking.config.load_staging_config() into a
+# StagingConfig, used by vision_docking.guidance's staging-point
+# generation (compute_guidance_target() / GuidanceTargetGenerator) --
+# see that module's docstring for the full EXACT/PROVISIONAL hierarchy.
+#
+# This is independent of config/ramp.yaml and config/ramp_prototype.yaml
+# (ramp-geometry reconstruction) -- staging-point generation does not
+# read a RampEstimate at all, it works directly from TagPose values.
+#
+# All "heading" fields below mean horizontal panning, and are sourced
+# from each tag's TagPose.pitch_deg -- NOT yaw_deg. This repository's
+# tested Euler decomposition reports horizontal panning in pitch_deg
+# (a naming mismatch in pose.py's Euler convention, not a statement
+# about the ramp's own vertical incline); see guidance.py's module
+# docstring for the full explanation.
+#
+# Three-tag ramp centerline layout: id 0 = entrance-center (the
+# authoritative entrance tag), id 1 = middle-center, id 2 = top-center.
+# There are no more bottom/upper tag pairs.
+staging:
+  # Distance (metres) the staging point sits before the entrance,
+  # measured horizontally along the corrected approach-heading direction.
+  staging_distance_m: 0.5
+
+  # Each ramp-centerline tag's (ids 0-2) known mounting-heading offset,
+  # degrees -- subtracted from that tag's own observed TagPose.pitch_deg
+  # before it feeds the ramp approach heading (see guidance.py's module
+  # docstring for the exact correction formula and sign convention).
+  # 0.0 means "mounted flush, no correction needed". Do not hard-code a
+  # specific angle in code -- this is the only place it's set.
+  tags:
+    0:
+      mount_heading_offset_deg: 0.0
+    1:
+      mount_heading_offset_deg: 0.0
+    2:
+      mount_heading_offset_deg: 0.0
+
+  # The camera's fixed mounting height above the ground plane, metres.
+  # This is deliberately defined from the camera's own mounting
+  # geometry, not from AprilTag orientation. Shared by both the EXACT
+  # and PROVISIONAL tiers.
+  camera_to_ground:
+    camera_height_m: 0.4064   # 16in (measured, laptop prototype)
+
+  # PROVISIONAL tier only. Used when tag 0 (the entrance) is not visible
+  # at all, to project an entrance estimate back from whichever of tag 1
+  # (middle) / tag 2 (top) is visible instead. The real entrance-to-top
+  # distance can change as the ramp extends, so this is always an
+  # approximation, never treated as exact -- see guidance.py's module
+  # docstring. null until a nominal value is chosen; without it, no
+  # PROVISIONAL target is generated even when tags 1/2 are visible.
+  provisional:
+    nominal_entrance_to_top_horizontal_m: null

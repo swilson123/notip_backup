@@ -1,0 +1,48 @@
+# Minimal RUNTIME requirements for vision_docking. Deliberately excludes
+# dev-only tooling (pytest, mypy, ruff, reportlab, ...) -- none of that is
+# needed to import or run this package.
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# See INTEGRATION.md, "Python/runtime dependencies" and REQUIREMENTS.md for
+# what each of these is for and when the optional ones are actually needed.
+
+# --- Always required -------------------------------------------------------
+numpy>=1.24
+PyYAML>=6.0
+
+# opencv-python-headless provides the `cv2` import used by
+# vision_docking.pipeline / vision_docking.visualization for the core
+# navigation-path math (NavigationPath, desired_path_direction, ...). The
+# core pipeline never opens a GUI window, so the headless build is enough.
+#
+# EXCEPTION: if you also want to run scripts/test_ramp_geometry.py (the
+# live cv2.imshow() debug viewer), you need a GUI-capable OpenCV instead.
+# Do not install both opencv-python and opencv-python-headless at once --
+# they both provide the `cv2` module and will conflict. Uninstall this one
+# first, then: pip install opencv-python>=4.8
+opencv-python-headless>=4.8
+
+# --- Required for real AprilTag detection/pose estimation ------------------
+# vision_docking.detector / vision_docking.pose import this lazily, only
+# when a detector/pose estimator is actually constructed -- so the package
+# imports fine without it, but VisionDockingPipeline.process_frame() cannot
+# do anything useful without it. Effectively required for any real
+# integration; only omit this if you are just testing import/config wiring
+# with a fake backend (see tests/test_detector.py's pattern).
+#
+# NOT verified on Raspberry Pi / aarch64 in this handoff -- may require
+# building from source (cmake, a C++ toolchain, Eigen3) if no prebuilt
+# ARM wheel is available on PyPI at install time. See INTEGRATION.md,
+# "BEFORE DEPLOYING ON THE ROVER".
+pupil-apriltags>=1.0
+
+# --- Only required if THIS package owns the RealSense camera ---------------
+# vision_docking.camera imports this lazily too. Skip it entirely if your
+# rover already has its own RealSense acquisition and you're only using
+# VisionDockingPipeline.process_frame() with frames it hands you (Pattern A
+# in examples/integration_example.py -- the recommended integration mode).
+# Only install this if you use vision_docking.camera.RealSenseCamera
+# directly (Pattern B).
+# pyrealsense2>=2.54
