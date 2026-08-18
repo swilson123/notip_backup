@@ -67,7 +67,7 @@
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
-        "steering_trim_deg": 0,
+        "steering_trim_deg": 8,
         "rc_yaw_deadband_pwm": 150,
         "manual_dock_required": true
     },
@@ -92,7 +92,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": 122,
+        "compass_offset_deg": -60.13,
         "use_pixhawk_heading": false,
         "auto_calibrate": true,
         "witmotion": {
