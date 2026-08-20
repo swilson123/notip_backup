@@ -1,48 +1,42 @@
-#include <Servo.h>
 #include <ArduinoJson.h>
 #include <AccelStepper.h>
 
 // Companion-computer link — the companion computer (notip.js) connects over
 // USB, which is wired to the hardware UART (pins 0/1). Baud rate must match
 // the companion side (notip.js).
+//
+// Arm and telescope are BOTH DC gearmotors on H-bridge drivers (LPWM/RPWM),
+// sharing one enable pin. The arm is no longer a servo.
+//
+// Servo.h is deliberately NOT included any more: on the 328P it claims Timer1,
+// which is the PWM source for pins 9 and 10 — and arm_rpwm is pin 10. Attaching
+// any Servo would silently kill arm PWM. Do not add it back.
 
-//Servos.................................................................................
-Servo arm;
-Servo belt;
+//Motor / Actuator Pins.....................................................................
+int arm_lpwm = 11;              // retract (Timer2 PWM)
+int arm_rpwm = 10;              // extend  (Timer1 PWM)
+int arm_pin_hall_1 = 12;        // pulse            (HALL 1 / YELLOW wire) — pin-change interrupt
+int arm_pin_hall_2 = 13;        // quadrature phase (HALL 2 / WHITE wire)  NOTE: pin 13 carries the
+                                // onboard LED, which weakens INPUT_PULLUP. If the arm ever counts
+                                // one direction only, this pin read stuck — move HALL 2 off 13.
 
-int arm_pin = 4;
-int belt_pin = 9;
-int telescope_pin_rpwm = 11;
-int telescope_pin_lpwm = 6;
-int telescope_enable_pin = 3;
-int telescope_pin_hall_1 = 2;   // INT0 — hardware interrupt (HALL 1 / YELLOW wire)
-int telescope_pin_hall_2 = 5;   // quadrature phase   (HALL 2 / WHITE wire)  NOTE: pin 1 = Serial TX — do NOT use
-int hook_limit_switch_pin = 7;
+int telescope_pin_rpwm = 5;     // extend  (Timer0 PWM)
+int telescope_pin_lpwm = 6;     // retract (Timer0 PWM)
+int telescope_enable_pin = 9;   // enables BOTH the arm and the telescope driver
+int telescope_pin_hall_1 = 7;   // pulse            (HALL 1 / YELLOW wire) — pin-change interrupt
+int telescope_pin_hall_2 = 8;   // quadrature phase (HALL 2 / WHITE wire)
+
+int belt_pin = 3;               // step
+int belt_direction_pin = 4;
+int belt_enable_pin = 2;
 int belt_extend_limit_switch_pin = A4;
 int belt_retract_limit_switch_pin = A5;
-int belt_direction_pin = 10;
-int belt_enable_pin = 8;
 
-// int arm_pin = null; //not used
-// int arm_lpwm = 11;
-// int arm_rpwm = 10;
-// int arm_pin_hall_1 = 12;
-// int arm_pin_hall_2 = 13;
+int hook_limit_switch_pin = A3;
 
-// int telescope_pin_rpwm = 5;
-// int telescope_pin_lpwm = 6;
-// int telescope_enable_pin = 9; //enables both arm and telescope
-// int telescope_pin_hall_1 = 7;   // INT0 — hardware interrupt (HALL 1 / YELLOW wire)
-// int telescope_pin_hall_2 = 8;
-
-// int belt_extend_limit_switch_pin = A4;
-// int belt_retract_limit_switch_pin = A5;
-// int belt_direction_pin = 4;
-// int belt_enable_pin = 2;
-// int belt_pin = 3;
-
-// int hook_limit_switch_pin = A3;
-
+// Previous (v1) wiring, kept for reference:
+//   arm = servo on 4, belt step 9 / dir 10 / enable 8, telescope rpwm 11 / lpwm 6 /
+//   enable 3 / hall 2,5, hook switch 7.
 
 
 AccelStepper actuator(AccelStepper::DRIVER, belt_pin, belt_direction_pin);
@@ -52,13 +46,30 @@ AccelStepper actuator(AccelStepper::DRIVER, belt_pin, belt_direction_pin);
 #define TELESCOPE_FULL_EXTEND_PULSES 50000
 
 volatile long telescope_position = 0;   // signed pulse count; 0 = fully retracted
-volatile bool new_hall_pulse = false;
+volatile bool new_telescope_hall_pulse = false;
 volatile bool telescope_has_moved = false;  // guards position stop from firing before first pulse
-unsigned long last_hall_pulse_ms = 0;
+unsigned long last_telescope_hall_pulse_ms = 0;
 long telescope_retract_start_pos = 0;
 
-void hall_1_isr() {
-  new_hall_pulse = true;
+volatile long arm_position = 0;         // signed pulse count; report-only until calibrated
+volatile bool new_arm_hall_pulse = false;
+unsigned long last_arm_hall_pulse_ms = 0;
+
+// Pins 2 and 3 — the only INT0/INT1 pins on the 328P — now belong to the belt
+// driver, so neither Hall channel can use attachInterrupt(). Both run on AVR
+// pin-change interrupts instead. Same CHANGE-edge behaviour as before, so pulse
+// counts keep their old scale (TELESCOPE_FULL_EXTEND_PULSES stays valid).
+// PCINT0_vect = PORTB (pins 8-13) — arm HALL 1 on 12.
+// PCINT2_vect = PORTD (pins 0-7)  — telescope HALL 1 on 7.
+// Move a HALL 1 pin to another port and its ISR vector must move with it.
+void attach_pin_change_interrupt(int pin) {
+  *digitalPinToPCMSK(pin) |= bit(digitalPinToPCMSKbit(pin));
+  PCIFR |= bit(digitalPinToPCICRbit(pin));   // clear a stale flag before enabling
+  PCICR |= bit(digitalPinToPCICRbit(pin));
+}
+
+void telescope_hall_isr() {
+  new_telescope_hall_pulse = true;
   telescope_has_moved = true;
   // Quadrature: phase of hall_2 determines direction
   if (digitalRead(telescope_pin_hall_2) == LOW) {
@@ -67,6 +78,18 @@ void hall_1_isr() {
     telescope_position--;   // retracting
   }
 }
+
+void arm_hall_isr() {
+  new_arm_hall_pulse = true;
+  if (digitalRead(arm_pin_hall_2) == LOW) {
+    arm_position++;   // extending
+  } else {
+    arm_position--;   // retracting
+  }
+}
+
+ISR(PCINT0_vect) { arm_hall_isr(); }
+ISR(PCINT2_vect) { telescope_hall_isr(); }
 
 //States...................................................................................
 bool auto_delivery = false;
@@ -85,7 +108,7 @@ bool hook_switch_state = false;
 bool belt_extend_switch_state = false;
 bool belt_retract_switch_state = false;
 
-//Timeouts (failsafe only — position control is primary for telescope)......................
+//Timeouts (failsafe only for the telescope — the ONLY stop for the arm)....................
 int arm_extend_timeout = 5000;
 int arm_retract_timeout = 5000;
 
@@ -96,9 +119,10 @@ int belt_extend_timeout = 30000;
 int belt_retract_timeout = 30000;
 
 //Extend and Retract values.................................................................
+// PWM duty (0-255) now, not servo angles — the old 25 / 0 would not turn a motor.
 int arm_extend_value = 200;
-int arm_retract_value = 25;
-int arm_delivery_value = 0;
+int arm_retract_value = 200;
+int arm_delivery_value = 200;   // speed of the delivery drop; tune separately from retract
 
 int telescope_extend_value = 200;
 int telescope_retract_value = 200;
@@ -127,19 +151,31 @@ void setup() {
   pinMode(belt_enable_pin, OUTPUT);
   digitalWrite(belt_enable_pin, LOW);
 
+  //Arm + Telescope Driver Pins (shared enable)...........
   pinMode(telescope_enable_pin, OUTPUT);
   digitalWrite(telescope_enable_pin, LOW);
   pinMode(telescope_pin_rpwm, OUTPUT);
   pinMode(telescope_pin_lpwm, OUTPUT);
+  pinMode(arm_rpwm, OUTPUT);
+  pinMode(arm_lpwm, OUTPUT);
+  analogWrite(telescope_pin_rpwm, 0);
+  analogWrite(telescope_pin_lpwm, 0);
+  analogWrite(arm_rpwm, 0);
+  analogWrite(arm_lpwm, 0);
 
   //Hall Sensor Pins...........
   pinMode(telescope_pin_hall_1, INPUT_PULLUP);
   pinMode(telescope_pin_hall_2, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(telescope_pin_hall_1), hall_1_isr, CHANGE);
+  pinMode(arm_pin_hall_1, INPUT_PULLUP);
+  pinMode(arm_pin_hall_2, INPUT_PULLUP);
+  attach_pin_change_interrupt(telescope_pin_hall_1);
+  attach_pin_change_interrupt(arm_pin_hall_1);
 
   Serial.begin(38400);
-  arm.attach(arm_pin);
-  arm.write(arm_retract_value);   // move to stowed position on boot so the arm doesn't raise
+
+  // The arm is a motor now, so boot does NOT drive it — a blind power-up move
+  // would run it into a hard stop for the whole timeout. Report the stowed hold
+  // state the companion expects and wait for a command.
   arm_state = "close";
   stowed = true;
 
@@ -208,13 +244,27 @@ void message_received(String json) {
     }
   }
   else if (message == "arm") {
-    if (value != arm_retract_value) {
+    // Motor now, not a servo — the 0-200 RC value is a three-way switch, same
+    // shape and same low-stick-extends convention as the telescope below.
+    if (value < 90) {
+      extend_arm();
+      auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
       stowed = false;
+    } else if (value > 110) {
+      retract_arm();
+      auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
+      stowed = false;
+    } else {
+      arm_state = "stopped";
+      stop_arm_motor();
+      auto_delivery = false;
+      stow_arm_active = false;
+      stow_arm_arm_commanded = false;
     }
-    arm.write(value);
-    auto_delivery = false;
-    stow_arm_active = false;
-    stow_arm_arm_commanded = false;
   }
   else if (message == "telescope") {
     if (value < 90) {
@@ -230,9 +280,8 @@ void message_received(String json) {
       stow_arm_arm_commanded = false;
       stowed = false;
     } else {
-      analogWrite(telescope_pin_rpwm, 0);
-      analogWrite(telescope_pin_lpwm, 0);
-      digitalWrite(telescope_enable_pin, LOW);
+      telescope_state = "stopped";
+      stop_telescope_motor();
       auto_delivery = false;
       stow_arm_active = false;
       stow_arm_arm_commanded = false;
@@ -293,6 +342,8 @@ void send_current_state() {
   Serial.print(telescope_state);
   Serial.print("','telescope_position':'");
   Serial.print(telescope_position);
+  Serial.print("','arm_position':'");
+  Serial.print(arm_position);
   Serial.print("','hook_switch_state':'");
   Serial.print(hook_switch_state);
   Serial.print("','belt_extend_switch_state':'");
@@ -310,7 +361,9 @@ void send_current_state() {
   Serial.print("','telescope_stall':'");
   Serial.print(telescope_stall);
   Serial.print("','telescope_hall_age_ms':'");
-  Serial.print(last_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_hall_pulse_ms) : -1);
+  Serial.print(last_telescope_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_telescope_hall_pulse_ms) : -1);
+  Serial.print("','arm_hall_age_ms':'");
+  Serial.print(last_arm_hall_pulse_ms > 0 ? (long)(current_time_stamp - last_arm_hall_pulse_ms) : -1);
   Serial.println("'}");
 }
 
@@ -319,10 +372,14 @@ void send_current_state() {
 void heartbeat() {
   current_time_stamp = millis();
 
-  // Latch last pulse timestamp safely in main loop (avoid millis() inside ISR)
-  if (new_hall_pulse) {
-    last_hall_pulse_ms = current_time_stamp;
-    new_hall_pulse = false;
+  // Latch last pulse timestamps safely in main loop (avoid millis() inside ISR)
+  if (new_telescope_hall_pulse) {
+    last_telescope_hall_pulse_ms = current_time_stamp;
+    new_telescope_hall_pulse = false;
+  }
+  if (new_arm_hall_pulse) {
+    last_arm_hall_pulse_ms = current_time_stamp;
+    new_arm_hall_pulse = false;
   }
 
   //Serial....................
@@ -331,14 +388,23 @@ void heartbeat() {
     old_time_stamp = current_time_stamp;
   }
 
-  //Arm Up.......................
-  if (arm_state == "extend" && arm_time_stamp != 0 && current_time_stamp > arm_time_stamp + arm_extend_timeout) {
-    open_arm();
+  //Arm Up — timeout is the only stop; arm Hall count is report-only until calibrated.
+  if (arm_state == "extend") {
+    // Reinforce the shared enable — a glitch low would stall the motor silently.
+    digitalWrite(telescope_enable_pin, HIGH);
+
+    if (arm_time_stamp != 0 && current_time_stamp > arm_time_stamp + arm_extend_timeout) {
+      open_arm();
+    }
   }
 
   //Arm Down.......................
-  if (arm_state == "retract" && arm_time_stamp != 0 && current_time_stamp > arm_time_stamp + arm_retract_timeout) {
-    close_arm();
+  if (arm_state == "retract") {
+    digitalWrite(telescope_enable_pin, HIGH);
+
+    if (arm_time_stamp != 0 && current_time_stamp > arm_time_stamp + arm_retract_timeout) {
+      close_arm();
+    }
   }
 
   //Telescope Extend — position-based stop (timeout is failsafe only)
@@ -353,7 +419,7 @@ void heartbeat() {
     }
 
     // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
-    if (!telescope_ignore_hall && telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+    if (!telescope_ignore_hall && telescope_has_moved && last_telescope_hall_pulse_ms > 0 && (current_time_stamp - last_telescope_hall_pulse_ms) > 500) {
       telescope_stall = true;
     }
   }
@@ -372,7 +438,7 @@ void heartbeat() {
     }
 
     // Stall detection: motor commanded, first pulse received, but no new pulses for 500 ms.
-    if (!telescope_ignore_hall && telescope_has_moved && last_hall_pulse_ms > 0 && (current_time_stamp - last_hall_pulse_ms) > 500) {
+    if (!telescope_ignore_hall && telescope_has_moved && last_telescope_hall_pulse_ms > 0 && (current_time_stamp - last_telescope_hall_pulse_ms) > 500) {
       telescope_stall = true;
     }
   }
@@ -452,27 +518,53 @@ void heartbeat() {
 }
 
 
+//Shared Driver Enable...........................................................................
+// One pin enables both H-bridges, so it may only drop when NEITHER motor is
+// driving — otherwise stopping the arm would kill a moving telescope, and the
+// auto-delivery sequence drives both at once. Call after setting a motor state.
+void update_motor_enable() {
+  bool arm_moving = (arm_state == "extend" || arm_state == "retract");
+  bool telescope_moving = (telescope_state == "extend" || telescope_state == "retract");
+  digitalWrite(telescope_enable_pin, (arm_moving || telescope_moving) ? HIGH : LOW);
+}
+
+
 //Arm Actuator...............................................................................
+// rpwm = extend, lpwm = retract — same convention as the telescope. If the arm
+// runs backwards, swap these two writes (or the two wires), not the pin numbers.
 void extend_arm() {
-  arm.write(arm_extend_value);
+  digitalWrite(telescope_enable_pin, HIGH);
+  analogWrite(arm_rpwm, arm_extend_value);
+  analogWrite(arm_lpwm, 0);
   arm_state = "extend";
   arm_time_stamp = millis();
 }
 
 void retract_arm() {
-  arm.write(arm_retract_value);
+  digitalWrite(telescope_enable_pin, HIGH);
+  analogWrite(arm_lpwm, arm_retract_value);
+  analogWrite(arm_rpwm, 0);
   arm_state = "retract";
   arm_time_stamp = millis();
 }
 
 void delivery_arm() {
-  arm.write(arm_delivery_value);
+  digitalWrite(telescope_enable_pin, HIGH);
+  analogWrite(arm_lpwm, arm_delivery_value);
+  analogWrite(arm_rpwm, 0);
   arm_state = "retract";
   arm_time_stamp = millis();
 }
 
+void stop_arm_motor() {
+  analogWrite(arm_rpwm, 0);
+  analogWrite(arm_lpwm, 0);
+  update_motor_enable();
+}
+
 void open_arm() {
   arm_state = "open";
+  stop_arm_motor();
   if (auto_delivery) {
     retract_belt();
   }
@@ -480,6 +572,7 @@ void open_arm() {
 
 void close_arm() {
   arm_state = "close";
+  stop_arm_motor();
   if (auto_delivery) {
 
     extend_arm();
@@ -516,20 +609,22 @@ void retract_telescope() {
   telescope_time_stamp = millis();
 }
 
-void open_telescope() {
-  telescope_state = "open";
+void stop_telescope_motor() {
   analogWrite(telescope_pin_rpwm, 0);
   analogWrite(telescope_pin_lpwm, 0);
-  digitalWrite(telescope_enable_pin, LOW);
+  update_motor_enable();
+}
+
+void open_telescope() {
+  telescope_state = "open";
+  stop_telescope_motor();
 }
 
 void close_telescope() {
   // Clamp position to 0 — prevents negative drift that breaks future retract stops.
   if (telescope_position < 0) telescope_position = 0;
   telescope_state = "close";
-  analogWrite(telescope_pin_rpwm, 0);
-  analogWrite(telescope_pin_lpwm, 0);
-  digitalWrite(telescope_enable_pin, LOW);
+  stop_telescope_motor();
 }
 
 
