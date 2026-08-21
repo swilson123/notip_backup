@@ -1,4 +1,5 @@
 /logger
 setup.json
+lib/memory/dreams.json
 .env.local
 /screenshots/auto_capture
