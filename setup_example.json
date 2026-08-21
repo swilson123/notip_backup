@@ -91,7 +91,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": -7,
+        "compass_offset_deg": -60.13,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {
@@ -163,7 +163,7 @@
         "tts_volume": 180,
         "tts_voice": "en+m3",
         "tts_pitch": 52,
-        "tts_alsa_device": "default",
+        "tts_alsa_device": "plughw:CARD=Plus,DEV=0",
         "python_path": "/home/rover/notip/.venv/bin/python3",
         "asr_model_path": "./models/vosk-model-small-en-us-0.15",
         "audio_device": [
