@@ -91,7 +91,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": -60.13,
+        "compass_offset_deg": 8.9,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
         "witmotion": {
@@ -106,7 +106,9 @@
             "heading_invert": true,
             "swap_roll_pitch": false,
             "invert_roll": false,
-            "invert_pitch": false
+            "invert_pitch": false,
+            "algorithm": "9-axis",
+            "enforce_algorithm_on_connect": true
         }
     },
     "memory": {
