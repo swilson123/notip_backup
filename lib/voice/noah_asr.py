@@ -131,6 +131,17 @@ def main():
     chosen = next((d for d in candidates if probe_device(sd, d, args.samplerate)), None)
     if chosen is None:
         fatal('no working audio input device found among: ' + repr(args.device))
+    chosen_name = sd.query_devices(chosen)['name']
+    # First requested token, not necessarily what we got — if it isn't a substring
+    # of the chosen device's name, we silently fell back (e.g. EMEET not yet
+    # enumerated over USB) instead of getting the requested device. Surface that
+    # loudly since a fallback to ALSA "default" otherwise looks identical to a
+    # real connection (mic just goes deaf).
+    first_token = str(args.device).split(',')[0].strip().lower()
+    if first_token and first_token not in chosen_name.lower():
+        sys.stderr.write('noah_asr: WARNING — requested device "' + first_token +
+                          '" not found/available, fell back to "' + chosen_name + '"\n')
+        sys.stderr.flush()
     args.device = chosen
 
     import os
@@ -167,7 +178,7 @@ def main():
     except Exception as e:
         fatal('failed to open audio device ' + str(args.device) + ': ' + str(e))
 
-    emit({'type': 'ready'})
+    emit({'type': 'ready', 'device': chosen_name})
 
     with stream:
         while True:
