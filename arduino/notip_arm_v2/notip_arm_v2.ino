@@ -133,8 +133,10 @@ String arm_state = "stopped";
 String telescope_state = "stopped";
 String belt_state = "stopped";
 bool hook_switch_state = false;
-bool belt_extend_switch_state = false;
-bool belt_retract_switch_state = false;
+bool belt_extend_switch_state = false;    // live mirror of the A4 pin (reported)
+bool belt_retract_switch_state = false;   // live mirror of the A5 pin (reported)
+bool belt_extend_limit_latched = false;   // fire-once guard for the extend stop
+bool belt_retract_limit_latched = false;  // fire-once guard for the retract stop
 
 //Timeouts (failsafe only — the servo arm reaches its angle on its own)....................
 int arm_extend_timeout = 5000;
@@ -347,6 +349,16 @@ void message_received(String json) {
 void deliver_package(int value) {
   if (!auto_delivery) {
     package_dropped = false;   // fresh delivery — clear the previous drop flag
+
+    // Clear the extend stop's latch so this sequence starts honest. The latch
+    // only releases when the pin goes LOW, so a belt already resting on its
+    // extend limit carries a stale true in from the last run and the stop never
+    // fires — the sequence would sit there until belt_extend_timeout expired.
+    // Cleared here, the next heartbeat sees switch-pressed + belt_state
+    // "extend" and calls open_belt(), which stops the belt and moves straight
+    // on to delivery_arm() + extend_telescope(): the next step.
+    belt_extend_limit_latched = false;
+
     auto_delivery = true;
     extend_belt();
   }
@@ -523,29 +535,52 @@ void heartbeat() {
     hook_switch_state = false;
   }
 
-  //Belt Extend Limit Switch................
-  if (digitalRead(belt_extend_limit_switch_pin) == HIGH) {
-    if (belt_extend_switch_state == false && belt_state == "extend") {
+  //Belt Limit Switches................
+  // Two jobs, two variables — they were one variable, and that is why the
+  // reported state lied.
+  //
+  // belt_*_switch_state is a MIRROR of the pin. Assigned unconditionally every
+  // heartbeat, reported every heartbeat, guarding nothing. What the companion
+  // computer sees is what the pin is doing right now.
+  //
+  // belt_*_limit_latched is the STOP guard, and it must stay a latch. RC holds
+  // the stick and radio_claw_commands.js resends "belt" continuously, so
+  // extend_belt() re-sets belt_state = "extend" on every message — belt_state
+  // cannot be the fire-once gate the way it can for a one-shot serial command.
+  // Without the latch, one switch reading HIGH stops the belt on every single
+  // RC message and the stick appears dead.
+  //
+  // NOTE: these pins are INPUT_PULLUP, so HIGH is the IDLE/open level and the
+  // "== HIGH means at limit" convention below only holds for a normally-closed-
+  // to-ground switch. An unpressed, unwired or normally-open switch sits HIGH
+  // forever; the latch masks that (it fires once, then suppresses itself), so a
+  // stuck-HIGH limit reads as a belt that works from the second command on.
+  // The mirror above is what makes that visible — if a belt_*_switch_state
+  // reports 1 with nothing touching the limit, the switch is that way round.
+  belt_extend_switch_state = (digitalRead(belt_extend_limit_switch_pin) == HIGH);
+  belt_retract_switch_state = (digitalRead(belt_retract_limit_switch_pin) == HIGH);
+
+  if (belt_extend_switch_state) {
+    if (belt_extend_limit_latched == false && belt_state == "extend") {
       open_belt();
-      belt_extend_switch_state = true;
+      belt_extend_limit_latched = true;
     }
   } else {
-    belt_extend_switch_state = false;
+    belt_extend_limit_latched = false;
   }
 
-  //Belt Retract Limit Switch................
-  if (digitalRead(belt_retract_limit_switch_pin) == HIGH) {
-    if (belt_retract_switch_state == false && belt_state == "retract") {
+  if (belt_retract_switch_state) {
+    if (belt_retract_limit_latched == false && belt_state == "retract") {
       close_belt();
-      belt_retract_switch_state = true;
+      belt_retract_limit_latched = true;
     }
   } else {
-    belt_retract_switch_state = false;
+    belt_retract_limit_latched = false;
   }
 
   //Stow Sequence: once belt+telescope are both home, retract arm to 0.
   if (stow_arm_active && !stow_arm_arm_commanded) {
-    bool belt_retracted = (digitalRead(belt_retract_limit_switch_pin) == HIGH) || belt_state == "close";
+    bool belt_retracted = belt_retract_switch_state || belt_state == "close";
     bool telescope_retracted = telescope_ignore_hall ? (telescope_state == "close") : ((telescope_position <= 0) || telescope_state == "close");
 
     if (belt_retracted && telescope_retracted) {
