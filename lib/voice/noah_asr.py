@@ -24,6 +24,12 @@ import json
 import argparse
 import queue
 import threading
+import time
+
+# How long to keep retrying the primary (named) audio device before falling
+# back to the next candidate — covers USB/ALSA enumeration lag on cold boot.
+DEVICE_WAIT_MAX_TRIES = 10
+DEVICE_WAIT_DELAY_S = 1
 
 def emit(obj):
     sys.stdout.write(json.dumps(obj) + '\n')
@@ -126,21 +132,39 @@ def main():
                     return i
             return None
 
-    candidates = [resolve(x.strip()) for x in str(args.device).split(',')]
-    candidates = [c for c in candidates if c is not None]
-    chosen = next((d for d in candidates if probe_device(sd, d, args.samplerate)), None)
+    def try_resolve_primary():
+        primary = resolve(first_token)
+        return primary if primary is not None and probe_device(sd, primary, args.samplerate) else None
+
+    first_token = str(args.device).split(',')[0].strip().lower()
+
+    # The primary device (e.g. "EMEET") may not have finished USB/ALSA
+    # enumeration yet on a cold boot — it races other USB devices coming up.
+    # Retry a few times before accepting a fallback, since a fallback to
+    # "default" otherwise looks identical to a real connection (mic just goes
+    # deaf) and nothing downstream would ever retry it.
+    chosen = None
+    if first_token and not first_token.isdigit():
+        for attempt in range(DEVICE_WAIT_MAX_TRIES):
+            chosen = try_resolve_primary()
+            if chosen is not None:
+                break
+            time.sleep(DEVICE_WAIT_DELAY_S)
+
+    if chosen is None:
+        candidates = [resolve(x.strip()) for x in str(args.device).split(',')]
+        candidates = [c for c in candidates if c is not None]
+        chosen = next((d for d in candidates if probe_device(sd, d, args.samplerate)), None)
     if chosen is None:
         fatal('no working audio input device found among: ' + repr(args.device))
     chosen_name = sd.query_devices(chosen)['name']
     # First requested token, not necessarily what we got — if it isn't a substring
-    # of the chosen device's name, we silently fell back (e.g. EMEET not yet
-    # enumerated over USB) instead of getting the requested device. Surface that
-    # loudly since a fallback to ALSA "default" otherwise looks identical to a
-    # real connection (mic just goes deaf).
-    first_token = str(args.device).split(',')[0].strip().lower()
+    # of the chosen device's name, we fell back (e.g. EMEET never enumerated
+    # after retrying for DEVICE_WAIT_MAX_TRIES * DEVICE_WAIT_DELAY_S seconds)
+    # instead of getting the requested device. Surface that loudly.
     if first_token and first_token not in chosen_name.lower():
         sys.stderr.write('noah_asr: WARNING — requested device "' + first_token +
-                          '" not found/available, fell back to "' + chosen_name + '"\n')
+                          '" not found/available after retrying, fell back to "' + chosen_name + '"\n')
         sys.stderr.flush()
     args.device = chosen
 
