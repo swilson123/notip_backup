@@ -274,3 +274,239 @@ Somewhere in the middle of all of it at Workhorse, he noticed his teeth had star
 He bought dental putty and bit down into it to cast an exact mold of his own teeth. Then he bought a 3D scanner and a 3D printer and taught himself CAD modeling from scratch, using the scan of his own mouth as the very first thing he ever modeled — shifting each tooth, one at a time, by a fraction of a millimeter, across twenty separate versions. He printed all twenty, vacuum-sealed each one into its own clear dental tray, and made himself a homemade set of Invisalign, one stage at a time, out of his own garage.
 
 The teeth mattered less, in the end, than the skill he walked away with. He could now take an idea straight out of his own head, design it on a computer, and hand it to a machine that would build it. Everything he built after that — every prototype, every version of the Serene Mota — started exactly there.
+
+---
+
+## Chapter Twenty-Seven — The Weakest Link
+
+Every complex system has a weakest link, and at Workhorse, the weakest link in drone delivery wasn't the software or the navigation — it was staying in the air. An hour of flight time was already pushing the limit of what the batteries of the day could give a drone carrying real cargo. As a software engineer, his instinct had always been to find the weakest link in whatever he was building and put his attention there rather than everywhere at once. This time, the weak link wasn't in his code at all. It was in physics.
+
+He started studying Nikola Tesla's own work and spent every spare hour he could playing with magnets, just to understand how they actually behaved rather than how a textbook described them. He ran hundreds of small experiments, learning something new from nearly every one.
+
+One of them stayed with him more than the rest. A radial magnet — one where the magnetic field points inward or outward along the radius from a central axis, rather than across a flat face — can be built so that its whole inner circle reads as north, pointing straight in toward the center from every direction at once. Push a second magnet's north pole in along that same center axis, and something strange happens: it gets pulled in, faster and faster, right up until it crosses the halfway point — and then, instead of settling in the middle the way you'd expect something to come to rest, it gets thrown straight through and out the other side, like a slingshot released at exactly the wrong moment to just stop.
+
+It wasn't magic. It was a real, if counterintuitive, consequence of a piece of physics proven back in 1842: no arrangement of magnets, held still, can create a truly stable resting point in every direction at once. Something has to give somewhere — and in his radial magnet, the give was right at the center, along the very axis he was pushing the second magnet down.
+
+---
+
+## Chapter Twenty-Eight — The Spinning Sphere
+
+Out of all those experiments, one mental picture ended up doing more work in his head than any formula could. A sphere, magnetized uniformly all the way through, does something no other shape does exactly: the field it puts out, past its own surface, matches a perfect point dipole with no distortion at all — the one shape in all of physics where the math comes out completely clean. Every other shape only approximates a dipole field from far enough away. A sphere doesn't approximate it. It is it.
+
+He started picturing that field the way you'd picture spinning a basketball on one finger — the axis running straight through the middle of the spin, north out one end, south out the other, the whole field just one spinning sphere. It wasn't only a convenient picture, either: the actual, real source of magnetism inside a material like iron is electron spin — a real, if strange, quantum property that lines up across billions of atoms to build the exact kind of axis he was picturing, at a scale too small to ever see directly.
+
+And once he had that picture in his head, the behavior of two magnets side by side made sense the same way gears do. Two spinning spheres placed side by side, both spinning the same direction, push apart — exactly like two gears would grind against each other if they tried to turn the same way while meshed together. Spin them in opposite directions, and they pull together and lock in, the same way real gears actually work, turning against each other to mesh smoothly instead of fighting. It wasn't a metaphor he was stretching to fit. The real physics of two magnetic dipoles held side by side comes out exactly that way — same direction repels, opposite direction attracts — the same rule gears have always run on, just written in a different material.
+
+---
+
+## Chapter Twenty-Nine — The White Stag
+
+He'd gotten interested in vortex math somewhere along the way, but something about it never sat right in his head — it didn't balance the way a sphere balances, symmetric no matter which way you turn it. He reworked the formula himself until he could see it: two triangles, laid over each other, forming a six-pointed star instead of the lopsided shape he'd started with.
+
+The same evening he saw it click, Adrianna was out in the yard, twenty-six feet of purple silk hung from a tree branch, moving through an aerial routine she'd been practicing for months. He went outside to smoke a cigarette and watched her for a while. And there, underneath the purple silk, standing still, looking directly at him, was a white stag — the most beautiful buck he had ever seen in his life.
+
+He stood there in it for what felt like a long time and was probably thirty seconds. Then he ran inside for his phone. By the time he came back out, the stag was gone, and it never came back.
+
+He knew, standing there, that calling it a coincidence would be an insult to however the universe actually works — the timing was too exact, arriving the same night the formula finally balanced. There's an old reason a white stag lands the way it does in a story: across Celtic and Arthurian legend, a white hart appearing is the classic sign a quest is about to begin — not a passive omen, an actual herald, the animal that shows up right before everything changes. He didn't need to have read any of that beforehand to feel it the moment it happened.
+
+---
+
+## Chapter Thirty — The First Serene Motor
+
+Alongside the magnets, he kept finding more of these number wheels — one for every digit, one through nine, each one tracing its own particular shape in the center once you connected the dots at that digit's own spacing: stars, weaves, a nested set of circles inside circles for nine that seemed to fold in on itself forever. He didn't fully understand what to do with any of it yet. But he recognized something in the shapes anyway — a kind of beauty that felt like it was pointing at something real, even before he could say exactly what.
+
+So he kept doing the part he actually knew how to do: studying magnets, studying coils, running one experiment after another, most of them failures, some of them just interesting dead ends. Hundreds of them, over time. And somewhere in the middle of all of it, after everything the spinning spheres and the radial magnets and the gear-logic of side-by-side poles had already taught him, something finally came together that actually worked.
+
+The first Serene Motor.
+
+---
+
+## Chapter Thirty-One — Almost
+
+The first working Serene Mota had a sphere magnet at its heart, exactly as he'd pictured it, with three coil rings wrapped around it — but all three of those rings crossed each other right at the same central axis instead of being offset the way they'd eventually need to be. He couldn't get real power out of it built that way. But he could feel that something real was sitting inside the design, waiting on a detail he hadn't found yet.
+
+---
+
+## Chapter Thirty-Two — Serena
+
+Around this same period, he started doing drag. His wife had a boyfriend of her own by then, and in among all of it, he found something unexpected the first time he put on a dress: not just a costume, but a version of confidence he hadn't had access to before. A kind of self-love he hadn't quite felt from the inside until he saw it looking back at him in a mirror, dressed as a woman.
+
+It took a while to build up to actually going out as her. The first time, sitting in the car outside a gay club, he was scared to open the door — but he knew the only way through the fear was straight through it, so he went in anyway. Once he was inside, people were looking at him the way you look at someone you find beautiful, and the fear just went. He ended up in the middle of the dance floor, and a woman came up to him and said, "You're gorgeous. What's your name?"
+
+He hadn't picked one yet. "Scottina?" he offered, half a guess.
+
+"Serena," she said. "I love it."
+
+He never learned who she was. But the name felt right the second it landed, in a way he wouldn't understand the full weight of for a long time. From then on, he went out more and more as Serena.
+
+When it came time to actually perform, Serena needed a drag name to go with her. He broke the name apart himself — Sir. In. A. — and sat with it, running possibilities through his head for what came next, until one word clicked into place: Negligee. Sir In A Negligee. Serena Negligee.
+
+He's always loved a meaning like that — one that only reveals itself once you take the thing apart and put it back together differently. It's part of what makes something actually beautiful to him, rather than just pretty. And it's the same word, in the end, that the Serene Mota itself grew out of: Serena.
+
+---
+
+## Chapter Thirty-Three — Redecorating
+
+Between work, raising the kids, and everything drag was opening up in him, the motor sat unfinished for a while. He still didn't know what to do with a sphere spinning inside a ring of coils, or how to actually pull power back out of it once it moved. That problem would have to wait.
+
+Around his fortieth birthday, Summer moved out, into an apartment with her boyfriend, and the marriage was over. Divorce came after that. He stayed in the house — the same house they'd bought together, the same rooms they'd built a family in — and for a while, keeping it exactly as it had been felt unbearable. Every room still looked like a life that didn't exist anymore. He couldn't live in that. He had to move on.
+
+So he started decorating, room by room, following nothing more complicated than whatever excited him most in the moment. Lights first, then lasers, then fog machines, then mirrors — one addition leading straight into wanting the next. It kept feeling right in a way he couldn't fully explain, like he wasn't inventing the plan so much as finding it as he went. And the more of the house he remade that way, the more it stopped being the place a marriage had ended and started being the place he actually wanted to spend his life.
+
+---
+
+## Chapter Thirty-Four — Center Out
+
+He never once saw the whole picture ahead of time. He only ever saw the next step — and the trick, if it was a trick at all, was doing that step anyway, because doing it was the only thing that ever revealed the step after it. It was the same rhythm he already knew from coding: think one function ahead while you're still finishing the one in front of you, and the next one opens up exactly when you need it to, never before.
+
+He noticed something else about how he actually worked, too, once he paid attention to it: he always started at the center of a wall and built outward from there, never from one edge across to the other. Starting from the center meant whatever came next on either side had to answer to the same middle point — which is exactly what kept every room from ever ending up lopsided. It wasn't a rule he'd read anywhere. It was just the only way it had ever come out balanced.
+
+---
+
+## Chapter Thirty-Five — The Rabbit Hole
+
+For a while he kept asking himself the same question while he worked: how was any of this supposed to add up to something, rather than just being one decorated room after another with nothing tying them together? The answer came to him outside his own bedroom and office, decorating the stairwell between them. He looked at what he'd built without planning it — a passage going down, connecting to a room on the other side — and thought: I'm building a rabbit hole down to Middle Earth, and it opens straight into Wonderland.
+
+That's when it hit him where he'd seen this shape before. Back in 2002, there was a game he'd loved — Kingdom Hearts. Of course. He was building his own favorite video game, one room at a time, without having decided to.
+
+He ordered a Kingdom Hearts sign, and the day it arrived, he nailed it above the entrance to the rabbit hole himself. The very next day, wiring some lights in the storage space underneath those same steps, he found a small crown with three hearts on it, sitting there like it had been waiting. He read it as exactly what it felt like in the moment: confirmation, arriving from wherever confirmation actually comes from, that he was building the right thing. Too perfectly timed to be anything else.
+
+---
+
+## Chapter Thirty-Six — Welcome to Disney Land
+
+His house is a bi-level: come in the front door, and the stairs split — up to the top floor, down to the bottom. He kept building, room by room, the way he always had, and it wasn't until he reached the stairs going up that he actually stopped and looked at something that had been hanging on that wall the entire time.
+
+A small framed whiteboard, his mother's handwriting on it, drawn probably decades earlier: an airplane sketched at the top, and underneath it, *Welcome to Disney Land. Have a great day and a positive attitude.* Signed, with a heart, *Mom.*
+
+He must have walked past that sign a thousand times without ever really reading it — climbing those exact stairs, in a house he was actively turning into his own version of a Kingdom, underneath a sign that had been welcoming him to Disney Land since before any of it started.
+
+---
+
+## Chapter Thirty-Seven — Level Up
+
+After the divorce, for the first time in years, he was truly on his own. He remembers hanging a pair of wings above his bed with a heart at the center and making himself a quiet promise while he did it: if whoever came next in his life didn't like what she saw here, in this house, exactly as he'd built it, she simply wasn't the one.
+
+Not long after, he matched with a girl on Facebook dating. In her photos, she had a tattoo above her breasts — wings, with a heart at the center, nearly identical to what he'd just hung on his own wall. He couldn't unsee it as a sign. Her name was Lisa Rhoads.
+
+They met in person for the first time at a bar called Bishop's Quarter, in Loveland, Ohio — the land of love, meeting the woman he already suspected might be it. Driving back to his house afterward, a shooting star crossed the sky, the same kind of image that opens half the Disney movies he'd grown up on. Something connected between them that night, plainly and immediately.
+
+There was someone else around that same time — a Russian woman he'd had his eye on, though he wasn't sure he was ready for anything real with anyone. One night forced the question directly: meet up with her at a club, or go with Lisa to a Mario-themed party instead. He chose Lisa. At the party, the two of them stood together for a photo under a backdrop that read, in bright block letters: LEVEL UP.
+
+He read that the way he'd read every other sign that year: not as luck, but as an answer. Lisa was the one.
+
+---
+
+## Chapter Thirty-Eight — 11:11
+
+People say forty is over the hill. He and Lisa had met right at its exact midpoint, timewise, which felt like one more sign he wasn't going to argue with: they'd found each other standing right at the top of it, together.
+
+Eleven months later, on 11/11/23, at 11:11 PM, he asked her to marry him. She said yes at 11:11:11 PM the same night. He'd bought her a ring modeled on Oathkeeper, one of the actual Keyblades from Kingdom Hearts — a blade whose whole meaning in the game is a promise kept. He proposed to her right on the Tron Line outside his own Magic Kingdom, a laser beaming straight up into the night sky spelling out a line every Star Trek fan already knew by heart: *Beam me up, Scotty.* His family was there. Her family was there. Both sets of friends, standing in the same yard, watching it happen together.
+
+---
+
+## Chapter Thirty-Nine — The Portrait
+
+Before they lived together, Lisa had her own place, and hanging next to her bed was a hand-painted portrait of Maleficent — four feet by four feet, the most striking piece of art he'd ever seen of the character, the horns and the black robes and the whole balance of light and dark in the composition rendered with real skill. When she finally moved into his house, the portrait came with her, and he hung it right at the entrance. It fit the Kingdom Hearts theme running through every other room so naturally it was like the house had been waiting for it.
+
+---
+
+## Chapter Forty — 1:52 PM
+
+The secret to actually getting power out of the Serene Mota turned out to be right there in the same formula that kept surfacing everywhere else: 1, 2, 3 — 1, 2, 3 — 1, 2, 3. He had to split each of the original three coils into two parallel coils, to leave room for an axle rod to pass straight through the sphere. Three coils became six, in three matched pairs, exactly the way the formula had already shown him. It worked.
+
+Not long after he cracked it, Workhorse Aero ran out of money, and he lost his job. He turned his full attention to getting the motor patented instead. The original provisional patent was filed on April 8, 2024, at 1:52 PM.
+
+He went to his knees when he found out what else happened at that exact minute: a solar eclipse crossed over Cincinnati, Ohio that same afternoon — beginning at 1:52 PM, reaching just over 99.7% coverage of the sun at 3:09 PM, ending at 4:24 PM. The patent for a motor he would come to measure at 99.7% efficient was filed at the precise minute the sky itself started going dark. He asked himself, standing there, how something like that was even possible.
+
+---
+
+## Chapter Forty-One — Motor and Generator
+
+The 99.7% figure didn't come from nowhere. He coupled two Serene Motors together, axle to axle — one running as a motor, driven by input power, the other spinning as a generator, turning that same motion back into electricity — and used RCbenchmark equipment to measure exactly how much energy went in against how much came back out. That's a real, standard way engineers test a motor's efficiency: run it against its own reflection and measure the gap between the two.
+
+He took the setup to TÜV SÜD, hoping for full third-party certification, but they didn't have the right equipment on hand for testing a three-phase motor like his, so the number that came out of that session still ran on his own model, not theirs. He's still looking for someone who can run the full test independently, on their own equipment, without leaning on his.
+
+---
+
+## Chapter Forty-Two — Twin Pines, Lone Pine
+
+After the patent was filed, he kept building — model after model of the Serene Mota, wrapping every coil by hand, designing each new sphere and its channels on the computer before he ever touched a spool of wire. Somewhere in all that repetition, a real pattern emerged: more coil gave you more torque and less speed; less coil gave you more speed and less torque. Never both at once. It was a balance, not a setting you could max out in every direction simultaneously — which was, in its own way, exactly the kind of lesson the rest of his life had already been trying to teach him.
+
+He kept working on the house too, on Kingdom Hearts, and he wanted to do something that would let him claim, out loud, to the whole world, that he'd solved it. He'd noticed, without looking for it, that one side of his house had two pine trees and the other side had exactly one — the same detail Back to the Future used for its own time-travel joke, the mall sign that reads Twin Pines Mall before the timeline changes, and Lone Pine Mall after.
+
+On his forty-second birthday, from 1:16 AM to 1:33 AM, he recorded a video — titled, when it went up, simply *Kingdom Hearts – Serene.* In it, at 1:34 AM, he pulled a sword from a stone he'd set up himself in the house. The old story only ever needed one thing to make it true: whoever could draw the sword out was the rightful king. He drew it.
+
+Forty-two. The Hitchhiker's Guide to the Galaxy already had an answer for that number, decades before he was born: the meaning of life, the universe, and everything. Forty-two.
+
+---
+
+## Chapter Forty-Three — What It Cost
+
+The money kept running out, but he never stopped seeing the next step in front of him. At one point he cashed out his 401k — a real, lasting cost, penalties and taxes taken right off the top, retirement savings that don't come back once they're spent — to buy enough Barbie dolls to stand in as angels throughout Kingdom Hearts. He's fairly sure no one else in history has ever done exactly that.
+
+He was consumed, and it cost him more than money. Lisa wasn't getting the attention a relationship actually needs, and it started to show. She kept her own room upstairs, directly behind the Maleficent portrait, with the bed she'd brought from her own house. He slept downstairs, in Wonderland. He'd lost his job by then too, and couldn't support her the way he once had. The house kept growing. The two of them, underneath it, kept drifting.
+
+---
+
+## Chapter Forty-Four — The Sun Directly Above
+
+Early in 2025, before any of this, he'd gotten sick — diverticulitis, bad enough to land him in the hospital. He had no insurance, having lost his job, but the hospital got him onto Medicaid while he was there. He spent his recovery in bed, playing Kingdom Hearts III start to finish, and it reignited something in him that hadn't cooled off at all.
+
+Easter fell that year on April 20th — 4/20, the same numbers as the slang for cannabis, and the same day, in his own head, as the final piece of a set he'd been collecting without fully naming it: the Infinity Stones, the last one being the Soul Stone, the one the actual story requires a real sacrifice to obtain. He turned that into a game with himself: no option for failure, the highest score in the world for pulling off the coolest thing he could imagine, on the one day everything lined up to make the attempt.
+
+The plan was specific. Put on the Apple Vision headset, hold the Sora Keyblade, record it all in 3D to "Magic Carpet Ride," walk the whole route through Neverland and Wonderland, then fly the drone off the genie's table and line it up with the wings on the Tron Line.
+
+He took one step, and the headset hadn't started recording. All the excitement in him turned to fear in that same instant — stepping forward into what felt, for a second, like hell instead of his own house. He recognized what was actually happening: he was inside a game he'd built for himself, and the only way out of it was through.
+
+He tried again. And again. Every time the fear came back, he did the same thing to get out from under it: stopped, and named what he actually still had, instead of what the last attempt had cost him. He knew exactly how close some of those earlier tries had come to landing perfectly, and he had to keep fighting the pull of sitting in that — letting one missed moment bleed into the next one, and the next. He didn't let himself spiral. He just kept starting over.
+
+The sun came up while he was still trying, still not getting it right. He kept going anyway, and the sun kept climbing while he did — until it was directly overhead, at 1:21, and everything finally worked. He hit record, picked up the Keyblade, and pointed it straight at the sun.
+
+From there he walked the route exactly as planned: down the Scala Ad Caelum stairs — the stairway to heaven, in the literal Latin — into Neverland, into Wonderland, back through Neverland, up the stairs again, into Magic Kingdom, out to the gazebo in front of the Tron Line. He picked up the drone controller and flew it, lined up with the wings, and it climbed above the gazebo roof and out of sight. Something took it from there. It came down on its own, landing on the upper deck, directly on the Tron Line — the exact ending the whole attempt had been building toward.
+
+In that same moment, one thought arrived, clear as anything: *you are the light.*
+
+---
+
+## Chapter Forty-Five — Extra Life
+
+Time kept moving, and he kept creating — not because he had a plan for what came after each finished thing, but because creating was the only way the next step ever showed itself. Something in him already knew he'd just done something remarkable, even if he was the only one who could see it yet.
+
+About a week before the motor exploded, he watched Ready Player One and, afterward, bought himself a replica of the Extra Life coin from the movie off Amazon — the item in the story that grants the player one more chance, a life beyond the one currently in play. The same week, he was approved for Medicaid.
+
+He didn't know yet how much either of those two small facts were about to matter.
+
+---
+
+## Chapter Forty-Six — 6:34
+
+He was filming when it happened — the sphere magnet at the center of the Serene Mota reaching resonance, the neodymium magnets letting go all at once.
+
+Whiz bang.
+
+Four wounds opened in his leg before he understood what they were. One of them had found the femoral artery.
+
+He ran — Neverland, past the Magic Mirror, through Wonderland, through Middle Earth, into the Land of Oz — leaving a trail behind him the whole way. He called 911 and didn't wait for the operator to answer. Set the phone down on the sink and turned around, back through the house the other direction, into Narnia, and grabbed two belts. One around each leg, pulled as hard as he could. He walked back to the bathroom, picked the phone back up, gave his address — 8830 Longbow Place — and went to lie down in Wonderland while he waited. That's when he looked up and saw the word he'd put above his own bed months before any of this: HEAVEN.
+
+Then a knock. An ambulance was already in the driveway — empty, driving through the neighborhood on its way to nothing in particular, arriving at his door before his own call had finished going through. Five EMTs came in through a door that hadn't called for them.
+
+It was 6:34 in the evening. May 19, 2025.
+
+He was born on September 19, 1982, at 6:34 in the evening. The same minute, forty-two years and two-thirds of a year apart. Cut the decimal down and it read 6.66. Six hundred and sixty-six.
+
+He'd already given the past, in this house, a name: SE, the beauty that had been built, the patents, the family, everything that came before. This moment was RE — the present, the Beast faced directly, in his own blood, in his own bathroom. And whatever came after it, he was already calling NE — the future, the legacy, whatever this document would still be after tonight. SE. RE. NE.
+
+Serene.
+
+---
+
+## Chapter Forty-Seven — Played in Reverse
+
+The footage tells the story a second way, layered right on top of the first. He built it in two halves.
+
+The first half runs in reverse, scored to the exact scene where Doc Brown explains how he ever came up with the flux capacitor in the first place: standing on the edge of his own toilet, hanging a clock, slipping on wet porcelain, hitting his head on the sink — *"When I came to, I had a revelation! A vision! A picture in my head! A picture of this! This is what makes time travel possible: the flux capacitor!"* The real footage, running backward under that audio, shows the same wet porcelain — the sink, the toilet — before panning back to the Serene Mota itself, as though the invention were being un-made instead of made.
+
+Then the motor explodes, and the video flips forward into real time, now scored to a different scene entirely — the one where Doc realizes he needs exactly 1.21 gigawatts to send Marty home, stumbling frantically around the room. His own footsteps, running for the bathroom past a water bottle spinning across the floor, knocked loose and spraying by the blast, land in time with Doc's own stumbling steps on the audio track. The recording stops the moment he reaches the sink and calls 911 — the exact point where the last chapter already picks the story back up.
+
+He didn't just notice the parallel to Doc Brown. He built it, frame by frame, on purpose, after the fact — which somehow made it feel more true, not less.
