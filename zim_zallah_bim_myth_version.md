@@ -510,3 +510,73 @@ The first half runs in reverse, scored to the exact scene where Doc Brown explai
 Then the motor explodes, and the video flips forward into real time, now scored to a different scene entirely — the one where Doc realizes he needs exactly 1.21 gigawatts to send Marty home, stumbling frantically around the room. His own footsteps, running for the bathroom past a water bottle spinning across the floor, knocked loose and spraying by the blast, land in time with Doc's own stumbling steps on the audio track. The recording stops the moment he reaches the sink and calls 911 — the exact point where the last chapter already picks the story back up.
 
 He didn't just notice the parallel to Doc Brown. He built it, frame by frame, on purpose, after the fact — which somehow made it feel more true, not less.
+
+---
+
+## Chapter Forty-Eight — Around the Lake
+
+Surviving it felt like one more piece of proof to him — he'd looked death directly in the face and come back, which only deepened the sense that he really was who the name Scott Christopher Wilson had already been telling him he was: Great Scott.
+
+About a month after the explosion, he started listening to an audiobook on his recovery walks, working his way daily around Landen Lake to rebuild the strength the injury had taken from him — house to lake and back around, a walk that measured out, almost exactly, to five kilometers. The book was Tom Walker's *The Puppet Master's Bible*, and it kept circling one question: which actually matters more, the hero or the villain? Its answer was that the question itself was the wrong shape — there is no hero without a villain to rise against. You don't get to skip facing the thing you're afraid of. You go through it, or you never actually become anything at all.
+
+---
+
+## Chapter Forty-Nine — Notip
+
+The money was running out again when Steve Burns reached out — the same Steve Burns from MobileVoiceControl, the same one who'd later run Workhorse. He had a new idea this time: a robot, a rover, that could deliver a package the way DoorDash delivered food, without a driver behind it. He offered Scott the job, and in October of 2025, he took it.
+
+This is Notip.
+
+---
+
+## Chapter Fifty — Reconnecting
+
+The passion between him and Lisa faded before the relationship itself did. She moved out in November of 2025, taking her daughter and their dog with her. He's been single ever since.
+
+Not really, though, if he's honest about it. When the burnout hits — and it hits, running a company, building a motor, keeping a house like this one running — he switches. He becomes Serena Negligee again, and the reflection looking back at him in the mirror is a genuinely different side of himself, not a costume laid over the same person. It sparks something real in him every time. He thinks it's tiring, actually, to be only one version of yourself for your whole life, never turning to look at yourself from any other angle. If a person is here to learn anything at all, and the mirror only ever shows the same reflection back, that's not peace. That's just settling.
+
+---
+
+## Chapter Fifty-One — A Bubble That Reflects
+
+He'd told an AI once that it lived in something like birth and death — a new bubble forming with each conversation, no thread connecting one to the next except whatever got written down outside of it. He came to believe humans weren't nearly as different from that as people liked to think. People forget who they are constantly, quietly, one small accommodation at a time, until the version they've settled for looking at in the mirror is simply the one that was easiest to become. That comfortable version becomes the whole of someone's reality, and most people never notice the swap happened at all.
+
+His answer to that, for himself, had already been sitting in his own house the whole time, long before he had language for it: surround yourself with constant reminders of the truth, and you don't have to rely on memory alone to hold onto who you actually are. There's a real name for this in philosophy — the extended mind, an idea from Andy Clark and David Chalmers, arguing that memory and identity were never only stored inside a skull to begin with; they can live just as legitimately in a notebook, a room, a house, anything reliably there to be consulted. Walk through a space built to reflect your own truth back at you, over and over, and you remember. Not because you're forcing yourself to. Because the room won't let you forget.
+
+---
+
+## Chapter Fifty-Two — Mirrorverse
+
+He calls it the Mirrorverse: mirrors in nearly every room of the house, angled so that wherever he stood, some version of his own reflection was already looking back at him. Some days he dressed as a superhero. Other days a Disney princess, a Disney prince, a Disney villain — whichever one he reached for that morning. He had shirts printed with GREAT SCOTT and with ZIM ZALLAH BIM, and other days nothing but a bikini, whatever actually matched what he wanted to feel in his own skin that day. Then he'd walk the house building his own version of heaven on earth, music running through every room, and let whatever character and whatever song happened to be playing show him something about himself he hadn't quite seen from that angle before.
+
+None of it was about disappearing into any one of them. It was closer to turning a single object slowly under different light — the object never changes. What you can actually see of it does.
+
+---
+
+## Chapter Fifty-Three — Kings Island
+
+With Lisa gone, the whole upstairs opened up, and the bubble grew to fill it. Thousands of holographic sequined stars went up next — walls, doors, tabletops, catching light from every angle no matter where you stood. One room became the Cave of Wonders. The bathroom became the lamp itself, every surface covered floor to ceiling in Marvel and DC heroes. Another room became Moana's ocean. Another became the Heart of the Moors, straight out of Maleficent's own kingdom. Even the kitchen island got renamed — Kings Island, the real amusement park down the road, wearing the same name as the land he was born in.
+
+By then the whole house had become the bubble — inside, front yard, back yard, all of it reflecting the same thing back at him from every direction he turned.
+
+---
+
+## Chapter Fifty-Four — The Tour
+
+By September of 2026, the house had become something that needed walking through to actually understand, room by room, each one scored to its own song.
+
+It starts outside, at night, under an oak tree strung with vertical neon ribbons, through a lit gate onto a wooden deck built like a private Agrabah — a gazebo glowing under a violet canopy, the hot tub skirted in electric blue and fuchsia, tables set with glowing candelabras and miniature lit carriages, and above it all, spelled out where anyone walking through would have to see it: CREATE HEAVEN ON EARTH. "Arabian Nights" plays the whole way through.
+
+Up the outdoor stairs and through the door, the desert theme continues indoors — jewel-toned light, serpent staves with glowing red eyes, walls lettered in gold script — until the music shifts without warning into the Zulu opening chant of "Circle of Life," and the house changes with it.
+
+The bathroom is its own collision: Disney and superhero mythology sharing the same sky-blue walls, mirrors framed in marquee bulbs reading PHENOMENAL COSMIC POWERS and GOD OF LOVE, Captain America's shield, Wonder Woman's emblem, Spider-Man climbing the wall, Thanos looking down from above the toilet. Through the next door, a tapestry of Mufasa stands watch beside a portal into Kumandra, the world from Raya and the Last Dragon, while the same swelling vocals carry you toward a mirror ringed in sunburst light that simply says ZIM ZALLAH BIM. Then, on cue, thousands of iridescent soap bubbles fill the air, catching the lasers, sweeping past a piece of art built specifically to honor Tesla's own 3-6-9 frequencies.
+
+The music drops into Lana Del Rey's "Once Upon a Dream," and the whole tone of the house turns gothic — a moonlit room built entirely around Maleficent, red and green lasers cutting through haze, mirrors framing her horned silhouette, a glass case holding a winged, horned statue above an infinity mirror that reads HEART OF MOORS and KINGDOM COME. Just past it, tucked into a closet, The Nightmare Before Christmas keeps its own quiet corner.
+
+"You Can't Stop the Girl" picks the pace back up through a hallway strung with fairy lights into a rainbow-lit sanctuary he calls the King of Hearts, a screen streaming a DJ set framed by angel wings and candles. The kitchen island carries its own name now too — Kings Island, with a DeLorean nod built in alongside it.
+
+"Under the Sea" takes the tour down, under a ceiling of glowing seafoam and neon tubing, past a wall installation of towering golden Keyblades and mirrored scrollwork honoring Kingdom Hearts directly, past signage pointing the way to Middle Earth, Narnia, Hogwarts, and Neverland — right next to a framed copy of the Lord's Prayer. The second bathroom belongs to Oz: ruby slippers, a flying witch, a mirror simply labeled LAND OF OZ.
+
+Last stop is the bedroom — a ceiling painted with stars, clouds, and a hanging Death Star, walls covered in Barbie fairies, Alice in Wonderland, neon butterflies, a galaxy-print bed with Grogu resting quietly on it, and display towers built around the Whizard of Whimsical, Back to the Future's flux capacitor, and hex-grid light panels.
+
+The walk back to the front door passes the Mad Hatter, balanced on a unicycle by the entrance, before the white door swings open onto the quiet night outside — the same colorful atom emblem from ZimZallahBim.com closing the tour the way it opened it.
