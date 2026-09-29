@@ -55,7 +55,7 @@ except ImportError:
 @dataclass
 class CarrotVisionConfig:
     # ── Geometry ──────────────────────────────────────────────────────────────
-    carrot_y_frac: float = 0.55
+    carrot_y_frac: float = 0.90
     edge_match_y_tolerance_px: int = 8   # reserved for a future direct-matching mode
     min_centerline_points: int = 4        # display-only; does not gate carrot output
     min_centerline_y_span_px: int = 40    # display-only; does not gate carrot output
