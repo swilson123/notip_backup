@@ -12,6 +12,8 @@
     "arduino_comName": "/dev/ttyAMA2",
     "ldr_comName": "/dev/ttyUSB0",
     "witmotion_hwt905_comName": "/dev/ttyUSB1",
+    "witmotion_mjrtk_comName": "",
+    "witmotion_mjrtk_baudrate": 115200,
     "ldr": {
         "enabled": true,
         "mount_height_mm": 609.6,
