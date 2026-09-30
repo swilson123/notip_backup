@@ -196,5 +196,13 @@
     },
     "dreams": {
         "enabled": true
+    },
+    "dance_moves": {
+        "enabled": true,
+        "spin_rpm": 25,
+        "circle_rpm": 20,
+        "crab_rpm": 25,
+        "move_pause_ms": 800,
+        "music_volume": 100
     }
 }
