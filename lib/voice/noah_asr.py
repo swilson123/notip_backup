@@ -70,6 +70,11 @@ GRAMMAR_VOCAB = [
     # Feedback
     "good", "bad", "boy", "correct", "incorrect", "well", "done",
     "nice", "work", "job",
+    # Dance mode — must match the /dance\s+mode|do\s+a\s+dance|start\s+dancing|
+    # let.?s\s+dance|^dance$/ pattern in commands.js. Vosk's small-en-us dict
+    # has no apostrophe token, so "let's" is matched as "lets" (the commands.js
+    # regex's "let.?s" already accepts that spelling with zero chars between).
+    "dance", "mode", "start", "dancing", "do", "lets",
     # Filler / connectors that appear in multi-word commands
     "the", "a", "are", "you", "your", "how", "is",
     # Easter egg
