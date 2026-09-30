@@ -75,6 +75,9 @@ GRAMMAR_VOCAB = [
     # has no apostrophe token, so "let's" is matched as "lets" (the commands.js
     # regex's "let.?s" already accepts that spelling with zero chars between).
     "dance", "mode", "start", "dancing", "do", "lets",
+    # Set dance — "pump it up" (/pump\s+(it\s+)?up/ in commands.js);
+    # "it" and "up" are already listed above.
+    "pump",
     # Filler / connectors that appear in multi-word commands
     "the", "a", "are", "you", "your", "how", "is",
     # Easter egg
