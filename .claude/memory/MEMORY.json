@@ -254,6 +254,22 @@
         "2026-06-17"
       ],
       "ts": "2026-06-17T00:00:00.000Z"
+    },
+    "mjrtk_um982_bringup": {
+      "priority": 2,
+      "decay": "2026-11-05",
+      "ts": "2026-10-05T00:00:00.000Z",
+      "tags": [
+        "gps",
+        "rtk",
+        "um982",
+        "witmotion_mjrtk",
+        "heading",
+        "dual_antenna",
+        "uart",
+        "pending_field_test"
+      ],
+      "content": "WitMotion MJRTK-UM982 bring-up, 2026-10-05. Scott tests outdoors 2026-10-06. WIRING: Pi 5 GPIO0 (TXD1) / GPIO1 (RXD1) = UART1 via dtoverlay=uart1-pi5 -> /dev/ttyAMA1 @ 115200 (UM982 COM1/2/3 all 115200). setup.json + setup_example.json witmotion_mjrtk_comName changed from the old USB by-path to /dev/ttyAMA1. VERIFIED INDOORS: link works, clean NMEA ~1 Hz ($GNRMC $GNGGA $GPVTG $GPGST $GPTHS), firmware UM982 R4.10Build13495, MODE ROVER UAV, ANTENNA POWERON. All sentences empty and GPGSV = 0 sats only because Scott was indoors -- not a fault. ANTENNAS: dual, 1 ft baseline, side-to-side, ~6 in forward of center. M (master/ANT1) = driver side, S (slave) = passenger side. Baseline M->S points out Noah's right, so raw heading = nose + 90. Set on receiver: CONFIG HEADING OFFSET -90 0 + SAVECONFIG (confirmed in CONFIG readback, persists across power). $GPTHS should now be TRUE-north nose heading. Expected accuracy ~0.3-0.4 deg (short baseline). CAVEAT: with side mount, the receiver's 'pitch' is actually Noah's ROLL; Noah's pitch is unobservable. Comments at lib/witmotion/connect_to_witmotion.js:14-18 assume fore-aft antennas -- wrong for this mount, not yet edited. TOMORROW'S TEST: outdoors, watch GGA quality (field 6: 0 none, 1 GPS, 4 RTK fixed, 5 float) and $GPTHS 'A' vs 'V'. Point nose at a known bearing; heading should match within ~1 deg. If ~180 off, ports are swapped vs labels -> CONFIG HEADING OFFSET 90 0 + SAVECONFIG. Base-station RTCM path not yet checked (need to know: radio into which UM982 COM port, or network). NOT WIRED YET: white_rabbit.witmotion.received_data.heading_deg is parsed (witmotion_message_handler.js THS/HDT + UNIHEADINGA) but nothing consumes it; imu.compass_type only accepts witmotion|witmotion_hwt905 (notip.js:85). Next code step after outdoor verification: add compass_type 'witmotion_mjrtk' with fallback to HWT905 when GPS heading invalid -- Scott has not approved yet."
     }
   }
 }
