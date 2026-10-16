@@ -212,6 +212,21 @@
     }
   },
   "state": {
+    "car_heading_radio_link_down": {
+      "priority": 2,
+      "decay": "2026-11-14",
+      "ts": "2026-10-14T21:05:00.000Z",
+      "tags": [
+        "car_heading",
+        "CAR_HDG",
+        "radio",
+        "mavlink",
+        "notip_car",
+        "named_value_float",
+        "unresolved"
+      ],
+      "content": "UNRESOLVED as of 2026-10-14 ~17:00. Car heading (NAMED_VALUE_FLOAT 'CAR_HDG', msg 251) from the notip_car laptop stopped reaching Noah. PATH: laptop notip_car -> telemetry radio -> Pixhawk -> forwarded on /dev/ttyAMA0 @57600 -> pixhawk_message_handler.js (matches on msg id, accepts any srcSystem). LAST GOOD: logger/2026-10-14/5 (15:48-15:58, 306 headings, system_id 255). Broke BEFORE Scott's reboot: session 7 (16:13-16:22) had none; Pixhawk had itself rebooted just before 16:13 (time_boot_ms ~54s). No Noah code changed after 14:40 -- only an uncommitted console.log at pixhawk_message_handler.js:122. EVIDENCE from raw serial sniffs (Noah stopped, scratch script parsing MAVLink headers): sniff 1 (~16:45) saw sys255/comp190 HEARTBEAT ~1Hz -- comp190 = Mission Planner, NOT notip_car; sniff 2 (~16:50) and sniff 3 (~17:00, 30s) saw ZERO non-sys1 messages -- nothing from the ground station at all. notip_car sends as 255/158 (per Copilot on the laptop) and 255/158 has NEVER been seen on Noah. Laptop console shows heading updating (imu_message_handler.js); Copilot's 'it works' test used a MOCK radio, so it proves the frame is built, not that it reaches the COM port. Do NOT change laptop sysid to 1 (collides with Pixhawk; 255 worked fine before). Ground-station heartbeats are filtered out of Noah's logs on purpose (autopilot==3 check), so logs can't show laptop traffic -- must sniff the raw port with Noah stopped. NEXT CHECKS (laptop/radio side): radio link LEDs solid vs blinking (re-pair / power-cycle Noah-side radio); fully close Mission Planner (COM port contention); Device Manager COM number vs notip_car setup.json; laptop radio TX LED flicker while notip_car runs. Then re-sniff for sys255/comp158 msg251."
+    },
     "monday_demo_fixes": {
       "priority": 3,
       "decay": "2026-07-01",
