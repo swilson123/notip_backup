@@ -374,13 +374,10 @@ void deliver_package(int value)
   {
     package_dropped = false; // fresh delivery — clear the previous drop flag
 
-    // Clear the extend stop's latch so this sequence starts honest. The latch
-    // only releases when the pin goes LOW, so a belt already resting on its
-    // extend limit carries a stale true in from the last run and the stop never
-    // fires — the sequence would sit there until belt_extend_timeout expired.
-    // Cleared here, the next heartbeat sees switch-pressed + belt_state
-    // "extend" and calls open_belt(), which stops the belt and moves straight
-    // on to delivery_arm() + extend_telescope(): the next step.
+    // Clear the extend stop's latch so this sequence starts honest — a stale
+    // true from the last run would swallow this run's limit stop. A belt that
+    // is already resting on its limit never reaches that stop: extend_belt()
+    // sees the pressed switch and calls open_belt() itself.
     belt_extend_limit_latched = false;
 
     auto_delivery = true;
@@ -394,14 +391,14 @@ void stow_arm()
   stow_arm_arm_commanded = false;
 
   bool telescope_home = telescope_ignore_hall ? (telescope_state == "close") : (telescope_position <= 0);
-  bool already_stowed = (digitalRead(belt_retract_limit_switch_pin) == HIGH) && telescope_home && (arm_state == "close");
+  bool already_stowed = (digitalRead(belt_retract_limit_switch_pin) == LOW) && telescope_home && (arm_state == "close");
   if (!already_stowed)
   {
     stowed = false;
   }
 
-  // Start these in parallel when needed.
-  if (digitalRead(belt_retract_limit_switch_pin) == HIGH)
+  // Start these in parallel when needed. The retract switch reads LOW when pressed.
+  if (digitalRead(belt_retract_limit_switch_pin) == LOW)
   {
     close_belt();
   }
@@ -609,17 +606,20 @@ void heartbeat()
   //  Without the latch, one switch reading HIGH stops the belt on every single
   //  RC message and the stick appears dead.
   //
-  //  NOTE: these pins are INPUT_PULLUP, so HIGH is the IDLE/open level and the
-  //  "== HIGH means at limit" convention below only holds for a normally-closed-
-  //  to-ground switch. An unpressed, unwired or normally-open switch sits HIGH
-  //  forever; the latch masks that (it fires once, then suppresses itself), so a
-  //  stuck-HIGH limit reads as a belt that works from the second command on.
-  //  The mirror above is what makes that visible — if a belt_*_switch_state
-  //  reports 1 with nothing touching the limit, the switch is that way round.
+  //  NOTE: these pins are INPUT_PULLUP, so HIGH is the IDLE/open level. BOTH
+  //  switches are normally-open to ground: each reports 1 short of its limit
+  //  and 0 when pressed — the mirror's raw value, which arduino_message_handler.js
+  //  watches for its 1 -> 0 RC-drop edge and extend_belt() reads as "room to
+  //  move". Both stops therefore fire on LOW. They used to fire on HIGH, i.e.
+  //  the instant the belt started moving: extend lowered the arm with the belt
+  //  still at home, and retract called close_belt() — ending the delivery —
+  //  before the belt had left the extend limit.
+  //  If a belt_*_switch_state ever reports 0 with nothing touching its limit,
+  //  that switch has been rewired the other way round.
   belt_extend_switch_state = (digitalRead(belt_extend_limit_switch_pin) == HIGH);
   belt_retract_switch_state = (digitalRead(belt_retract_limit_switch_pin) == HIGH);
 
-  if (belt_extend_switch_state)
+  if (!belt_extend_switch_state)
   {
     if (belt_extend_limit_latched == false && belt_state == "extend")
     {
@@ -632,7 +632,7 @@ void heartbeat()
     belt_extend_limit_latched = false;
   }
 
-  if (belt_retract_switch_state)
+  if (!belt_retract_switch_state)
   {
     if (belt_retract_limit_latched == false && belt_state == "retract")
     {
@@ -648,7 +648,7 @@ void heartbeat()
   // Stow Sequence: once belt+telescope are both home, retract arm to 0.
   if (stow_arm_active && !stow_arm_arm_commanded)
   {
-    bool belt_retracted = belt_retract_switch_state || belt_state == "close";
+    bool belt_retracted = !belt_retract_switch_state || belt_state == "close";
     bool telescope_retracted = telescope_ignore_hall ? (telescope_state == "close") : ((telescope_position <= 0) || telescope_state == "close");
 
     if (belt_retracted && telescope_retracted)
@@ -768,21 +768,26 @@ void close_telescope()
 }
 
 // Belt Actuator..................................................................................
+//  Two ways into a delivery, one function. The A4 switch reads 1 while the
+//  carriage is short of the limit and 0 once it is pressed (see the Belt Limit
+//  Switches note in heartbeat()).
+//    • Short of the limit — drive toward it. The heartbeat's limit stop calls
+//      open_belt() when the switch closes, and THAT is what lowers the arm.
+//    • Already on the limit — the manual RC drop: the operator drove the belt
+//      out by stick, arduino_message_handler.js saw the switch close and sent
+//      deliver_package. There is nothing left to extend, so go straight to
+//      open_belt().
 void extend_belt()
 {
-
   if (belt_extend_switch_state == 1)
   {
     move_belt(true);
     belt_state = "extend";
     belt_time_stamp = millis();
   }
-  if (auto_delivery)
+  else if (auto_delivery)
   {
-   
-      open_belt();
-    
-   
+    open_belt();
   }
 }
 
