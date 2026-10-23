@@ -14,6 +14,14 @@
     "witmotion_hwt905_comName": "/dev/ttyUSB1",
     "witmotion_mjrtk_comName": "/dev/ttyAMA1",
     "witmotion_mjrtk_baudrate": 115200,
+    "ntrip": {
+        "enabled": true,
+        "address": "",
+        "port": 2101,
+        "mountpoint": "",
+        "fix_timeout_seconds": 90,
+        "retry_seconds": 300
+    },
     "ldr": {
         "enabled": true,
         "mount_height_mm": 609.6,
