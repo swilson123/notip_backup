@@ -16,9 +16,9 @@
     "witmotion_mjrtk_baudrate": 115200,
     "ntrip": {
         "enabled": true,
-        "address": "",
+        "address": "69.75.31.228",
         "port": 2101,
-        "mountpoint": "",
+        "mountpoint": "AB50_RTCM3",
         "fix_timeout_seconds": 90,
         "retry_seconds": 300
     },
