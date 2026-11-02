@@ -120,6 +120,13 @@
             "invert_pitch": false,
             "algorithm": "9-axis",
             "enforce_algorithm_on_connect": true
+        },
+        "bno055": {
+            "enabled": true,
+            "addresses": [40, 41],
+            "poll_interval_ms": 50,
+            "jump_threshold_deg": 5,
+            "disagree_threshold_deg": 15
         }
     },
     "memory": {
