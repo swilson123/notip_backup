@@ -72,7 +72,7 @@
         "roll_through_min_turn_deg": 5,
         "arrival_radius_dock_m": 0.1,
         "arrival_radius_delivery_m": 0.1,
-        "arrival_radius_waypoint_m": 0.5,
+        "arrival_radius_waypoint_m": 0.3556,
         "overshoot_capture_m": 1,
         "dock_center_angle_deg": 5,
         "gps_forward_offset_m": 0.3556,
