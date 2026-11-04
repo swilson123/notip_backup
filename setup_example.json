@@ -101,7 +101,7 @@
     "imu": {
         "enable_imu": true,
         "compass_type": "witmotion_hwt905",
-        "compass_offset_deg": -87.26,
+        "compass_offset_deg": 32.2,
         "car_compass_offset": 0,
         "use_pixhawk_heading": false,
         "auto_calibrate": false,
@@ -123,7 +123,10 @@
         },
         "bno055": {
             "enabled": true,
-            "addresses": [40, 41],
+            "addresses": [
+                40,
+                41
+            ],
             "poll_interval_ms": 50,
             "jump_threshold_deg": 5,
             "disagree_threshold_deg": 15
